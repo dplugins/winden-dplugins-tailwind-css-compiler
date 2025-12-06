@@ -1,0 +1,60 @@
+@use "../../../../src/plain-classes/winauto-styles/_winauto.scss";
+
+.windauto-control-label {
+  margin-bottom: 8px;
+  display: block;
+}
+
+#plain-classes-autocomplete {
+  margin-bottom: 16px;
+
+  // general
+  --winauto-action: #7b66ff;
+  --winauto-bg: #2b2b2b;
+  --winauto-bg--hover: #404040;
+  --winauto-contrast: white;
+  --winauto-contrast-base-2: rgb(215 215 215);
+  --winauto-border: #666666;
+  --winauto-border-base-2: #666666;
+  --winauto-danger: #f00;
+}
+
+.winauto-textarea {
+  outline: 1px solid #6b6b6b;
+  background-color: var(--winauto-bg);
+  min-height: 2rem;
+}
+
+.winauto-textarea--item {
+  background-color: unset !important;
+  padding: 2px 4px;
+}
+
+// Toggle
+
+.winauto--toggle {
+  border: 1px solid #878787;
+
+  & .winauto--toggle_dot {
+    background-color: #d7d7d7;
+  }
+
+  &.is-checked .winauto--toggle_dot {
+    background-color: white;
+  }
+}
+
+// Dropdown
+
+.winauto-textarea--suggestions {
+  list-style: none;
+  padding: 0 !important;
+}
+
+.winauto-li-hovered {
+  background: #009688;
+}
+
+.winauto-textarea--suggestions {
+  box-shadow: 0 0 19px 8px rgb(0 0 0 / 50%);
+}

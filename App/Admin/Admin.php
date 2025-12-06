@@ -1,0 +1,89 @@
+<?php
+
+namespace Winden\App\Admin;
+
+use Winden\App\Admin\Settings\SettingsPage;
+use Winden\App\Admin\Settings\SettingsSaveGet;
+use Winden\App\Admin\Settings\SettingsPageBodyClass;
+use Winden\App\Admin\GetContent;
+use Winden\App\Admin\SaveContent;
+use Winden\App\Admin\TopBar;
+use Winden\App\Admin\MigrationNotice;
+
+use Winden\App\Assets\DequeueStyles;
+use Winden\App\Helpers\Builders;
+use Winden\App\Helpers\BuildersIntegration;
+use Winden\App\Helpers\LicenseManager;
+
+new SettingsPage();
+new GetContent();
+new SaveContent();
+new SettingsSaveGet();
+new DequeueStyles();
+new SettingsPageBodyClass();
+new TopBar();
+new MigrationNotice();
+
+// Pro features - Load License admin, FileBrowser, and Release only if pro folder exists
+// This ensures the plugin works when /pro/ folder is removed (WordPress.org free version)
+// WordPress.org handles updates automatically for the free version
+if (LicenseManager::proFolderExists()) {
+    new \Winden\Pro\Admin\License();
+    new \Winden\Pro\Admin\Release();
+
+    // Only load FileBrowser if license is active
+    if (LicenseManager::isProActive()) {
+        new \Winden\Pro\Admin\FileBrowser();
+    }
+}
+
+class Admin
+{
+    public function __construct()
+    {
+        // Combine into a single action to avoid duplicate logging
+        add_action('admin_footer', [$this, 'render_footer_scripts']);
+    }
+
+    function render_footer_scripts()
+    {
+        $this->themesOrPluginsData();
+        $this->pluginUrl();
+    }
+
+    function themesOrPluginsData()
+    {
+        $bricksData = json_encode(Builders::isBricksThemeActivated() ? BuildersIntegration::bricks() : []);
+        $oxygenData = json_encode(Builders::isOxygenPluginActivated() ? BuildersIntegration::oxygen() : []);
+        $fseData = json_encode(BuildersIntegration::fse());
+        $fontHeroData = json_encode(Builders::isFontHeroPluginActivated() ? BuildersIntegration::fontHero() : []);
+
+        // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- JSON data is safely encoded
+        echo "<script type='text/javascript'>
+            window.bricksThemeData = '" . esc_js($bricksData) . "';
+            window.oxygenThemeData = '" . esc_js($oxygenData) . "';
+            window.fseThemeData = '" . esc_js($fseData) . "';
+            window.fontHeroData = '" . esc_js($fontHeroData) . "';
+        </script>";
+    }
+
+    function pluginUrl()
+    {
+        $websiteUrl = WINDEN_WEBSITE_URL;
+        $url = WINDEN_PLUGIN_URL;
+        $uploadUrl = WINDEN_UPLOADS_URL['baseurl'];
+        $nonce = wp_create_nonce('winden_nonce');
+        $inIframe = json_encode(Builders::isBricksEditorFrame() || Builders::isOxygenEditorFrame() || Builders::isElementorEditorPage());
+        $apiVersion2 = json_encode(Builders::has_api_version_2_block());
+
+        // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- URLs and nonces are safely escaped
+        echo "<script type='text/javascript'>
+            window.pluginUrl = '" . esc_js($url) . "';
+            window.uploadUrl = '" . esc_js($uploadUrl) . "';
+            window.websiteUrl = '" . esc_js($websiteUrl) . "';
+            window.nonce = '" . esc_js($nonce) . "';
+            window.inIframe = " . esc_js($inIframe) . ";
+            window.apiVersion2 = " . esc_js($apiVersion2) . ";
+        </script>";
+    }
+}

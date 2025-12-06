@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Bricks Save Detection Test</title>
+    <style>
+        body {
+            font-family: monospace;
+            padding: 20px;
+            background: #1e1e1e;
+            color: #d4d4d4;
+        }
+        .section {
+            background: #252526;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+            border-left: 3px solid #007acc;
+        }
+        .success { border-left-color: #4caf50; }
+        .error { border-left-color: #f44336; }
+        .warning { border-left-color: #ff9800; }
+        button {
+            background: #007acc;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            cursor: pointer;
+            border-radius: 3px;
+            margin: 5px;
+        }
+        button:hover {
+            background: #005a9e;
+        }
+        pre {
+            background: #1e1e1e;
+            padding: 10px;
+            border-radius: 3px;
+            overflow-x: auto;
+        }
+        .status {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 3px;
+            margin-left: 10px;
+        }
+        .status.ok { background: #4caf50; }
+        .status.fail { background: #f44336; }
+    </style>
+</head>
+<body>
+    <h1>🔍 Bricks Save Detection Diagnostics</h1>
+    <p>Run this in your browser console on a Bricks editor page</p>
+
+    <div class="section">
+        <h2>Step 1: Check Script Loading</h2>
+        <button onclick="checkScriptLoading()">Check Scripts</button>
+        <div id="script-result"></div>
+    </div>
+
+    <div class="section">
+        <h2>Step 2: Check Bricks Elements</h2>
+        <button onclick="checkBricksElements()">Check Elements</button>
+        <div id="elements-result"></div>
+    </div>
+
+    <div class="section">
+        <h2>Step 3: Check Vue Store Access</h2>
+        <button onclick="checkVueStore()">Check Vue Store</button>
+        <div id="vue-result"></div>
+    </div>
+
+    <div class="section">
+        <h2>Step 4: Manual Save Watcher</h2>
+        <button onclick="setupManualWatcher()">Setup Watcher</button>
+        <div id="watcher-result"></div>
+    </div>
+
+    <div class="section warning">
+        <h2>⚠️ Copy & Run in Browser Console</h2>
+        <p>Copy the code below and paste it into your browser console while on a Bricks editor page:</p>
+        <button onclick="copyDiagnostic()">Copy Diagnostic Code</button>
+        <pre id="diagnostic-code">// Bricks Save Detection Diagnostic
+(function() {
+    console.log('=== WINDEN BRICKS SAVE DIAGNOSTIC ===');
+
+    // 1. Check if post-save-compile.js is loaded
+    const scripts = Array.from(document.scripts);
+    const postSaveScript = scripts.find(s => s.src.includes('post-save-compile'));
+    console.log('1. post-save-compile.js loaded:', !!postSaveScript);
+    if (postSaveScript) {
+        console.log('   Script URL:', postSaveScript.src);
+    }
+
+    // 2. Check Bricks elements
+    const panel = document.getElementById('bricks-panel-controls');
+    const iframe = document.getElementById('bricks-builder-iframe');
+    console.log('2. Bricks panel exists:', !!panel);
+    console.log('   Bricks iframe exists:', !!iframe);
+
+    // 3. Check Vue instance
+    if (panel) {
+        console.log('3. Panel has _vnode:', !!panel._vnode);
+        if (panel._vnode) {
+            const instance = panel._vnode.component?.proxy;
+            console.log('   Vue instance:', !!instance);
+            if (instance) {
+                const store = instance.$_state;
+                console.log('   Vue store ($_state):', !!store);
+                if (store) {
+                    console.log('   isSaving property:', 'isSaving' in store);
+                    console.log('   Current isSaving:', store.isSaving);
+                }
+            }
+        }
+    }
+
+    // 4. Setup manual watcher
+    if (panel?._vnode?.component?.proxy) {
+        const instance = panel._vnode.component.proxy;
+        const store = instance.$_state;
+
+        console.log('4. Setting up manual save watcher...');
+        instance.$watch(
+            () => store.isSaving,
+            (isSaving, wasSaving) => {
+                console.log('🔔 SAVE STATE CHANGED:', {
+                    from: wasSaving,
+                    to: isSaving,
+                    timestamp: new Date().toLocaleTimeString()
+                });
+
+                if (wasSaving && !isSaving) {
+                    console.log('✅ SAVE COMPLETED!');
+                }
+                if (!wasSaving && isSaving) {
+                    console.log('⏳ SAVE STARTED...');
+                }
+            }
+        );
+        console.log('✅ Manual watcher installed! Click Save in Bricks to test.');
+    } else {
+        console.log('❌ Cannot setup watcher - Vue instance not accessible');
+    }
+
+    console.log('=== END DIAGNOSTIC ===');
+})();</pre>
+    </div>
+
+    <script>
+        function checkScriptLoading() {
+            const result = document.getElementById('script-result');
+            const scripts = Array.from(document.scripts);
+            const postSaveScript = scripts.find(s => s.src.includes('post-save-compile'));
+            const tailwindCompiler = scripts.find(s => s.src.includes('tailwind-compiler'));
+
+            result.innerHTML = `
+                <h3>Script Loading Status:</h3>
+                <p>post-save-compile.js: <span class="status ${postSaveScript ? 'ok' : 'fail'}">${postSaveScript ? 'LOADED' : 'NOT FOUND'}</span></p>
+                ${postSaveScript ? `<p>URL: <code>${postSaveScript.src}</code></p>` : ''}
+                <p>tailwind-compiler.js: <span class="status ${tailwindCompiler ? 'ok' : 'fail'}">${tailwindCompiler ? 'LOADED' : 'NOT FOUND'}</span></p>
+                ${tailwindCompiler ? `<p>URL: <code>${tailwindCompiler.src}</code></p>` : ''}
+            `;
+        }
+
+        function checkBricksElements() {
+            const result = document.getElementById('elements-result');
+            const panel = document.getElementById('bricks-panel-controls');
+            const iframe = document.getElementById('bricks-builder-iframe');
+
+            result.innerHTML = `
+                <h3>Bricks Elements:</h3>
+                <p>#bricks-panel-controls: <span class="status ${panel ? 'ok' : 'fail'}">${panel ? 'EXISTS' : 'NOT FOUND'}</span></p>
+                <p>#bricks-builder-iframe: <span class="status ${iframe ? 'ok' : 'fail'}">${iframe ? 'EXISTS' : 'NOT FOUND'}</span></p>
+            `;
+        }
+
+        function checkVueStore() {
+            const result = document.getElementById('vue-result');
+            const panel = document.getElementById('bricks-panel-controls');
+
+            if (!panel) {
+                result.innerHTML = '<p class="error">❌ Panel not found</p>';
+                return;
+            }
+
+            const hasVNode = !!panel._vnode;
+            const instance = panel._vnode?.component?.proxy;
+            const store = instance?.$_state;
+            const hasIsSaving = store && 'isSaving' in store;
+
+            result.innerHTML = `
+                <h3>Vue Store Access:</h3>
+                <p>Panel has _vnode: <span class="status ${hasVNode ? 'ok' : 'fail'}">${hasVNode ? 'YES' : 'NO'}</span></p>
+                <p>Vue instance accessible: <span class="status ${instance ? 'ok' : 'fail'}">${instance ? 'YES' : 'NO'}</span></p>
+                <p>Vue store ($_state): <span class="status ${store ? 'ok' : 'fail'}">${store ? 'YES' : 'NO'}</span></p>
+                <p>isSaving property: <span class="status ${hasIsSaving ? 'ok' : 'fail'}">${hasIsSaving ? 'YES' : 'NO'}</span></p>
+                ${hasIsSaving ? `<p>Current isSaving value: <code>${store.isSaving}</code></p>` : ''}
+            `;
+        }
+
+        function setupManualWatcher() {
+            const result = document.getElementById('watcher-result');
+            const panel = document.getElementById('bricks-panel-controls');
+
+            if (!panel?._vnode?.component?.proxy) {
+                result.innerHTML = '<p class="error">❌ Cannot access Vue instance</p>';
+                return;
+            }
+
+            const instance = panel._vnode.component.proxy;
+            const store = instance.$_state;
+
+            try {
+                instance.$watch(
+                    () => store.isSaving,
+                    (isSaving, wasSaving) => {
+                        console.log('🔔 MANUAL WATCHER - Save state changed:', {
+                            from: wasSaving,
+                            to: isSaving,
+                            timestamp: new Date().toLocaleTimeString()
+                        });
+
+                        if (wasSaving && !isSaving) {
+                            console.log('✅ SAVE COMPLETED!');
+                        }
+                        if (!wasSaving && isSaving) {
+                            console.log('⏳ SAVE STARTED...');
+                        }
+                    }
+                );
+
+                result.innerHTML = `
+                    <p class="success">✅ Manual watcher installed successfully!</p>
+                    <p>Now click "Save" in Bricks and watch the browser console.</p>
+                `;
+            } catch (e) {
+                result.innerHTML = `<p class="error">❌ Error: ${e.message}</p>`;
+            }
+        }
+
+        function copyDiagnostic() {
+            const code = document.getElementById('diagnostic-code').textContent;
+            navigator.clipboard.writeText(code).then(() => {
+                alert('✅ Diagnostic code copied! Paste it into your browser console on a Bricks editor page.');
+            });
+        }
+    </script>
+</body>
+</html>

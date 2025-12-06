@@ -1,0 +1,57 @@
+.slider {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 8px;
+    border-radius: 4px;
+    outline: none;
+    opacity: 0.7;
+    transition: opacity .15s ease-in-out;
+    cursor: pointer;
+}
+
+.slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: var(--thumb-color, grey);
+    cursor: pointer;
+    border: 2px solid #fff;
+    box-shadow: 0 0 2px rgba(0,0,0,0.5);
+}
+
+.slider::-moz-range-thumb {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: var(--thumb-color, grey);
+    cursor: pointer;
+    border: 2px solid #fff;
+    box-shadow: 0 0 2px rgba(0,0,0,0.5);
+}
+
+.slider-r {
+    background: linear-gradient(to right, rgb(0, ${color.g}, ${color.b}), rgb(255, ${color.g}, ${color.b}));
+}
+
+.slider-g {
+    background: linear-gradient(to right, rgb(${color.r}, 0, ${color.b}), rgb(${color.r}, 255, ${color.b}));
+}
+
+.slider-b {
+    background: linear-gradient(to right, rgb(${color.r}, ${color.g}, 0), rgb(${color.r}, ${color.g}, 255));
+}
+
+.slider-h {
+    background: linear-gradient(to right, red, yellow, green, cyan, blue, magenta, red);
+}
+
+.slider-s {
+    background: linear-gradient(to right, hsl(var(--hue), 0%, 50%), hsl(var(--hue), 100%, 50%));
+}
+
+.slider-l {
+    background: linear-gradient(to right, hsl(var(--hue), var(--saturation), 0%), hsl(var(--hue), var(--saturation), 50%), hsl(var(--hue), var(--saturation), 100%));
+}

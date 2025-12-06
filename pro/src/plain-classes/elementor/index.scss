@@ -1,0 +1,14 @@
+@use "../../../../src/plain-classes/winauto-styles/_winauto.scss";
+
+#plain-classes-autocomplete-root {
+  padding: 8px 0px !important;
+}
+
+.winauto-textarea {
+  outline: 1px solid #c5c5c6;
+}
+
+.winden-plain-classes-wrapper {
+  border: 0 !important;
+  margin: 0 !important;
+}

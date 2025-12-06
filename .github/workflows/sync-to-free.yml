@@ -1,0 +1,41 @@
+name: Sync to Free Version
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  sync:
+    name: Sync to winden (free)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout winden-pro
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Remove pro-only folders
+        run: |
+          # Remove pro-only folders/files before syncing
+          rm -rf pro/
+          rm -rf _docs/
+          rm -rf .claude/
+          rm -rf tests/
+          rm -f CLAUDE.md
+          rm -f ARCHITECTURE.md
+          rm -f .github/workflows/sync-to-free.yml
+
+      - name: Push to winden repo
+        uses: cpina/github-action-push-to-another-repository@main
+        env:
+          SSH_DEPLOY_KEY: ${{ secrets.WINDEN_DEPLOY_KEY }}
+        with:
+          source-directory: '.'
+          destination-github-username: 'dplugins'
+          destination-repository-name: 'winden'
+          target-branch: main
+          commit-message: 'Sync from winden-pro'
+          create-target-branch-if-needed: true

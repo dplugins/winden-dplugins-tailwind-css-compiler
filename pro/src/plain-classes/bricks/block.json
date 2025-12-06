@@ -1,0 +1,15 @@
+{
+  "$schema": "https://schemas.wp.org/trunk/block.json",
+  "apiVersion": 2,
+  "name": "winden/plain-classes-bricks2",
+  "version": "0.1.0",
+  "title": "Winden Plain Classes - Bricks 2.0",
+  "category": "widgets",
+  "description": "Autocomplete plain classes integration for Bricks Builder 2.0",
+  "supports": {
+    "html": false
+  },
+  "textdomain": "winden",
+  "editorScript": "file:./index.js",
+  "editorStyle": "file:./plain-classes.scss"
+}

@@ -1,0 +1,298 @@
+<?php
+
+namespace Winden\App\Assets\Providers;
+
+use Winden\App\Helpers\SettingsOptions;
+use Winden\App\Assets\Providers\ProvidersHelpers;
+
+class FSE extends BaseProvider
+{
+    protected function setupHooks()
+    {
+        add_filter('script_loader_tag', [$this, 'modify_script_loader_tag'], 10, 3);
+        add_action('current_screen', [$this, 'load_condition']);
+        add_action('wp_footer', [$this, 'frontend_consts']);
+    }
+
+    public function load_condition()
+    {
+        $settings = SettingsOptions::getWindenOptions();
+        $dev_mode_disabled = $settings['disable_dev_mode'] ?? false;
+
+        // Standard WordPress hook for block editor assets
+        add_action('enqueue_block_editor_assets', [$this, 'enqueue_block_editor_assets']);
+
+        // Hook for iframe injection (WordPress 5.9+)
+        add_filter('block_editor_settings_all', [$this, 'inject_iframe_styles'], 10, 2);
+
+        // Load autocomplete if enabled
+        // Priority 999 ensures Winden loads AFTER other plugins' editors (like Monaco)
+        if ($settings['autocomplete_gutenberg'] ?? false) {
+            add_action('enqueue_block_editor_assets', [$this, 'plain_classes_autocomplete'], 999);
+        }
+    }
+
+    /**
+     * Enqueue block editor assets for non-iframe mode
+     */
+    public function enqueue_block_editor_assets()
+    {
+        $settings = SettingsOptions::getWindenOptions();
+        $dev_mode_disabled = $settings['disable_dev_mode'] ?? false;
+
+        // Get the uploads directory info
+        $upload_dir = wp_upload_dir();
+        $css_file_path = $upload_dir['basedir'] . '/winden/output.css';
+        $css_file_url = $upload_dir['baseurl'] . '/winden/output.css';
+
+        // Enqueue CSS for non-iframe mode
+        if (file_exists($css_file_path)) {
+            wp_enqueue_style(
+                'winden-editor-styles',
+                $css_file_url,
+                array('wp-edit-blocks'),
+                filemtime($css_file_path)
+            );
+        }
+
+        // If dev mode is enabled, load compiler and watcher scripts
+        if (!$dev_mode_disabled) {
+            // Load the compiler
+            $compiler_path = WINDEN_PLUGIN_DIR . 'build/compiler/tailwindcss-compiler.js';
+            if (file_exists($compiler_path)) {
+                wp_enqueue_script(
+                    'winden-tailwind-compiler',
+                    WINDEN_PLUGIN_URL . 'build/compiler/tailwindcss-compiler.js',
+                    array(),
+                    filemtime($compiler_path),
+                    true
+                );
+
+                // Add inline script with configuration
+                $compiler_options = $this->get_compiler_options($settings);
+                $config_js = sprintf(
+                    'window.uploadUrl = %s; window.ajaxurl = %s; window.tailwind_compiler_options = %s;',
+                    wp_json_encode(WINDEN_UPLOADS_URL['baseurl']),
+                    wp_json_encode(admin_url('admin-ajax.php')),
+                    wp_json_encode($compiler_options)
+                );
+                wp_add_inline_script('winden-tailwind-compiler', $config_js, 'before');
+            }
+
+            // Load the watcher script
+            $watcher_path = WINDEN_PLUGIN_DIR . 'assets/tailwindcss-watcher.js';
+            if (file_exists($watcher_path)) {
+                wp_enqueue_script(
+                    'winden-tailwind-watcher',
+                    WINDEN_ASSETS_DIR . 'tailwindcss-watcher.js',
+                    array('winden-tailwind-compiler'),
+                    filemtime($watcher_path),
+                    true
+                );
+            }
+
+            // Load broadcast listener for real-time updates
+            $broadcast_path = WINDEN_PLUGIN_DIR . 'assets/broadcast-listener.js';
+            if (file_exists($broadcast_path)) {
+                wp_enqueue_script(
+                    'winden-broadcast-listener',
+                    WINDEN_ASSETS_DIR . 'broadcast-listener.js',
+                    array(),
+                    filemtime($broadcast_path),
+                    true
+                );
+            }
+
+            // Add autocomplete generation
+            $this->enqueue_autocomplete_generator();
+        }
+    }
+
+    /**
+     * Inject styles into iframe for WordPress 5.9+ block editor
+     */
+    public function inject_iframe_styles($editor_settings, $context)
+    {
+        $settings = SettingsOptions::getWindenOptions();
+        $dev_mode_disabled = $settings['disable_dev_mode'] ?? false;
+
+        // Get the uploads directory info
+        $upload_dir = wp_upload_dir();
+        $css_file_path = $upload_dir['basedir'] . '/winden/output.css';
+        $css_file_url = $upload_dir['baseurl'] . '/winden/output.css';
+
+        // Initialize __unstableResolvedAssets if not set
+        if (!isset($editor_settings['__unstableResolvedAssets'])) {
+            $editor_settings['__unstableResolvedAssets'] = array(
+                'styles' => '',
+                'scripts' => '',
+            );
+        }
+
+        // Inject CSS into iframe
+        // phpcs:ignore WordPress.WP.EnqueuedResources.NonEnqueuedStylesheet -- Using __unstableResolvedAssets to inject into Gutenberg iframe where wp_enqueue_style cannot be used
+        if (file_exists($css_file_path)) {
+            $version = filemtime($css_file_path);
+            $editor_settings['__unstableResolvedAssets']['styles'] .= sprintf(
+                '<link rel="stylesheet" id="winden-compiled-css-iframe" href="%s?ver=%s" media="all" />',
+                esc_url($css_file_url),
+                esc_attr($version)
+            );
+        }
+
+        // If dev mode is enabled, inject compiler scripts into iframe
+        if (!$dev_mode_disabled) {
+            // Add global variables
+            $compiler_options = $this->get_compiler_options($settings);
+            $globals_js = sprintf(
+                'window.uploadUrl = %s; window.ajaxurl = %s; window.tailwind_compiler_options = %s;',
+                wp_json_encode(WINDEN_UPLOADS_URL['baseurl']),
+                wp_json_encode(admin_url('admin-ajax.php')),
+                wp_json_encode($compiler_options)
+            );
+
+            $editor_settings['__unstableResolvedAssets']['scripts'] .= sprintf(
+                '<script id="winden-globals-iframe">%s</script>',
+                $globals_js
+            );
+
+            // Add compiler script
+            // phpcs:ignore WordPress.WP.EnqueuedResources.NonEnqueuedScript -- Using __unstableResolvedAssets to inject into Gutenberg iframe where wp_enqueue_script cannot be used
+            $compiler_path = WINDEN_PLUGIN_DIR . 'build/compiler/tailwindcss-compiler.js';
+            if (file_exists($compiler_path)) {
+                $compiler_url = WINDEN_PLUGIN_URL . 'build/compiler/tailwindcss-compiler.js?ver=' . filemtime($compiler_path);
+                $editor_settings['__unstableResolvedAssets']['scripts'] .= sprintf(
+                    '<script src="%s" id="winden-compiler-iframe"></script>',
+                    esc_url($compiler_url)
+                );
+            }
+
+            // Add watcher script
+            // phpcs:ignore WordPress.WP.EnqueuedResources.NonEnqueuedScript -- Using __unstableResolvedAssets to inject into Gutenberg iframe where wp_enqueue_script cannot be used
+            $watcher_path = WINDEN_PLUGIN_DIR . 'assets/tailwindcss-watcher.js';
+            if (file_exists($watcher_path)) {
+                $watcher_url = WINDEN_ASSETS_DIR . 'tailwindcss-watcher.js?ver=' . filemtime($watcher_path);
+                $editor_settings['__unstableResolvedAssets']['scripts'] .= sprintf(
+                    '<script src="%s" id="winden-watcher-iframe"></script>',
+                    esc_url($watcher_url)
+                );
+            }
+
+            // Add broadcast listener
+            // phpcs:ignore WordPress.WP.EnqueuedResources.NonEnqueuedScript -- Using __unstableResolvedAssets to inject into Gutenberg iframe where wp_enqueue_script cannot be used
+            $broadcast_path = WINDEN_PLUGIN_DIR . 'assets/broadcast-listener.js';
+            if (file_exists($broadcast_path)) {
+                $broadcast_url = WINDEN_ASSETS_DIR . 'broadcast-listener.js?ver=' . filemtime($broadcast_path);
+                $editor_settings['__unstableResolvedAssets']['scripts'] .= sprintf(
+                    '<script src="%s" id="winden-broadcast-iframe"></script>',
+                    esc_url($broadcast_url)
+                );
+            }
+
+            // Add autocomplete generation script
+            $autocomplete_js = $this->get_autocomplete_js() . "
+                generateWindenAutocomplete();
+                setTimeout(generateWindenAutocomplete, 1000);
+                setTimeout(generateWindenAutocomplete, 3000);
+            ";
+
+            $editor_settings['__unstableResolvedAssets']['scripts'] .= sprintf(
+                '<script id="winden-autocomplete-iframe">%s</script>',
+                $autocomplete_js
+            );
+        }
+
+        return $editor_settings;
+    }
+
+    /**
+     * Enqueue autocomplete generation script for non-iframe mode
+     */
+    private function enqueue_autocomplete_generator()
+    {
+        $autocomplete_js = $this->get_autocomplete_js() . "
+        // Generate autocomplete on load and with delays for dynamic content
+        if (typeof generateWindenAutocomplete === 'function') {
+            generateWindenAutocomplete();
+            setTimeout(generateWindenAutocomplete, 1000);
+            setTimeout(generateWindenAutocomplete, 3000);
+        }
+        ";
+
+        wp_add_inline_script('winden-tailwind-compiler', $autocomplete_js);
+    }
+
+    protected function getAutocompleteFolder()
+    {
+        return 'gutenberg';
+    }
+
+    public function frontend_consts()
+    {
+        ProvidersHelpers::frontend_consts();
+    }
+
+    /**
+     * Get compiler options from settings
+     */
+    private function get_compiler_options($settings)
+    {
+        $wizzard_state = '@config "' . WINDEN_UPLOADS_URL['baseurl'] . '/winden/tailwind.config.js"; ';
+
+        try {
+            $wizzard_state_opt = get_option('winden_editor');
+            if (isset($wizzard_state_opt['wizzard']) && isset($wizzard_state_opt['wizzard']['configCode'])) {
+                $wizzard_state .= $wizzard_state_opt['wizzard']['configCode'];
+            }
+        } catch (\Throwable $th) {
+            // Silent fail
+        }
+
+        $compiler_options = [
+            'tailwind_version' => 'v4',
+            'css_preprocessor' => !empty($settings['css_preprocessor']) ? $settings['css_preprocessor'] : 'css',
+            'important' => '',
+            'custom_css' => $wizzard_state,
+        ];
+
+        if (empty($compiler_options['css_preprocessor']) || $compiler_options['css_preprocessor'] === false) {
+            $compiler_options['css_preprocessor'] = 'css';
+        }
+
+        return $compiler_options;
+    }
+
+    /**
+     * Generate autocomplete JavaScript function
+     */
+    private function get_autocomplete_js()
+    {
+        return "
+        function generateWindenAutocomplete() {
+            // Simply get ALL classes from the Tailwind compiler
+            // The compiler already knows about all utilities including:
+            // - Spacing: p-, m-, w-, h-, min-w-, max-w-, etc.
+            // - Layout: flex, grid, block, inline, etc.
+            // - Typography: text-, font-, leading-, etc.
+            // - Colors: bg-, text-, border-, etc. (including custom colors from Wizzard)
+            // - And all other Tailwind utilities
+
+            if (typeof window.tailwindifyClasses === 'function') {
+                window.tailwindifyClasses().then(function(result) {
+                    // The result.classes already contains ALL available Tailwind classes
+                    // including standard utilities and custom classes from the configuration
+                    var allClasses = result.classes || [];
+
+                    // Store for autocomplete
+                    window.winden_autocomplete = allClasses;
+
+                }).catch(function(error) {
+                    console.error('[Winden] Error generating autocomplete:', error);
+                });
+            } else {
+                console.warn('[Winden] Tailwind compiler not loaded yet');
+            }
+        }
+        ";
+    }
+}

@@ -1,0 +1,17 @@
+
+/vendor/
+/node_modules/
+/build/
+
+.DS_Store
+**/.DS_Store
+winden.zip
+
+autocomplete_module/node_modules/
+autocomplete_module/dist/
+
+/explore/
+
+# Bundle analysis files
+metafile.json
+build-analysis/

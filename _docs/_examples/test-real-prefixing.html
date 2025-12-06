@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style id="test-output"></style>
+</head>
+<body>
+<div class="test">Testing</div>
+
+<script src="build/compile-in-browser/tailwindcss-compiler.js"></script>
+<script>
+(async () => {
+  const customCss = `
+@layer theme, base, components, utilities;
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities);
+
+.test {
+  user-select: none;
+  appearance: none;
+  backdrop-filter: blur(10px);
+}
+`;
+
+  const classes = ['mx-auto', 'bg-blue-100'];
+  const result = await window.tailwindify(classes, customCss, '');
+  
+  document.getElementById('test-output').textContent = result.css;
+  console.log('COMPILED OUTPUT:');
+  console.log(result.css);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,17 @@
+{
+    "name": "markokrstic/winden",
+    "description": "Tailwind CSS inside WordPress",
+    "autoload": {
+        "psr-4": {
+            "Winden\\App\\": "App/",
+            "Winden\\Pro\\": "pro/App/"
+        }
+    },
+    "authors": [
+        {
+            "name": "Marko Krstic",
+            "email": "mailme@markokrstic.com"
+        }
+    ],
+    "require": {}
+}

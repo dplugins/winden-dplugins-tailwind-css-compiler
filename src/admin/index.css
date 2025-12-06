@@ -1,0 +1,325 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@source "./**/**/*.{php,html,js,jsx,tsx,ts}";
+@source "../plain-classes/**/*.{php,html,js,jsx,tsx,ts}";
+
+@theme {
+
+  /* --color-*: initial; */
+  
+  /* Utility */
+  --color-black: black;
+  --color-white: white;
+  --color-current: currentColor;
+  --color-inherit: inherit;
+  --color-none: none;
+  --color-transparent: transparent;
+
+  /* Border & Input */
+  --color-border: hsl(210 30% 92% / 1);
+  /* --color-border: #f2f2f3; */
+  --color-input: hsl(210 30% 82% / 1);
+  --color-ring: hsl(from var(--color-base-foreground) h s l / 0.75);
+
+  /* Base colors */
+  --color-base-1: #ffffff;
+  --color-base-2: #f6f7f9;
+  --color-base-3: #f3f4f6;
+  --color-base-foreground: hsl(224deg 71.43% 4.12%);
+
+  /* Danger */
+  --color-danger: #dc2626;
+  --color-danger-foreground: #ffffff;
+
+  /* Accent */
+  --color-action: #00a6f4;
+  --color-action-foreground: white;
+
+  /* Element */
+  --color-element: #7f22fe;
+  --color-element-foreground: white;
+
+
+  /* Border Radius */
+  --radius: 0.3rem;
+  --radius-xl: 1rem;
+  --radius-lg: 0.5rem;
+  --radius-md: calc(0.5rem - 2px);
+  --radius-sm: calc(0.5rem - 4px);
+  --radius-full: 9999px;
+
+  /* Font Size */
+  --text-xsm: 0.7rem;
+  --text-xs: 0.85rem;
+
+  /* Container */
+  --container-center: true;
+  --container-padding: 2rem;
+  --breakpoint-2xl: 1400px;
+}
+
+.dark {
+    /* Border & Input */
+  --color-border: #353535;
+  --color-input: #878787;
+  --color-input: #5a5a5a;
+  --color-ring: #3C3C3C;
+
+  --input-bg: #2f363a;
+
+  /* Base colors */
+  --color-base-1: #121212;
+  --color-base-2: #181d20;
+  --color-base-3: #373F41;
+  --color-base-foreground: #E3E3E3;
+
+  /* Danger */
+  --color-danger: #dc2626;
+  --color-danger-foreground: #E3E3E3;
+
+  /* Accent */
+  --color-action: #1675C4;
+  --color-action-foreground: #E3E3E3;
+
+    /* Element */
+  --color-element: #fb64b6;
+  --color-element-foreground: white;
+
+  
+}
+
+/* Custom Utilities */
+@utility styleguide-grid {
+  display: grid;
+  gap: 3rem;
+  grid-template-columns: 200px 1fr;
+}
+
+@utility overflow-unset {
+  overflow: unset !important;
+}
+
+
+hr {
+  border: 0;
+  background-color: var(--color-border);
+  height: 1px;
+}
+
+.bg-element {
+  /* @apply bg-violet-100 rounded-md text-white; */
+}
+
+.page-loader {
+  border-top-color: #3490dc;
+  animation: page-loader-spin 1s linear infinite;
+}
+
+@keyframes page-loader-spin {
+  0% {
+    transform: rotate(0deg);
+  }
+
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.cache-error {
+  background-color: #fef2f2;
+  color: #991b1b;
+}
+
+.cache-error-form {
+  line-height: 1.2;
+  font-size: 0.8rem;
+  font-family: monospace;
+  white-space: break-spaces !important;
+}
+
+/* --------------------------------------------------------------------------
+App
+-------------------------------------------------------------------------- */
+
+#App {
+  --wp-admin-theme-color: black;
+  --wp-admin-theme-color--rgb: black;
+  --wp-admin-theme-color-darker-10: black;
+  --wp-admin-theme-color-darker-10--rgb: black;
+  --wp-admin-theme-color-darker-20: black;
+  --wp-admin-theme-color-darker-20--rgb: black;
+  @apply bg-base-1;
+}
+
+#App:has(#wizzard) {
+  @apply bg-base-2;
+}
+
+
+/* --------------------------------------------------------------------------
+WP Reset
+-------------------------------------------------------------------------- */
+
+html,
+body {
+  min-height: 100%;
+  background-color: var(--color-base-1);
+  color: var(--color-base-foreground);
+}
+
+#wpcontent {
+  padding: 0 !important;
+}
+
+#wpbody-content>.notice {
+  display: none !important;
+}
+
+#App {
+  min-height: calc(100vh - 32px);
+  display: flex;
+  flex-direction: column;
+
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    color: var(--color-base-foreground);
+  }
+
+  a:hover {
+    color: var(--color-action);
+    cursor: pointer;
+  }
+
+  hr {
+    border-color: var(--color-border);
+  }
+
+
+}
+
+#wpfooter {
+  display: none !important;
+}
+
+#wpbody-content {
+  padding: 0 !important;
+}
+
+.wrap {
+  margin: 0;
+}
+
+
+.components-button {
+  border-radius: 4px !important;
+}
+
+.components-button.has-icon {
+  color: var(--color-base-foreground);
+  border: 1px solid var(--color-border);
+}
+
+.components-modal__screen-overlay {
+  background-color: rgb(0 0 0 / 70%) !important;
+}
+
+
+/* --------------------------------------------------------------------------
+Gutenberg components
+-------------------------------------------------------------------------- */
+
+h2, h3 {
+    @apply !text-base-foreground;
+}
+
+input[type="text"],
+input[type="password"],
+input[type="color"],
+input[type="date"],
+input[type="datetime"],
+input[type="datetime-local"],
+input[type="email"],
+input[type="month"],
+input[type="number"],
+input[type="search"],
+input[type="tel"],
+input[type="time"],
+input[type="url"],
+input[type="week"],
+input[type="checkbox"],
+input[type="radio"],
+.select-button,
+select,
+textarea {
+  margin: 0;
+  border: 1px solid var(--color-input) !important;
+}
+
+
+
+input[type="text"]:focus,
+input[type="password"]:focus,
+input[type="color"]:focus,
+input[type="date"]:focus,
+input[type="datetime"]:focus,
+input[type="datetime-local"]:focus,
+input[type="email"]:focus,
+input[type="month"]:focus,
+input[type="number"]:focus,
+input[type="search"]:focus,
+input[type="tel"]:focus,
+input[type="time"]:focus,
+input[type="url"]:focus,
+input[type="week"]:focus,
+input[type="checkbox"]:focus,
+input[type="radio"]:focus,
+.select-button,
+select:focus,
+textarea:focus {
+  border-color: var(--color-border);
+  box-shadow: 0 0 0 1px var(--color-base-foreground);
+  outline: 2px solid transparent;
+}
+
+/* Radix UI Switch backgrounds */
+@layer components {
+  button[role="switch"][data-state="checked"] {
+    background-color: var(--color-base-foreground);
+  }
+
+  button[role="switch"][data-state="unchecked"] {
+    background-color: var(--color-base-1);
+  }
+}
+
+
+
+.dark input[type="text"],
+.dark input[type="password"],
+.dark input[type="color"],
+.dark input[type="date"],
+.dark input[type="datetime"],
+.dark input[type="datetime-local"],
+.dark input[type="email"],
+.dark input[type="month"],
+.dark input[type="number"],
+.dark input[type="search"],
+.dark input[type="tel"],
+.dark input[type="time"],
+.dark input[type="url"],
+.dark input[type="week"],
+.dark input[type="checkbox"],
+.dark input[type="radio"],
+.dark .select-button,
+.dark select,
+.dark textarea {
+  background: #2B2B2A;
+  color: var(--color-base-foreground);
+}

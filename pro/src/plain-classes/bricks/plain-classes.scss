@@ -1,0 +1,66 @@
+@use "../../../../src/plain-classes/winauto-styles/_winauto.scss";
+
+#plain-classes-autocomplete-root {
+  --winauto-action: #ffd64f;
+  --winauto-bg: #121212;
+  --winauto-bg--hover: #1e1e1e;
+  --winauto-contrast: #ffffff;
+  --winauto-contrast-base-2: rgb(200, 200, 200);
+  --winauto-border: #444;
+  --winauto-border-base-2: #555;
+  --winauto-danger: #ff4c4c;
+
+  margin-bottom: 16px;
+
+  .windauto-control-label {
+    margin-bottom: 8px;
+  }
+
+  .winauto-textarea {
+    outline: 1px solid #727272 !important;
+    background-color: var(--builder-bg-2) !important;
+    min-height: 3rem;
+  }
+
+  .winauto-textarea--item {
+    background-color: unset;
+
+    span {
+      white-space: nowrap;
+    }
+  }
+
+  .winauto-textarea--item_remove {
+    background: unset;
+    font-size: unset;
+    line-height: unset;
+    padding: unset;
+    margin: unset;
+    color: var(--winauto-contrast-base-2);
+
+    &:hover {
+      color: var(--winauto-danger);
+    }
+  }
+
+  .winauto--toggle {
+    border: unset !important;
+    background: #343c43;
+
+    .winauto--toggle_dot {
+      background: #8694a1;
+    }
+
+    &.is-checked {
+      background: #ffd64f;
+
+      .winauto--toggle_dot {
+        background: black;
+      }
+    }
+  }
+
+  .winauto-li-hovered {
+    background: #ffd6503d;
+  }
+}

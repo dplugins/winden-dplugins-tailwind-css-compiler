@@ -1,0 +1,105 @@
+// ***************************************************************************
+// Textarea
+// ***************************************************************************
+
+.winauto-textarea {
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 2px;
+  outline: 1px solid var(--winauto-contrast);
+  
+  // Drag and drop styles - only during active drag
+  &.drag-target {
+    outline: 2px dashed var(--winauto-action);
+    background-color: rgba(56, 118, 250, 0.05);
+  }
+}
+
+// ***************************************************************************
+// Tag Item
+// ***************************************************************************
+
+.winauto-textarea--item {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0 4px;
+  border-radius: 2px;
+  border: 1px solid transparent;
+  background-color: #f1f1f1;
+  transition: all 0.2s ease;
+
+  &:hover {
+    background-color: white;
+    border: 1px solid var(--winauto-border-base-2);
+  }
+
+  cursor: pointer;
+
+  &.focused {
+    outline: 1.5px solid var(--winauto-action);
+  }
+  
+  // Drag and drop styles - only during active drag
+  &.dragging {
+    opacity: 0.5;
+    transform: scale(0.95);
+    cursor: grabbing;
+  }
+}
+
+// ***************************************************************************
+// Tag Item - Editing
+// ***************************************************************************
+
+.winauto-textarea--item_editing {
+  display: inline-block;
+  padding: 2px;
+  //   border: 1px solid var(--winauto-action);
+  outline: 1px solid var(--winauto-action);
+  outline-offset: 2px;
+}
+
+// ***************************************************************************
+// Tag Item - Remove
+// ***************************************************************************
+
+.winauto-textarea--item_remove {
+  color: var(--winauto-contrast-base-2);
+  opacity: 0.5;
+  background-color: transparent !important;
+  border: none !important;
+  padding: 0 !important;
+  cursor: pointer;
+
+  &:hover {
+    transform: scale(1.5);
+    color: var(--winauto-danger);
+    opacity: 1;
+  }
+}
+
+// ***************************************************************************
+// Title
+// ***************************************************************************
+
+.winauto-textarea--title {
+  font-size: 10px !important;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+
+// ***************************************************************************
+// Drag and Drop Container - only during active drag
+// ***************************************************************************
+
+.drag-target {
+  .winauto-textarea {
+    outline: 2px dashed var(--winauto-action);
+    background-color: rgba(56, 118, 250, 0.05);
+  }
+}

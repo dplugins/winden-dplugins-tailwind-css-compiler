@@ -1,0 +1,5 @@
+@use "../winauto-styles/_winauto.scss";
+
+.winauto-li-hovered {
+  background: var(--winauto-bg--hover);
+}

@@ -1,0 +1,35 @@
+/* @tailwind base; */
+.invisible {
+    visibility: hidden
+}
+.static {
+    position: static
+}
+.fixed {
+    position: fixed
+}
+.relative {
+    position: relative
+}
+.ml-2 {
+    margin-left: 0.5rem
+}
+.inline-block {
+    display: inline-block
+}
+.min-w-\[20px\] {
+    min-width: 20px
+}
+.grow {
+    flex-grow: 1
+}
+.transform {
+    transform: translate(var(--tw-translate-x), var(--tw-translate-y)) rotate(var(--tw-rotate)) skewX(var(--tw-skew-x)) skewY(var(--tw-skew-y)) scaleX(var(--tw-scale-x)) scaleY(var(--tw-scale-y))
+}
+.outline-none {
+    outline: 2px solid transparent;
+    outline-offset: 2px
+}
+.filter {
+    filter: var(--tw-blur) var(--tw-brightness) var(--tw-contrast) var(--tw-grayscale) var(--tw-hue-rotate) var(--tw-invert) var(--tw-saturate) var(--tw-sepia) var(--tw-drop-shadow)
+}

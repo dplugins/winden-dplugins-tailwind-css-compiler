@@ -1,0 +1,29 @@
+@use "_tailwind-utility.scss";
+@use "_winauto-toggle.scss";
+@use "_winauto-textarea.scss";
+@use "_winauto-dropdown.scss";
+
+:root {
+  // general
+  --winauto-action: #3876fa;
+  --winauto-bg: white;
+  --winauto-bg--hover: #eeeeee;
+  --winauto-contrast: black;
+  --winauto-contrast-base-2: rgb(119, 119, 119);
+  --winauto-border: #ccc;
+  --winauto-border-base-2: #f1f1f1;
+  --winauto-danger: #f00;
+}
+
+#winden-autocomplete {
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+#windauto--screens {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
