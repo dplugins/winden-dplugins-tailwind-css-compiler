@@ -133,8 +133,8 @@ class SaveContent
             return;
         }
 
-        // AUTO-FIX: Clear corrupted cache if it contains syntax errors
-        // This handles migration cases where old cache persists after plugin update
+        // AUTO-FIX: Clear OLD PostCSS corrupted cache from plugin migration
+        // Do NOT clear legitimate SCSS compilation errors (those should be saved and shown)
         $existing_cache = get_option('winden_cache');
         if ($existing_cache && isset($existing_cache['errors'])) {
             $errors = is_string($existing_cache['errors']) ? json_decode($existing_cache['errors'], true) : $existing_cache['errors'];
@@ -142,12 +142,23 @@ class SaveContent
             if (is_array($errors)) {
                 foreach ($errors as $error) {
                     $message = isset($error['message']) ? $error['message'] : '';
-                    // Check for CSS syntax errors that indicate corrupted cache
-                    if (stripos($message, 'semicolon') !== false ||
-                        stripos($message, 'syntax') !== false ||
-                        stripos($message, 'Missed') !== false ||
-                        stripos($message, 'Unexpected') !== false) {
-                        error_log('[Winden Auto-Fix] Clearing corrupted cache before saving: ' . $message);
+
+                    // Only auto-fix OLD PostCSS errors from plugin migration
+                    $is_old_postcss_error = (
+                        stripos($message, 'postcss') !== false ||
+                        (stripos($message, 'Missed semicolon') !== false) ||
+                        (stripos($message, 'Unexpected }') !== false && stripos($message, 'scss') === false)
+                    );
+
+                    // Skip SCSS compilation errors - these are legitimate and should be saved
+                    $is_scss_error = (
+                        stripos($message, 'SCSS compilation failed') !== false ||
+                        stripos($message, 'expected selector') !== false ||
+                        stripos($message, 'Dart Sass') !== false
+                    );
+
+                    if ($is_old_postcss_error && !$is_scss_error) {
+                        error_log('[Winden Auto-Fix] Clearing OLD corrupted cache before saving: ' . $message);
                         delete_option('winden_cache');
 
                         // Delete output.css file if it exists

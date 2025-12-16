@@ -20,8 +20,8 @@ const fluidSchema = object().shape({
   stepValues: array().of(string()).optional(),
   minMaxValues: array().of(
     object().shape({
-      min: string().optional(),
-      max: string().optional()
+      min: string().optional().nullable(),
+      max: string().optional().nullable()
     })
   ).optional(),
   overrides: mixed().optional(), // Can be array or object
@@ -133,4 +133,7 @@ export const wizardSchema = object().shape({
   extendBorderRadiusFSE: boolean().optional(),
   extendBorderRadiusBricks: boolean().optional(),
   extendBorderRadiusOxygen: boolean().optional(),
+
+  // Utility Sizes Configuration
+  includeUtilitySizes: boolean().optional(), // Include default utility sizes (0, px, auto, etc.)
 }).strict(true).noUnknown();

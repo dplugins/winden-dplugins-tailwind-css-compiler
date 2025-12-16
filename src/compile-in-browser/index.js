@@ -400,13 +400,13 @@ function hasScssFeatures(css) {
   const hasScssFunctions = /@function\s+/.test(css);
   const hasComments = hasScssComments(css); // Use new context-aware function
 
-  // Parent selector nesting - only if it appears in a position that's NOT standard CSS nesting
-  // Standard CSS nesting uses & as optional, but SCSS uses it for parent references
-  // We'll be conservative and NOT check for & since it's now valid in CSS nesting
-  // If user uses SCSS parent selector features, they should set preprocessor to SCSS
+  // Parent selector with modifiers (SCSS-specific: &--modifier, &__element, &:hover is CSS)
+  // Standard CSS nesting: & is optional for pseudo-classes/elements
+  // SCSS-specific: &-- (BEM modifier), &__ (BEM element), &- (prefix)
+  const hasScssParentSelector = /&[_-]{2}/.test(css) || /&-[a-z]/.test(css);
 
   return hasScssVariables || hasMixins || hasIncludes || hasExtends ||
-         hasScssFunctions || hasComments;
+         hasScssFunctions || hasComments || hasScssParentSelector;
 }
 
 /**
@@ -426,23 +426,12 @@ async function preprocessSCSS(scss, preprocessor = 'css') {
       return scss;
     }
 
-    // Check if the input contains SCSS-specific syntax
-    const hasScssSyntax = hasScssFeatures(scss);
-
-    // If no SCSS features detected, return as-is (it's already CSS)
-    if (!hasScssSyntax) {
-      return scss;
-    }
-
-    // ERROR: SCSS syntax detected but CSS mode is set
-    if (preprocessor === 'css') {
-      const errorMsg = 'SCSS syntax detected (variables like $var, mixins @mixin, nesting &) but CSS Preprocessor is set to "CSS". Please change the setting to "SCSS" in Winden Settings, or remove SCSS syntax from your styles.';
-      console.error('[Winden SCSS]', errorMsg);
-      throw new Error(errorMsg);
-    }
-
-    // Only load Dart Sass if preprocessor is explicitly set to 'scss'
-    if (preprocessor !== 'scss') {
+    // If preprocessor is set to 'scss', ALWAYS compile - don't try to detect features
+    if (preprocessor === 'scss') {
+      // Continue to Dart Sass compilation below
+    } else {
+      // CSS mode - don't compile, just return as-is
+      // Let Tailwind handle the CSS (it supports native CSS nesting)
       return scss;
     }
 
@@ -454,7 +443,15 @@ async function preprocessSCSS(scss, preprocessor = 'css') {
     const tailwindDirectives = [];
     const tailwindImports = [];
     const tailwindLayers = [];
+    const tabComments = [];
     let scssWithPlaceholders = scss;
+
+    // 0. Extract Style Tab marker comments (e.g., /* Tab: Main Style */)
+    // These are added by the Style Tab system and should be removed before SCSS compilation
+    scssWithPlaceholders = scssWithPlaceholders.replace(/\/\*\s*Tab:\s*[^*]+\*\//g, (match) => {
+      tabComments.push(match);
+      return ''; // Remove, will restore later
+    });
 
     // 1. Extract @layer directives (Tailwind v4 syntax, Dart Sass doesn't understand)
     scssWithPlaceholders = scssWithPlaceholders.replace(/@layer\s+[^;]+;/g, (match) => {
@@ -491,11 +488,18 @@ async function preprocessSCSS(scss, preprocessor = 'css') {
     });
 
     // Compile SCSS to CSS using official Dart Sass
-    const result = sass.compileString(scssWithPlaceholders, {
-      style: 'expanded',
-      quietDeps: true,
-      verbose: false
-    });
+    let result;
+    try {
+      result = sass.compileString(scssWithPlaceholders, {
+        style: 'expanded',
+        quietDeps: true,
+        verbose: false
+      });
+    } catch (error) {
+      console.error('[Winden SCSS] Dart Sass compilation error:', error.message);
+      console.error('[Winden SCSS] Content that failed:', scssWithPlaceholders);
+      throw error;
+    }
 
     // Restore Tailwind directives
     let compiledCss = result.css;
@@ -727,120 +731,6 @@ function executeCommonJsConfig(configString) {
   }
 }
 
-// ============================================================
-// JS Config to @theme CSS Conversion
-// ============================================================
-
-/**
- * Convert a JS config object to @theme CSS
- * Tailwind v4 doesn't support @config in browser, so we convert JS config to @theme
- *
- * @param {string} configFileString - The JS config file content
- * @returns {string} - The @theme CSS equivalent
- */
-async function convertJsConfigToThemeCss(configFileString) {
-  if (!configFileString || configFileString.trim() === '') {
-    return '';
-  }
-
-  try {
-    // Parse the JS config
-    let configObj;
-
-    if (isCommonJsConfig(configFileString)) {
-      configObj = executeCommonJsConfig(configFileString);
-    } else {
-      // ESM config - use blob URL import
-      const blob = new Blob([configFileString], { type: 'application/javascript' });
-      const url = URL.createObjectURL(blob);
-      try {
-        configObj = await import(url).then((m) => m.default ?? m);
-      } finally {
-        URL.revokeObjectURL(url);
-      }
-    }
-
-    // Handle functional configs
-    if (typeof configObj === 'function') {
-      configObj = configObj();
-    }
-
-    if (!configObj || typeof configObj !== 'object') {
-      return '';
-    }
-
-    // Build @theme CSS from config
-    const themeVars = [];
-
-    // Process theme.extend.colors
-    const extendColors = configObj?.theme?.extend?.colors;
-    if (extendColors && typeof extendColors === 'object') {
-      for (const [name, value] of Object.entries(extendColors)) {
-        if (typeof value === 'string') {
-          // Simple color: marko: 'blue'
-          themeVars.push(`  --color-${name}: ${value};`);
-        } else if (typeof value === 'object') {
-          // Nested colors: marko: { 500: '#xxx', 600: '#yyy' }
-          for (const [shade, shadeValue] of Object.entries(value)) {
-            if (typeof shadeValue === 'string') {
-              themeVars.push(`  --color-${name}-${shade}: ${shadeValue};`);
-            }
-          }
-        }
-      }
-    }
-
-    // Process theme.extend.spacing
-    const extendSpacing = configObj?.theme?.extend?.spacing;
-    if (extendSpacing && typeof extendSpacing === 'object') {
-      for (const [name, value] of Object.entries(extendSpacing)) {
-        if (typeof value === 'string') {
-          themeVars.push(`  --spacing-${name}: ${value};`);
-        }
-      }
-    }
-
-    // Process theme.extend.fontFamily
-    const extendFontFamily = configObj?.theme?.extend?.fontFamily;
-    if (extendFontFamily && typeof extendFontFamily === 'object') {
-      for (const [name, value] of Object.entries(extendFontFamily)) {
-        const fontValue = Array.isArray(value) ? value.join(', ') : value;
-        themeVars.push(`  --font-${name}: ${fontValue};`);
-      }
-    }
-
-    // Process theme.extend.fontSize
-    const extendFontSize = configObj?.theme?.extend?.fontSize;
-    if (extendFontSize && typeof extendFontSize === 'object') {
-      for (const [name, value] of Object.entries(extendFontSize)) {
-        const sizeValue = Array.isArray(value) ? value[0] : value;
-        if (typeof sizeValue === 'string') {
-          themeVars.push(`  --text-${name}: ${sizeValue};`);
-        }
-      }
-    }
-
-    // Process theme.extend.borderRadius
-    const extendBorderRadius = configObj?.theme?.extend?.borderRadius;
-    if (extendBorderRadius && typeof extendBorderRadius === 'object') {
-      for (const [name, value] of Object.entries(extendBorderRadius)) {
-        if (typeof value === 'string') {
-          themeVars.push(`  --radius-${name}: ${value};`);
-        }
-      }
-    }
-
-    if (themeVars.length === 0) {
-      return '';
-    }
-
-    return `@theme {\n${themeVars.join('\n')}\n}\n`;
-  } catch (error) {
-    console.error('[winden] Failed to convert JS config to @theme CSS:', error);
-    return '';
-  }
-}
-
 /**
  * Load stylesheet for @import directives
  * Supports Tailwind core imports, CDN stylesheets, and relative imports
@@ -930,6 +820,15 @@ async function loadStylesheet(id, base) {
 
 async function loadModule(modulePath, base, resourceHint, configFileString) {
   let module;
+
+  // Handle virtual config path (winden://config) - uses config content from Config tab
+  // This is auto-injected when user has config content but didn't write @config manually
+  if (resourceHint === 'config' && (modulePath === 'winden://config' || modulePath.endsWith('winden://config'))) {
+    if (!configFileString || !configFileString.trim()) {
+      throw new Error('No config content provided for winden://config');
+    }
+    // Fall through to config handling below
+  }
 
   // OPTIMIZATION: Handle config files with caching
   if (resourceHint === 'config') {
@@ -1114,43 +1013,32 @@ function main() {
       // 3. Default to 'css'
       const preprocessor = preprocessorOverride || window.tailwind_compiler_options?.css_preprocessor || 'css';
 
-      // Convert JS config to @theme CSS (Tailwind v4 doesn't support @config in browser)
-      // This must happen BEFORE SCSS preprocessing as it generates plain CSS
+      // Tailwind v4's compile() API natively supports @config directive.
+      // When Tailwind encounters @config "path/to/config.js";, it calls loadModule(path, base, "config")
+      // Our loadModule function handles "winden://config" as a virtual path.
+      // This means ALL config properties (screens, shadows, plugins, etc.) work automatically.
       let cssWithTheme = customCss ?? '';
 
-      // Clean up the CSS:
-      // 1. Remove @config directives (not supported in Tailwind v4 browser compiler)
-      // 2. Remove empty @theme {} blocks (can interfere with compilation)
-      cssWithTheme = cssWithTheme.replace(/@config\s+["'][^"']+["']\s*;?\s*/g, '');
+      // Clean up empty @theme {} blocks (can interfere with compilation)
       cssWithTheme = cssWithTheme.replace(/@theme\s*\{\s*\}\s*/g, '');
 
-      // Convert JS config (tailwind.config.js) to @theme CSS and insert after imports
-      if (configFileString && configFileString.trim()) {
-        const themeCss = await convertJsConfigToThemeCss(configFileString);
-
-        if (themeCss) {
-          // Insert @theme AFTER @import statements (so Tailwind defaults are loaded first)
-          const importMatch = cssWithTheme.match(/(@import\s+["'][^"']+["'][^;]*;[\s\n]*)+/g);
-          const layerMatch = cssWithTheme.match(/@layer\s+[^;]+;[\s\n]*/);
-
-          if (importMatch) {
-            // Find where the last import ends
-            let lastImportEnd = 0;
-            for (const imp of importMatch) {
-              const idx = cssWithTheme.indexOf(imp, lastImportEnd);
-              if (idx !== -1) {
-                lastImportEnd = idx + imp.length;
-              }
+      // Auto-inject @config directive if user has config content but didn't write @config manually
+      // This allows users to just write their config in the Config tab without knowing about @config
+      if (configFileString && configFileString.trim() && !cssWithTheme.includes('@config')) {
+        // Insert @config after @import statements (Tailwind requirement)
+        const importMatch = cssWithTheme.match(/(@import\s+["'][^"']+["'][^;]*;[\s\n]*)+/g);
+        if (importMatch) {
+          let lastImportEnd = 0;
+          for (const imp of importMatch) {
+            const idx = cssWithTheme.indexOf(imp, lastImportEnd);
+            if (idx !== -1) {
+              lastImportEnd = idx + imp.length;
             }
-            cssWithTheme = cssWithTheme.slice(0, lastImportEnd) + '\n' + themeCss + cssWithTheme.slice(lastImportEnd);
-          } else if (layerMatch) {
-            // Insert after @layer declaration
-            const layerEnd = cssWithTheme.indexOf(layerMatch[0]) + layerMatch[0].length;
-            cssWithTheme = cssWithTheme.slice(0, layerEnd) + '\n' + themeCss + cssWithTheme.slice(layerEnd);
-          } else {
-            // No imports found - prepend
-            cssWithTheme = themeCss + cssWithTheme;
           }
+          cssWithTheme = cssWithTheme.slice(0, lastImportEnd) + '\n@config "winden://config";\n' + cssWithTheme.slice(lastImportEnd);
+        } else {
+          // No imports - prepend after any initial comments
+          cssWithTheme = '@config "winden://config";\n' + cssWithTheme;
         }
       }
 
@@ -1236,8 +1124,27 @@ function classes() {
       // Get preprocessor setting from window (passed from PHP)
       const preprocessor = window.tailwind_compiler_options?.css_preprocessor || 'css';
 
+      let cssWithConfig = customCss ?? '';
+
+      // Auto-inject @config directive if user has config content but didn't write @config manually
+      if (configFileString && configFileString.trim() && !cssWithConfig.includes('@config')) {
+        const importMatch = cssWithConfig.match(/(@import\s+["'][^"']+["'][^;]*;[\s\n]*)+/g);
+        if (importMatch) {
+          let lastImportEnd = 0;
+          for (const imp of importMatch) {
+            const idx = cssWithConfig.indexOf(imp, lastImportEnd);
+            if (idx !== -1) {
+              lastImportEnd = idx + imp.length;
+            }
+          }
+          cssWithConfig = cssWithConfig.slice(0, lastImportEnd) + '\n@config "winden://config";\n' + cssWithConfig.slice(lastImportEnd);
+        } else {
+          cssWithConfig = '@config "winden://config";\n' + cssWithConfig;
+        }
+      }
+
       // Preprocess SCSS to CSS (if preprocessor is 'scss')
-      const preprocessedCss = await preprocessSCSS(customCss ?? '', preprocessor);
+      const preprocessedCss = await preprocessSCSS(cssWithConfig, preprocessor);
 
       // OPTIMIZATION: Generate cache keys (use preprocessed CSS for hash)
       const cssHash = hashString(preprocessedCss);

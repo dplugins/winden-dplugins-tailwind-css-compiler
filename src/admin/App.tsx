@@ -114,13 +114,36 @@ function App({ licenseStatus, proExists }: AppProps) {
         let response: any = null;
         // Always use v4
         if (typeof (window as any)?.tailwindifyClasses === 'function') {
-            let custom_css = '@layer theme, base, components, utilities;\n\n@import "tailwindcss/theme.css" layer(theme);\n@import "tailwindcss/utilities.css" layer(utilities); ';
-            if (wizzardContentRef?.current?.configCode?.length && wizzardContentRef.current.configCode.trim().startsWith('@theme')) {
-                custom_css += wizzardContentRef.current.configCode;
+            try {
+                // Build CSS that matches actual compilation:
+                // 1. Base imports
+                let custom_css = '@layer theme, base, components, utilities;\n\n@import "tailwindcss/theme.css" layer(theme);\n@import "tailwindcss/utilities.css" layer(utilities);\n';
+
+                // 2. Wizzard @theme config (design tokens)
+                if (wizzardContentRef?.current?.configCode?.length && wizzardContentRef.current.configCode.trim().startsWith('@theme')) {
+                    custom_css += wizzardContentRef.current.configCode + '\n';
+                }
+
+                // 3. Style tab content (custom @utility, @layer, etc.)
+                // This ensures custom utilities defined in Style tab appear in autocomplete
+                if (scssContentRef?.current?.trim()) {
+                    custom_css += scssContentRef.current + '\n';
+                }
+
+                // Pass config from Config tab (jsContent) as second parameter
+                // This enables native @config support for screens, plugins, shadows, etc.
+                const configContent = jsContentRef?.current ?? '';
+
+                response = await (window as any).tailwindifyClasses(custom_css, configContent);
+            } catch (error: any) {
+                console.error('[Winden] Compilation error:', error);
+                // Show user-friendly error message
+                alert(`SCSS Compilation Error:\n\n${error.message}\n\nCheck the browser console for details.`);
+                return; // Don't try to set classes on error
             }
-            response = await (window as any).tailwindifyClasses(custom_css);
         }
-        setAutocompleteClasses([...new Set(response?.classes?.length ? response.classes : [])]);
+        const classes = [...new Set(response?.classes?.length ? response.classes : [])];
+        setAutocompleteClasses(classes);
     };
 
     useEffect(() => {
@@ -178,6 +201,15 @@ function App({ licenseStatus, proExists }: AppProps) {
             }
         }
     }, [localWizzardState, scssContent]);
+
+    // Refresh autocomplete when content changes (debounced)
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            fetchAutocomplete();
+        }, 500); // 500ms debounce
+
+        return () => clearTimeout(timer);
+    }, [scssContent, jsContent]);
 
     const handleTabClick = useCallback((tab: string) => {
         fetchAutocomplete();

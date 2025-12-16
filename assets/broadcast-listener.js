@@ -11,7 +11,7 @@
   'use strict';
 
   // Configuration
-  const DEBUG = false; // Set to true to enable detailed logging
+  const DEBUG = true; // Set to true to enable detailed logging
   const DEBOUNCE_DELAY = 500;
   const NOTIFICATION_DURATION = 2000;
 
@@ -448,7 +448,7 @@
         handleCacheCleared();
         break;
       default:
-        console.warn('[Winden Broadcast] Unknown message type:', message.type);
+        log('Unknown message type:', message.type);
     }
   };
 

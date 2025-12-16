@@ -108,9 +108,8 @@ export const handleFetchedClasses = async (
           // Only include @config if it doesn't have theme settings (safe for plugins/corePlugins)
           if (!hasThemeExtend) {
             customCss = '@config "' + window.uploadUrl + '/winden/tailwind.config.js";\n\n' + customCss;
-          } else {
-            console.log('[ClassFetcher] Config has theme.extend, skipping @config to prevent conflict');
           }
+          // Skip @config if theme.extend exists to prevent conflicts
         } else {
           // No Wizzard content - fallback to @config directive
           customCss = '@config "' + window.uploadUrl + '/winden/tailwind.config.js";';
@@ -157,10 +156,12 @@ export const handleFetchedClasses = async (
 
         if ('error' in tw) {
           console.error('[ClassFetcher] Compilation error:', tw.error);
+          const errorMessage = tw.error.message || 'Compilation failed';
           errors.push({
-            title: 'Error in Cache',
-            message: tw.error.message
+            title: 'Compilation Error',
+            message: errorMessage
           });
+          payload.status = 'failed';
         } else if (tw.css) {
 
           payload.styles = tw.css;
@@ -171,16 +172,19 @@ export const handleFetchedClasses = async (
             title: 'Error in Cache',
             message: 'No CSS was generated'
           });
+          payload.status = 'failed';
         }
       }
     } catch (error: any) {
-      if (error?.message) {
-        errors.push({
-          title: 'Error',
-          message: error?.message
-        });
-        payload.status = 'failed';
-      }
+      console.error('[ClassFetcher] Compilation error:', error);
+
+      const errorMessage = error?.message || error?.toString() || 'Unknown compilation error';
+
+      errors.push({
+        title: 'Compilation Error',
+        message: errorMessage
+      });
+      payload.status = 'failed';
     }
 
     if (errors?.length) {
@@ -202,11 +206,22 @@ export const handleFetchedClasses = async (
       if (!result.success) {
         console.error('[CACHE] Error saving cache:', result.data);
       }
+
+      // Small delay to ensure database has been updated
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      // Refetch cache status after successful save
+      await fetchCacheStatus(setCacheStatus);
     } catch (error) {
       console.error('[CACHE] Error saving cache:', error);
+
+      // Small delay to ensure database has been updated
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      // Refetch even on error to show the failed status
+      await fetchCacheStatus(setCacheStatus);
     } finally {
       setCacheInProgress(false);
-      fetchCacheStatus(setCacheStatus);
     }
   }
 };

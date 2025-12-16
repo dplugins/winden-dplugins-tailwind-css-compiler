@@ -30,6 +30,7 @@ let isCompiling = false;
 let pendingCompilation = false;
 let pendingCompilationOptions = null;
 
+
 // Cache for compiled CSS results
 let cssCache = new Map();
 const MAX_CACHE_SIZE = 50;
@@ -381,13 +382,28 @@ const compileClasses = async (compileOptions = {}) => {
             let getStyleFileString = await fetchEditorContent('style-tab.css');
 
             // Handle custom CSS for Tailwind v4
-            // @config must come BEFORE @import statements for theme extensions to work
+            // @theme must come AFTER @import statements so it can extend/override Tailwind defaults
             const compilerOptions = window?.tailwind_compiler_options ?? {};
 
             if (compilerOptions?.custom_css && compilerOptions?.tailwind_version === 'v4') {
                 if (getStyleFileString?.length) {
-                    // Prepend @config so it's processed before @import
-                    getStyleFileString = compilerOptions.custom_css + '\n' + getStyleFileString;
+                    // Insert @theme AFTER @import statements
+                    // Find the last @import statement and insert after it
+                    const importRegex = /(@import\s+["'][^"']+["'][^;]*;\s*)+/g;
+                    const matches = [...getStyleFileString.matchAll(importRegex)];
+
+                    if (matches.length > 0) {
+                        // Find the end position of the last import block
+                        const lastMatch = matches[matches.length - 1];
+                        const insertPosition = lastMatch.index + lastMatch[0].length;
+                        getStyleFileString =
+                            getStyleFileString.slice(0, insertPosition) +
+                            '\n' + compilerOptions.custom_css + '\n' +
+                            getStyleFileString.slice(insertPosition);
+                    } else {
+                        // No imports found - append at the end (before any @layer components/utilities)
+                        getStyleFileString = getStyleFileString + '\n' + compilerOptions.custom_css;
+                    }
                 } else {
                     getStyleFileString = compilerOptions.custom_css;
                 }
@@ -442,11 +458,8 @@ const compileClasses = async (compileOptions = {}) => {
                         applyImportant = compilerOptions?.important?.length ? true : false;
                     }
 
-                    if (applyImportant) {
-                        compiledStylesNode.textContent = applyImportantFn(tw.css);
-                    } else {
-                        compiledStylesNode.textContent = tw.css;
-                    }
+                    const finalCss = applyImportant ? applyImportantFn(tw.css) : tw.css;
+                    compiledStylesNode.textContent = finalCss;
                 }
 
                 // Set up autocomplete data

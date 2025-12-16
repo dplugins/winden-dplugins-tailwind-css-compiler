@@ -24,17 +24,12 @@ new SettingsPageBodyClass();
 new TopBar();
 new MigrationNotice();
 
-// Pro features - Load License admin, FileBrowser, and Release only if pro folder exists
+// Pro features - Load Pro entry point only if pro folder exists
 // This ensures the plugin works when /pro/ folder is removed (WordPress.org free version)
 // WordPress.org handles updates automatically for the free version
 if (LicenseManager::proFolderExists()) {
-    new \Winden\Pro\Admin\License();
-    new \Winden\Pro\Admin\Release();
-
-    // Only load FileBrowser if license is active
-    if (LicenseManager::isProActive()) {
-        new \Winden\Pro\Admin\FileBrowser();
-    }
+    require_once WINDEN_PLUGIN_DIR . 'pro/App/App.php';
+    new \Winden\Pro\App();
 }
 
 class Admin

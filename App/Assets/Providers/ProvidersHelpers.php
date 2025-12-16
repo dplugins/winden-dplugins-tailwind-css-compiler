@@ -31,7 +31,116 @@ class ProvidersHelpers
     }
 
     // ------------------------------------------------------------------------
-    // Get Winden CSS Content
+    // Get Winden Editor Content (Wizzard, Style tab, Config tab)
+    // Returns array with custom_css, style_css, config_content
+    // ------------------------------------------------------------------------
+
+    public static function get_editor_content()
+    {
+        $wizzard_state = '';
+        $style_css = '';
+        $config_content = '';
+
+        try {
+            $wizzard_state_opt = get_option('winden_editor');
+            if (isset($wizzard_state_opt['wizzard']) && isset($wizzard_state_opt['wizzard']['configCode'])) {
+                $wizzard_state = $wizzard_state_opt['wizzard']['configCode'];
+            }
+            // Get Style tab content (scss/css with @utility, @layer, etc.)
+            if (isset($wizzard_state_opt['scss'])) {
+                $style_css = $wizzard_state_opt['scss'];
+            }
+            // Get Config tab content (JavaScript config for @config directive)
+            if (isset($wizzard_state_opt['javascript'])) {
+                $config_content = $wizzard_state_opt['javascript'];
+            }
+        } catch (\Throwable $th) {
+            // Silent fail
+        }
+
+        return [
+            'custom_css' => $wizzard_state,
+            'style_css' => $style_css,
+            'config_content' => $config_content,
+        ];
+    }
+
+    // ------------------------------------------------------------------------
+    // Get Compiler Options for Tailwind v4
+    // Returns array ready for JSON encoding to window.tailwind_compiler_options
+    // ------------------------------------------------------------------------
+
+    public static function get_compiler_options($important = '')
+    {
+        $settings = SettingsOptions::getWindenOptions();
+        $editor_content = self::get_editor_content();
+
+        $compiler_options = [
+            'tailwind_version' => 'v4',
+            'css_preprocessor' => !empty($settings['css_preprocessor']) ? $settings['css_preprocessor'] : 'css',
+            'important' => $important,
+            'custom_css' => $editor_content['custom_css'],
+            'style_css' => $editor_content['style_css'],
+            'config_content' => $editor_content['config_content'],
+        ];
+
+        // Ensure we never have false values that would prevent Tailwind from working
+        if (empty($compiler_options['css_preprocessor']) || $compiler_options['css_preprocessor'] === false) {
+            $compiler_options['css_preprocessor'] = 'css';
+        }
+
+        return $compiler_options;
+    }
+
+    // ------------------------------------------------------------------------
+    // Get Autocomplete JavaScript Function
+    // Returns JS code that generates autocomplete classes from Tailwind compiler
+    // ------------------------------------------------------------------------
+
+    public static function get_autocomplete_js()
+    {
+        return "
+        function generateWindenAutocomplete() {
+            if (typeof window.tailwindifyClasses === 'function') {
+                // Get all content from compiler options
+                var customCss = window.tailwind_compiler_options?.custom_css || '';
+                var styleCss = window.tailwind_compiler_options?.style_css || '';
+                var configContent = window.tailwind_compiler_options?.config_content || '';
+
+                // Build CSS: imports + Wizzard @theme + Style tab content
+                var fullCss = '@layer theme, base, components, utilities;\\n';
+                fullCss += '@import \"tailwindcss/theme.css\" layer(theme);\\n';
+                fullCss += '@import \"tailwindcss/utilities.css\" layer(utilities);\\n';
+
+                // Add Wizzard @theme config
+                if (customCss) {
+                    fullCss += customCss + '\\n';
+                }
+
+                // Add Style tab content (includes @utility definitions)
+                if (styleCss) {
+                    fullCss += styleCss + '\\n';
+                }
+
+                // Pass config content as second parameter for @config directive support
+                window.tailwindifyClasses(fullCss, configContent).then(function(result) {
+                    var allClasses = result.classes || [];
+
+                    // Store for autocomplete (both current window and parent for iframe support)
+                    window.winden_autocomplete = allClasses;
+                    if (window.parent && window.parent !== window) {
+                        window.parent.winden_autocomplete = allClasses;
+                    }
+                }).catch(function(error) {
+                    console.error('[Winden] Error generating autocomplete:', error);
+                });
+            }
+        }
+        ";
+    }
+
+    // ------------------------------------------------------------------------
+    // Get Winden CSS Content (legacy - for backward compatibility)
     // Latter on we will pass this inside javascript variable to be loaded after tailwindconfig
     // ------------------------------------------------------------------------
 
@@ -51,7 +160,7 @@ class ProvidersHelpers
         return $css_content;
     }
 
-    public static function cdn_scripts_autocomplete()
+    public static function enqueue_autocomplete_scripts()
     {
         wp_enqueue_script(
             'cachejs',
@@ -69,22 +178,13 @@ class ProvidersHelpers
             true
         );
 
-        // Tailwind v4: Autocomplete classes are fetched directly from the v4 compiler
-        // The custom_css contains Wizzard @theme config - prepend @import "tailwindcss" for full utilities
-        $inline_winden_autocomplete = '
-            (async () => {
-                try {
-                    const customCss = window.tailwind_compiler_options?.custom_css || "";
-                    const fullCss = \'@import "tailwindcss";\' + "\\n" + customCss;
-                    const autocomplete = await window.tailwindifyClasses(fullCss);
-                    window.winden_autocomplete = autocomplete.classes;
-                    window.parent.winden_autocomplete = autocomplete.classes;
-                } catch (e) {
-                    console.error("[Winden] Error fetching Tailwind classes:", e);
-                    window.winden_autocomplete = [];
-                    window.parent.winden_autocomplete = [];
-                }
-            })();
+        // Use shared autocomplete JS function
+        $autocomplete_js = self::get_autocomplete_js();
+        $inline_winden_autocomplete = $autocomplete_js . '
+            // Generate autocomplete on load
+            generateWindenAutocomplete();
+            setTimeout(generateWindenAutocomplete, 1000);
+            setTimeout(generateWindenAutocomplete, 3000);
 		';
         wp_add_inline_script('winden-autocomplete', $inline_winden_autocomplete);
     }
@@ -183,27 +283,11 @@ class ProvidersHelpers
     }
 
     // ------------------------------------------------------------------------
-    // Get Winden CDN Scripts
+    // Enqueue Tailwind Framework Scripts (compiler, watcher, etc.)
     // ------------------------------------------------------------------------
 
     public static function framework_scripts($important = '')
     {
-        $settings = SettingsOptions::getWindenOptions();
-
-        // Tailwind v4: Get Wizzard @theme config (CSS-based theming)
-        // Note: @config directive is NOT supported in Tailwind v4 browser compiler
-        // JS config (tailwind.config.js) is converted to @theme CSS in the compiler
-        $wizzard_state = '';
-
-        try {
-            $wizzard_state_opt = get_option('winden_editor');
-            if (isset($wizzard_state_opt['wizzard']) && isset($wizzard_state_opt['wizzard']['configCode'])) {
-                $wizzard_state = $wizzard_state_opt['wizzard']['configCode'];
-            }
-        } catch (\Throwable $th) {
-            //throw $th;
-        }
-
         wp_enqueue_script(
             'cachejs',
             WINDEN_PLUGIN_URL . 'build/compiler/tailwindcss-compiler.js',
@@ -212,17 +296,8 @@ class ProvidersHelpers
             true
         );
 
-        $compiler_options = [
-            'tailwind_version' => 'v4',
-            'css_preprocessor' => !empty($settings['css_preprocessor']) ? $settings['css_preprocessor'] : 'css',
-            'important' => $important,
-            'custom_css' => $wizzard_state,
-        ];
-
-        // Ensure we never have false values that would prevent Tailwind from working
-        if (empty($compiler_options['css_preprocessor']) || $compiler_options['css_preprocessor'] === false) {
-            $compiler_options['css_preprocessor'] = 'css';
-        }
+        // Get compiler options using shared helper
+        $compiler_options = self::get_compiler_options($important);
 
         wp_enqueue_script(
             'tailwind-compiler-options',

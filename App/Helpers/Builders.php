@@ -39,7 +39,10 @@ class Builders
     {
         global $pagenow;
 
-        return (isset($_GET['post']) && isset($_GET['action']) && $_GET['action'] == 'edit') || (isset($_GET['canvas']) && $_GET['canvas'] == 'edit') || $pagenow == 'site-editor.php';
+        return (isset($_GET['post']) && isset($_GET['action']) && $_GET['action'] == 'edit')
+            || (isset($_GET['canvas']) && $_GET['canvas'] == 'edit')
+            || $pagenow == 'site-editor.php'
+            || $pagenow == 'post-new.php';  // NEW: Include post-new.php for new posts/pages
     }
 
     public static function isGutenbergEditor()

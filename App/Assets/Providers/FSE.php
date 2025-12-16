@@ -22,7 +22,7 @@ class FSE extends BaseProvider
         // Standard WordPress hook for block editor assets
         add_action('enqueue_block_editor_assets', [$this, 'enqueue_block_editor_assets']);
 
-        // Hook for iframe injection (WordPress 5.9+)
+        // Hook for iframe injection (WordPress 5.8+)
         add_filter('block_editor_settings_all', [$this, 'inject_iframe_styles'], 10, 2);
 
         // Load autocomplete if enabled
@@ -233,66 +233,18 @@ class FSE extends BaseProvider
     }
 
     /**
-     * Get compiler options from settings
+     * Get compiler options from settings - uses shared helper
      */
     private function get_compiler_options($settings)
     {
-        $wizzard_state = '@config "' . WINDEN_UPLOADS_URL['baseurl'] . '/winden/tailwind.config.js"; ';
-
-        try {
-            $wizzard_state_opt = get_option('winden_editor');
-            if (isset($wizzard_state_opt['wizzard']) && isset($wizzard_state_opt['wizzard']['configCode'])) {
-                $wizzard_state .= $wizzard_state_opt['wizzard']['configCode'];
-            }
-        } catch (\Throwable $th) {
-            // Silent fail
-        }
-
-        $compiler_options = [
-            'tailwind_version' => 'v4',
-            'css_preprocessor' => !empty($settings['css_preprocessor']) ? $settings['css_preprocessor'] : 'css',
-            'important' => '',
-            'custom_css' => $wizzard_state,
-        ];
-
-        if (empty($compiler_options['css_preprocessor']) || $compiler_options['css_preprocessor'] === false) {
-            $compiler_options['css_preprocessor'] = 'css';
-        }
-
-        return $compiler_options;
+        return ProvidersHelpers::get_compiler_options('');
     }
 
     /**
-     * Generate autocomplete JavaScript function
+     * Generate autocomplete JavaScript function - uses shared helper
      */
     private function get_autocomplete_js()
     {
-        return "
-        function generateWindenAutocomplete() {
-            // Simply get ALL classes from the Tailwind compiler
-            // The compiler already knows about all utilities including:
-            // - Spacing: p-, m-, w-, h-, min-w-, max-w-, etc.
-            // - Layout: flex, grid, block, inline, etc.
-            // - Typography: text-, font-, leading-, etc.
-            // - Colors: bg-, text-, border-, etc. (including custom colors from Wizzard)
-            // - And all other Tailwind utilities
-
-            if (typeof window.tailwindifyClasses === 'function') {
-                window.tailwindifyClasses().then(function(result) {
-                    // The result.classes already contains ALL available Tailwind classes
-                    // including standard utilities and custom classes from the configuration
-                    var allClasses = result.classes || [];
-
-                    // Store for autocomplete
-                    window.winden_autocomplete = allClasses;
-
-                }).catch(function(error) {
-                    console.error('[Winden] Error generating autocomplete:', error);
-                });
-            } else {
-                console.warn('[Winden] Tailwind compiler not loaded yet');
-            }
-        }
-        ";
+        return ProvidersHelpers::get_autocomplete_js();
     }
 }

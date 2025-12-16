@@ -85,138 +85,51 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
                   // Initialize defaults when enabling features
                   if (newValue) {
                     if (key === 'fontSizesActive') {
-                      if (!_state.fontSize?.steps?.length) {
+                      // Only initialize if fontSize doesn't exist at all
+                      if (!_state.fontSize) {
                         _state.fontSize = { ...defaultWizzardState.fontSize };
+                      } else if (!_state.fontSize.steps?.length) {
+                        // Only set default steps if missing, keep other existing values
+                        _state.fontSize.steps = defaultWizzardState.fontSize.steps;
+                        if (!_state.fontSize.baseStep) _state.fontSize.baseStep = defaultWizzardState.fontSize.baseStep;
                       }
 
-                      // Calculate overrides with clamp values
-                      if (_state.fontSize?.steps?.length && !_state.fontSize?.overrides) {
-                        const baseIndex = _state.fontSize.steps.indexOf(_state.fontSize.baseStep || "base");
-                        const baseStepIndex = baseIndex >= 0 ? baseIndex : Math.floor(_state.fontSize.steps.length / 2);
-
-                        const overrides: any = {};
-                        _state.fontSize.steps.forEach((step: string, index: number) => {
-                          const stepDifference = index - baseStepIndex;
-                          const minBase = _state.fontSize.minBaseSize * Math.pow(_state.fontSize.minScaleRatio, stepDifference);
-                          const maxBase = _state.fontSize.maxBaseSize * Math.pow(_state.fontSize.maxScaleRatio, stepDifference);
-
-                          const clampValue = calculateClamp(
-                            minBase,
-                            maxBase,
-                            _state.fontSize.minScreenSize,
-                            _state.fontSize.maxScreenSize,
-                            _state.fontSize.useRem,
-                            _state.fontSize.remSize,
-                            _state.fontSize.decimalPlaces
-                          );
-
-                          overrides[step] = {
-                            enabled: true,
-                            value: clampValue,
-                            fluidClamp: clampValue,
-                            minBase: minBase.toFixed(_state.fontSize.decimalPlaces),
-                            maxBase: maxBase.toFixed(_state.fontSize.decimalPlaces)
-                          };
-                        });
-                        _state.fontSize.overrides = overrides;
-
-                        // Update the clamps in the parent component
-                        if (setClampsFontSize) {
-                          setClampsFontSize(overrides);
-                        }
-                      }
+                      // Don't recalculate overrides here - let the user's saved config remain
+                      // Recalculation will happen automatically when user changes scale parameters in ScaleCalculator
 
                       // Ensure extend properties are set to true by default
                       if (_state.extendFontSizesFSE === undefined) _state.extendFontSizesFSE = false;
                       if (_state.extendFontSizesBricks === undefined) _state.extendFontSizesBricks = false;
                       if (_state.extendFontSizesOxygen === undefined) _state.extendFontSizesOxygen = false;
                     } else if (key === 'spacesActive') {
-                      if (!_state.spacing?.steps?.length) {
+                      // Only initialize if spacing doesn't exist at all
+                      if (!_state.spacing) {
                         _state.spacing = { ...defaultWizzardState.spacing };
+                      } else if (!_state.spacing.steps?.length) {
+                        // Only set default steps if missing, keep other existing values
+                        _state.spacing.steps = defaultWizzardState.spacing.steps;
+                        if (!_state.spacing.baseStep) _state.spacing.baseStep = defaultWizzardState.spacing.baseStep;
                       }
 
-                      // Calculate overrides with clamp values
-                      if (_state.spacing?.steps?.length && !_state.spacing?.overrides) {
-                        const baseIndex = _state.spacing.steps.indexOf(_state.spacing.baseStep || "base");
-                        const baseStepIndex = baseIndex >= 0 ? baseIndex : Math.floor(_state.spacing.steps.length / 2);
-
-                        const overrides: any = {};
-                        _state.spacing.steps.forEach((step: string, index: number) => {
-                          const stepDifference = index - baseStepIndex;
-                          const minBase = _state.spacing.minBaseSize * Math.pow(_state.spacing.minScaleRatio, stepDifference);
-                          const maxBase = _state.spacing.maxBaseSize * Math.pow(_state.spacing.maxScaleRatio, stepDifference);
-
-                          const clampValue = calculateClamp(
-                            minBase,
-                            maxBase,
-                            _state.spacing.minScreenSize,
-                            _state.spacing.maxScreenSize,
-                            _state.spacing.useRem,
-                            _state.spacing.remSize,
-                            _state.spacing.decimalPlaces
-                          );
-
-                          overrides[step] = {
-                            enabled: true,
-                            value: clampValue,
-                            fluidClamp: clampValue,
-                            minBase: minBase.toFixed(_state.spacing.decimalPlaces),
-                            maxBase: maxBase.toFixed(_state.spacing.decimalPlaces)
-                          };
-                        });
-                        _state.spacing.overrides = overrides;
-
-                        // Update the clamps in the parent component
-                        if (setClampsSpacing) {
-                          setClampsSpacing(overrides);
-                        }
-                      }
+                      // Don't recalculate overrides here - let the user's saved config remain
+                      // Recalculation will happen automatically when user changes scale parameters in ScaleCalculator
 
                       // Ensure extend properties are set to true by default
                       if (_state.extendSpacingFSE === undefined) _state.extendSpacingFSE = false;
                       if (_state.extendSpacingBricks === undefined) _state.extendSpacingBricks = false;
                       if (_state.extendSpacingOxygen === undefined) _state.extendSpacingOxygen = false;
                     } else if (key === 'borderRadiusActive') {
-                      if (!_state.borderRadius?.steps?.length) {
+                      // Only initialize if borderRadius doesn't exist at all
+                      if (!_state.borderRadius) {
                         _state.borderRadius = { ...defaultWizzardState.borderRadius };
+                      } else if (!_state.borderRadius.steps?.length) {
+                        // Only set default steps if missing, keep other existing values
+                        _state.borderRadius.steps = defaultWizzardState.borderRadius.steps;
+                        if (!_state.borderRadius.baseStep) _state.borderRadius.baseStep = defaultWizzardState.borderRadius.baseStep;
                       }
 
-                      // Calculate overrides with clamp values
-                      if (_state.borderRadius?.steps?.length && !_state.borderRadius?.overrides) {
-                        const baseIndex = _state.borderRadius.steps.indexOf(_state.borderRadius.baseStep || "base");
-                        const baseStepIndex = baseIndex >= 0 ? baseIndex : Math.floor(_state.borderRadius.steps.length / 2);
-
-                        const overrides: any = {};
-                        _state.borderRadius.steps.forEach((step: string, index: number) => {
-                          const stepDifference = index - baseStepIndex;
-                          const minBase = _state.borderRadius.minBaseSize * Math.pow(_state.borderRadius.minScaleRatio, stepDifference);
-                          const maxBase = _state.borderRadius.maxBaseSize * Math.pow(_state.borderRadius.maxScaleRatio, stepDifference);
-
-                          const clampValue = calculateClamp(
-                            minBase,
-                            maxBase,
-                            _state.borderRadius.minScreenSize,
-                            _state.borderRadius.maxScreenSize,
-                            _state.borderRadius.useRem,
-                            _state.borderRadius.remSize,
-                            _state.borderRadius.decimalPlaces
-                          );
-
-                          overrides[step] = {
-                            enabled: true,
-                            value: clampValue,
-                            fluidClamp: clampValue,
-                            minBase: minBase.toFixed(_state.borderRadius.decimalPlaces),
-                            maxBase: maxBase.toFixed(_state.borderRadius.decimalPlaces)
-                          };
-                        });
-                        _state.borderRadius.overrides = overrides;
-
-                        // Update the clamps in the parent component
-                        if (setClampsBorderRadius) {
-                          setClampsBorderRadius(overrides);
-                        }
-                      }
+                      // Don't recalculate overrides here - let the user's saved config remain
+                      // Recalculation will happen automatically when user changes scale parameters in ScaleCalculator
 
                       // Ensure extend properties are set to true by default
                       if (_state.extendBorderRadius === undefined) _state.extendBorderRadius = defaultWizzardState.extendBorderRadius;

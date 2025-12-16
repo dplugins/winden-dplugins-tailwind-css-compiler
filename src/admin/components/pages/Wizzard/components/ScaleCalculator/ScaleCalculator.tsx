@@ -616,16 +616,45 @@ const ScaleCalculator: React.FC<ScaleCalculatorProps> = ({
             label="Extend"
           />
 
-          <SidebarSeparator label="Include Utility Sizes" />
-          <Checkbox
-            checked={localWizzardState?.includeUtilitySizes ?? false}
-            onCheckedChange={(checked) => {
-              const _state = { ...localWizzardState };
-              _state.includeUtilitySizes = checked;
-              setLocalWizzardState(_state);
-            }}
-            label="Include Utility Sizes"
-          />
+          {(spacing || borderRadius) && (
+            <>
+              <SidebarSeparator label="Include Utility Sizes" />
+              <Checkbox
+                checked={localWizzardState?.includeUtilitySizes ?? false}
+                onCheckedChange={(checked) => {
+                  const _state = { ...localWizzardState };
+                  _state.includeUtilitySizes = checked;
+                  setLocalWizzardState(_state);
+                }}
+                label="Include Utility Sizes"
+              />
+              {localWizzardState?.includeUtilitySizes && (
+                <div className="mt-2 text-xs text-foreground/60">
+                  {spacing && (
+                    <div className="space-y-0.5 border border-solid border-border rounded-sm ml-[1.5rem]">
+                      <div className=" border-b border-b-solid border-border p-1 px-2  ">0 → 0</div>
+                      <div className=" border-b border-b-solid border-border p-1 px-2  ">px → 1px</div>
+                      <div className=" border-b border-b-solid border-border p-1 px-2  ">auto → auto</div>
+                      <div className=" border-b border-b-solid border-border p-1 px-2  ">full → 100%</div>
+                      <div className=" border-b border-b-solid border-border p-1 px-2  ">screen → 100vh</div>
+                      <div className=" border-b border-b-solid border-border p-1 px-2  ">svw → 100svw</div>
+                      <div className=" border-b border-b-solid border-border p-1 px-2  ">lvw → 100lvw</div>
+                      <div className=" border-b border-b-solid border-border p-1 px-2  ">dvw → 100dvw</div>
+                      <div className=" border-b border-b-solid border-border p-1 px-2  ">min → min-content</div>
+                      <div className=" border-b border-b-solid border-border p-1 px-2  ">max → max-content</div>
+                      <div className=" border-b border-b-solid border-border p-1 px-2  ">fit → fit-content</div>
+                    </div>
+                  )}
+                  {borderRadius && (
+                    <div className="space-y-0.5 border border-solid border-border rounded-sm ml-[1.5rem]">
+                      <div className=" border-b border-b-solid border-border p-1 px-2  ">full → calc(infinity * 1px)</div>
+                      <div className=" border-b border-b-solid border-border p-1 px-2  ">none → 0</div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </>
+          )}
         </Sidebar>
         <Content>
           {/* Show calculation inputs in wizard mode, or screen sizes in manual+fluid mode */}
@@ -706,7 +735,7 @@ const ScaleCalculator: React.FC<ScaleCalculatorProps> = ({
           <div className="col-span-2 flex flex-col pt-4">
             <h2 className="mb-4 text-2xl font-bold">Calculated Sizes</h2>
 
-            <div className="flex w-full flex-col gap-12">
+            <div className="flex w-full flex-col gap-4">
               {state?.steps?.map((step, stepIndex) => {
                 const isStepEnabled = clampOverrides?.[step]?.enabled ?? true;
                 const appendUnit = (value: string | number | undefined | null): string | null => {
@@ -753,7 +782,7 @@ const ScaleCalculator: React.FC<ScaleCalculatorProps> = ({
                         >
                           <div className="relative flex w-full flex-col gap-1">
                             <label className="absolute -top-6 text-xs font-medium text-foreground/50">
-                              MIN
+                              {state?.disableFluid ? step.toUpperCase() : `MIN: ${step.toUpperCase()}`}
                             </label>
                             {state?.manualMode ? (
                               <Input
@@ -791,7 +820,7 @@ const ScaleCalculator: React.FC<ScaleCalculatorProps> = ({
                           {!state?.disableFluid && (
                             <div className="relative flex w-full flex-col gap-1">
                               <label className="absolute -top-6 text-xs font-medium text-foreground/50">
-                                MAX
+                                MAX: {step.toUpperCase()}
                               </label>
                               {state?.manualMode ? (
                                 <Input
@@ -842,28 +871,69 @@ const ScaleCalculator: React.FC<ScaleCalculatorProps> = ({
                     </div>
 
                     {font && (
-                      <div className="flex flex-col gap-1 overflow-hidden min-w-0 flex-1">
-                        {minFontSizeValue && (
-                          <p
-                            className="w-full overflow-hidden text-ellipsis whitespace-nowrap !m-0 leading-none text-element"
-                            style={{
-                              fontSize: minFontSizeValue,
-                              lineHeight: 1.15,
-                            }}
-                          >
-                            {step}: The quick brown fox jumps over the lazy dog.
-                          </p>
-                        )}
-                        {!state?.disableFluid && maxFontSizeValue && (
-                          <p
-                            className="w-full overflow-hidden text-ellipsis whitespace-nowrap !m-0 leading-none text-element"
-                            style={{
-                              fontSize: maxFontSizeValue,
-                              lineHeight: 1.15,
-                            }}
-                          >
-                            {step}: The quick brown fox jumps over the lazy dog.
-                          </p>
+                      <div className="relative min-w-0 flex-1 overflow-hidden">
+                        {!state?.disableFluid && maxFontSizeValue ? (
+                          <>
+                            <div
+                              className="flex items-baseline opacity-10"
+                              style={{
+                                minHeight: `calc(${maxFontSizeValue} + 0.5rem)`
+                              }}
+                            >
+                              <p
+                                className="!m-0 text-contrast"
+                                style={{
+                                  fontSize: maxFontSizeValue,
+                                  lineHeight: 1,
+                                  whiteSpace: 'nowrap',
+                                }}
+                              >
+                                MAX: The quick brown fox jumps over the lazy dog.
+                              </p>
+                            </div>
+                            <div
+                              className="absolute top-0 flex items-baseline"
+                              style={{
+                                minHeight: `calc(${maxFontSizeValue} + 1rem)`
+                              }}
+                            >
+                              <p
+                                className="!m-0 text-contrast"
+                                style={{
+                                  fontSize: maxFontSizeValue,
+                                  lineHeight: 1,
+                                  textIndent: '-99999px',
+                                  whiteSpace: 'nowrap',
+                                }}
+                              >
+                                M
+                              </p>
+                              <p
+                                className="!m-0 text-contrast"
+                                style={{
+                                  fontSize: minFontSizeValue,
+                                  lineHeight: 1,
+                                  whiteSpace: 'nowrap',
+                                  paddingLeft: `calc(${maxFontSizeValue} / 20)`
+                                }}
+                              >
+                                MIN: The quick brown fox jumps over the lazy dog.
+                              </p>
+                            </div>
+                          </>
+                        ) : (
+                          <div className="flex items-baseline">
+                            <p
+                              className="!m-0 text-element"
+                              style={{
+                                fontSize: minFontSizeValue,
+                                lineHeight: 1,
+                                whiteSpace: 'nowrap',
+                              }}
+                            >
+                              The quick brown fox jumps over the lazy dog.
+                            </p>
+                          </div>
                         )}
                       </div>
                     )}
