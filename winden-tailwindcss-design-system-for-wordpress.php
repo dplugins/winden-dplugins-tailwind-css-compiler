@@ -15,6 +15,8 @@
  * Text Domain: winden
  */
 
+if (!defined('ABSPATH')) exit; // Exit if accessed directly
+
 define('WINDEN_WEBSITE_URL', get_site_url());
 define('WINDEN_UPLOADS_URL', wp_upload_dir());
 define('WINDEN_PLUGIN_DIR', plugin_dir_path(__FILE__));
