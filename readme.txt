@@ -2,7 +2,7 @@
 Contributors: dplugins
 Donate link: https://dplugins.com/
 Tags: tailwind, tailwindcss, css, page builder, gutenberg
-Requires at least: 6.3
+Requires at least: 6.8
 Tested up to: 6.9
 Stable tag: 1.0.0
 Requires PHP: 8.0
