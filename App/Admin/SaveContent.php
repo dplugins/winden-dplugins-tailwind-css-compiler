@@ -158,6 +158,7 @@ class SaveContent
                     );
 
                     if ($is_old_postcss_error && !$is_scss_error) {
+                        // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log -- Intentional production logging for cache corruption auto-fix
                         error_log('[Winden Auto-Fix] Clearing OLD corrupted cache before saving: ' . $message);
                         delete_option('winden_cache');
 

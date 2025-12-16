@@ -220,6 +220,7 @@ class GetContent
                     );
 
                     if ($is_old_postcss_error && !$is_scss_error) {
+                        // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log -- Intentional production logging for cache corruption auto-fix
                         error_log('[Winden Auto-Fix] Detected OLD corrupted cache on fetch, clearing: ' . $message);
 
                         // Clear corrupted cache
