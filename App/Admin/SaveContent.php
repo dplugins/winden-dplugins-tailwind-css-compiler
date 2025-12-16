@@ -24,7 +24,7 @@ class SaveContent
         $data = json_decode(file_get_contents('php://input'), true);
 
         // Check for the necessary permissions and nonce verification if required
-        if (!current_user_can('edit_posts') || !wp_verify_nonce($data['_nonce'], 'winden_nonce')) {
+        if (!current_user_can('edit_posts') || !wp_verify_nonce(sanitize_text_field(wp_unslash($data['_nonce'] ?? '')), 'winden_nonce')) {
             wp_send_json_error('You are not allowed to perform this action.');
             return;
         }
@@ -128,7 +128,7 @@ class SaveContent
         $data = json_decode(file_get_contents('php://input'), true);
 
         // Check for the necessary permissions and nonce verification if required
-        if (!current_user_can('edit_posts') || !wp_verify_nonce($data['_nonce'] ?? '', 'winden_nonce')) {
+        if (!current_user_can('edit_posts') || !wp_verify_nonce(sanitize_text_field(wp_unslash($data['_nonce'] ?? '')), 'winden_nonce')) {
             wp_send_json_error('You are not allowed to perform this action.');
             return;
         }
@@ -198,7 +198,7 @@ class SaveContent
                 // Update the option in the database
                 update_option('winden_cache', [
                     'createdAt' => $formattedDatetime,
-                    'errors' => json_encode([
+                    'errors' => wp_json_encode([
                         [
                             'title' => 'Error',
                             'message' => 'Error writing file'
@@ -225,7 +225,7 @@ class SaveContent
                 // Errors is already JSON string from frontend
                 $errors = $data['errors'];
             } else {
-                $errors = json_encode([
+                $errors = wp_json_encode([
                     [
                         'title' => 'Error',
                         'message' => "Couldn't create cache"
@@ -254,7 +254,7 @@ class SaveContent
         $data = json_decode(file_get_contents('php://input'), true);
 
         // Check for the necessary permissions and nonce verification if required
-        if (!current_user_can('edit_posts') || !wp_verify_nonce($data['_nonce'], 'winden_nonce')) {
+        if (!current_user_can('edit_posts') || !wp_verify_nonce(sanitize_text_field(wp_unslash($data['_nonce'] ?? '')), 'winden_nonce')) {
             wp_send_json_error('You are not allowed to perform this action.');
             return;
         }
@@ -277,7 +277,7 @@ class SaveContent
         $data = json_decode(file_get_contents('php://input'), true);
 
         // Check for the necessary permissions and nonce verification if required
-        if (!current_user_can('manage_options') || !wp_verify_nonce($data['_nonce'] ?? '', 'winden_nonce')) {
+        if (!current_user_can('manage_options') || !wp_verify_nonce(sanitize_text_field(wp_unslash($data['_nonce'] ?? '')), 'winden_nonce')) {
             wp_send_json_error('You are not allowed to perform this action.');
             return;
         }

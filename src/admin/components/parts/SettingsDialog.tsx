@@ -106,7 +106,7 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
               <SwitchWithLabel
                 label="Gutenberg (FSE)"
                 name="autocomplete_gutenberg"
-                checked={settings.autocomplete_gutenberg}
+                checked={settings.autocomplete_gutenberg ?? false}
                 onChange={onSettingChange("autocomplete_gutenberg")}
               />
               {isProVersion && (
@@ -114,25 +114,25 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
                   <SwitchWithLabel
                     label="Bricks Builder 2"
                     name="autocomplete_bricks"
-                    checked={settings.autocomplete_bricks}
+                    checked={settings.autocomplete_bricks ?? false}
                     onChange={onSettingChange("autocomplete_bricks")}
                   />
                   <SwitchWithLabel
                     label="Oxygen Builder Classic"
                     name="autocomplete_oxygen"
-                    checked={settings.autocomplete_oxygen}
+                    checked={settings.autocomplete_oxygen ?? false}
                     onChange={onSettingChange("autocomplete_oxygen")}
                   />
                   <SwitchWithLabel
                     label="Oxygen Builder 6"
                     name="autocomplete_oxygen6"
-                    checked={settings.autocomplete_oxygen6}
+                    checked={settings.autocomplete_oxygen6 ?? false}
                     onChange={onSettingChange("autocomplete_oxygen6")}
                   />
                   <SwitchWithLabel
                     label="Elementor Builder"
                     name="autocomplete_elementor"
-                    checked={settings.autocomplete_elementor}
+                    checked={settings.autocomplete_elementor ?? false}
                     onChange={onSettingChange("autocomplete_elementor")}
                   />
                 </>
@@ -145,9 +145,9 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
               <SwitchWithLabel
                 label="Gutenberg (FSE)"
                 name="register_wizzard_data_in_fse"
-                checked={settings.register_wizzard_data_in_fse}
+                checked={settings.register_wizzard_data_in_fse ?? false}
                 onChange={onSettingChange("register_wizzard_data_in_fse")}
-              />             
+              />
             </div>
 
             <OptionsHeader title="Dequeue Styles" />
@@ -155,7 +155,7 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
               <SwitchWithLabel
                 label="Gutenberg (FSE)"
                 name="dequeue_styles_gutenberg"
-                checked={settings.dequeue_styles_gutenberg}
+                checked={settings.dequeue_styles_gutenberg ?? false}
                 onChange={onSettingChange("dequeue_styles_gutenberg")}
               />
               {isProVersion && (
@@ -163,13 +163,13 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
                   <SwitchWithLabel
                     label="Bricks Builder"
                     name="dequeue_styles_bricks"
-                    checked={settings.dequeue_styles_bricks}
+                    checked={settings.dequeue_styles_bricks ?? false}
                     onChange={onSettingChange("dequeue_styles_bricks")}
                   />
                   <SwitchWithLabel
                     label="Oxygen Builder"
                     name="dequeue_styles_oxygen"
-                    checked={settings.dequeue_styles_oxygen}
+                    checked={settings.dequeue_styles_oxygen ?? false}
                     onChange={onSettingChange("dequeue_styles_oxygen")}
                   />
                 </>
@@ -194,7 +194,7 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
             <SwitchWithLabel
               label="Fold Sidebar for Winden Editor"
               name="folded_sidebar"
-              checked={settings.folded_sidebar}
+              checked={settings.folded_sidebar ?? false}
               onChange={onSettingChange("folded_sidebar")}
             />
           </TabsContent>
@@ -205,7 +205,7 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
             <SwitchWithLabel
               label="Disable Dev Mode"
               name="disable_dev_mode"
-              checked={settings.disable_dev_mode}
+              checked={settings.disable_dev_mode ?? false}
               onChange={onSettingChange("disable_dev_mode")}
             />
             <p className="text-xsm text-dimmed ml-12 mb-4">
@@ -215,7 +215,7 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
             <SwitchWithLabel
               label="Inline Compiled CSS"
               name="inline_compiled_css"
-              checked={settings.inline_compiled_css}
+              checked={settings.inline_compiled_css ?? false}
               onChange={onSettingChange("inline_compiled_css")}
             />
             <p className="text-xsm text-dimmed ml-12 mb-4">

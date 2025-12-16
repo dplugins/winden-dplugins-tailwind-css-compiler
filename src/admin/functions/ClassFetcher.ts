@@ -35,7 +35,7 @@ export const fetchClasses = async (
   handleFetchedClasses: (classes: string[]) => void
 ): Promise<void> => {
   try {
-    const response = await fetch(`${window.websiteUrl}/wp-admin/admin-ajax.php?action=get_classes`);
+    const response = await fetch(`${window.ajaxUrl || window.websiteUrl + '/wp-admin/admin-ajax.php'}?action=winden_get_classes`);
     const data = await response.json();
 
     if (data.success) {
@@ -193,7 +193,7 @@ export const handleFetchedClasses = async (
     }
 
     try {
-      const response = await fetch(`${window.websiteUrl}/wp-admin/admin-ajax.php?action=save_winden_cache`, {
+      const response = await fetch(`${window.ajaxUrl || window.websiteUrl + '/wp-admin/admin-ajax.php'}?action=save_winden_cache`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

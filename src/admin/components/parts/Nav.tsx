@@ -245,7 +245,7 @@ const Nav: React.FC<NavProps> = ({
     setLicenseProcessing(true);
     setLicenseError(null);
     const response = await fetch(
-      `${(window as any).websiteUrl}/wp-admin/admin-ajax.php?action=update_license`,
+      `${(window as any).ajaxUrl}?action=update_license`,
       {
         method: "POST",
         headers: {

@@ -33,27 +33,18 @@ class FSE extends BaseProvider
     }
 
     /**
-     * Enqueue block editor assets for non-iframe mode
+     * Enqueue block editor assets
+     *
+     * CSS is injected into iframe via inject_iframe_styles() method
+     * This method only loads compiler/watcher scripts for the parent page
      */
     public function enqueue_block_editor_assets()
     {
         $settings = SettingsOptions::getWindenOptions();
         $dev_mode_disabled = $settings['disable_dev_mode'] ?? false;
 
-        // Get the uploads directory info
-        $upload_dir = wp_upload_dir();
-        $css_file_path = $upload_dir['basedir'] . '/winden/output.css';
-        $css_file_url = $upload_dir['baseurl'] . '/winden/output.css';
-
-        // Enqueue CSS for non-iframe mode
-        if (file_exists($css_file_path)) {
-            wp_enqueue_style(
-                'winden-editor-styles',
-                $css_file_url,
-                array('wp-edit-blocks'),
-                filemtime($css_file_path)
-            );
-        }
+        // NOTE: CSS is NOT enqueued here - it's injected into iframe via inject_iframe_styles()
+        // This prevents Winden styles from affecting the WordPress admin UI
 
         // If dev mode is enabled, load compiler and watcher scripts
         if (!$dev_mode_disabled) {

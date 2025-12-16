@@ -49,7 +49,7 @@ class SettingsSaveGet
         $data = json_decode(file_get_contents('php://input'), true);
 
         // Check for the necessary permissions and nonce verification if required
-        if (!current_user_can('manage_options') || !wp_verify_nonce($data['_nonce'], 'winden_nonce')) {
+        if (!current_user_can('manage_options') || !wp_verify_nonce(sanitize_text_field(wp_unslash($data['_nonce'] ?? '')), 'winden_nonce')) {
             wp_send_json_error('You are not allowed to perform this action.');
             return;
         }

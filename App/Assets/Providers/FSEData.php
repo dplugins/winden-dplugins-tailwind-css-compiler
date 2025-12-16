@@ -878,7 +878,7 @@ class FSEData
             'fluid' => false,
             'fontSizes' => $theme_json['settings']['typography']['fontSizes'] ?? []
         ];
-        echo '"typography": ' . json_encode($typography, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+        echo '"typography": ' . wp_json_encode($typography, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
 ?>
                 </pre>
             </div>
@@ -900,7 +900,7 @@ class FSEData
                 'vw'
             ]
         ];
-        echo '"spacing": ' . json_encode($spacing, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+        echo '"spacing": ' . wp_json_encode($spacing, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
 ?>
                 </pre>
             </div>
@@ -916,7 +916,7 @@ class FSEData
             'defaultPalette' => false,
             'palette' => $theme_json['settings']['color']['palette'] ?? []
         ];
-        echo '"color": ' . json_encode($colors, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+        echo '"color": ' . wp_json_encode($colors, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
 ?>
                 </pre>
             </div>

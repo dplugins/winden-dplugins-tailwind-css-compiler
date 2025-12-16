@@ -5,6 +5,7 @@ import { Button } from '@el/Button';
 declare global {
   interface Window {
     websiteUrl?: string;
+    ajaxUrl?: string;
     nonce?: string;
   }
 }
@@ -29,7 +30,7 @@ const License: React.FC<LicenseProps> = ({ setLicenseState }) => {
     if (licenseKey?.length) {
       setProcessing(true);
       setError(null);
-      const response = await fetch(`${window.websiteUrl}/wp-admin/admin-ajax.php?action=update_license`, {
+      const response = await fetch(`${window.ajaxUrl || window.websiteUrl + '/wp-admin/admin-ajax.php'}?action=update_license`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -25,7 +25,7 @@ const normalizeStatus = (status: string | null | undefined): 'completed' | 'fail
  */
 export const fetchCacheStatus = async (setCacheStatus: (status: CacheStatusData) => void): Promise<CacheStatusData | null> => {
   try {
-    const response = await fetch(`${(window as any).websiteUrl}/wp-admin/admin-ajax.php?action=get_winden_cache`);
+    const response = await fetch(`${(window as any).ajaxUrl}?action=get_winden_cache`);
     const data = await response.json();
 
     if (data.success) {

@@ -15,7 +15,7 @@ class SettingsPage
         add_action('admin_menu', [$this, 'add_settings_page']);
         add_action('admin_init', [$this, 'register_settings']);
         add_action('admin_post_generate_classes', [$this, 'generate_classes_file']);
-        add_action('wp_ajax_get_classes', [$this, 'get_classes']); // Register the AJAX action
+        add_action('wp_ajax_winden_get_classes', [$this, 'get_classes']); // Register the AJAX action
     }
 
     public function modify_script_loader_tag($tag, $handle, $src)
@@ -117,7 +117,7 @@ class SettingsPage
         );
 
         wp_enqueue_style(
-            'wp-editor',
+            'winden-wp-editor',
             '/wp-includes/css/dist/editor/style.css',
             [],
             filemtime(ABSPATH . 'wp-includes/css/dist/editor/style.css')

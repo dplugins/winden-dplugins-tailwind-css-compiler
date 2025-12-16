@@ -1343,7 +1343,7 @@ async function autoExtractBreakpoints() {
                         const currentPath = window.location.pathname;
                         const wpAdminIndex = currentPath.indexOf('/wp-admin/');
                         const basePath = wpAdminIndex > 0 ? currentPath.substring(0, wpAdminIndex) : '';
-                        ajaxUrl = window.location.origin + basePath + '/wp-admin/admin-ajax.php';
+                        ajaxUrl = window.ajaxUrl || (window.location.origin + basePath + '/wp-admin/admin-ajax.php');
                     }
 
                     ajaxUrl += '?action=get_winden_content';
@@ -1390,7 +1390,7 @@ async function autoExtractBreakpoints() {
                     const currentPath = window.location.pathname;
                     const wpAdminIndex = currentPath.indexOf('/wp-admin/');
                     const basePath = wpAdminIndex > 0 ? currentPath.substring(0, wpAdminIndex) : '';
-                    ajaxUrl = window.location.origin + basePath + '/wp-admin/admin-ajax.php';
+                    ajaxUrl = window.ajaxUrl || (window.location.origin + basePath + '/wp-admin/admin-ajax.php');
                 }
                 ajaxUrl += '?action=get_winden_content';
 

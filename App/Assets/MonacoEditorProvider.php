@@ -31,7 +31,7 @@ class MonacoEditorProvider
         // Expose Tailwind autocomplete data to JavaScript
         $inline_script = sprintf(
             'window.windenMonacoData = %s;',
-            json_encode([
+            wp_json_encode([
                 'classes' => array_values($classes),
                 'suggestions' => array_values($suggestions),
                 'tailwindVersion' => $tailwind_version,
@@ -71,8 +71,8 @@ class MonacoEditorProvider
         // Expose autocomplete data globally for other plugins
         $inline_script = sprintf(
             'window.winden_autocomplete = %s; window.winden_autocomplete_screens = %s;',
-            json_encode(array_values($classes)),
-            json_encode(array_values($screens))
+            wp_json_encode(array_values($classes)),
+            wp_json_encode(array_values($screens))
         );
 
         wp_add_inline_script('winden-plain-classes-data', $inline_script);
@@ -120,7 +120,7 @@ class MonacoEditorProvider
             true
         );
 
-        $inline_options = 'window.tailwind_compiler_options = ' . json_encode($compiler_options) . ';';
+        $inline_options = 'window.tailwind_compiler_options = ' . wp_json_encode($compiler_options) . ';';
         wp_add_inline_script('winden-compiler-options', $inline_options);
 
         // Note: SCSS compilation is handled by the bundled Dart Sass in build/scss-compiler/sass.dart.min.js

@@ -307,12 +307,12 @@ class ProvidersHelpers
             true
         );
 
-        $inline_tw_compiler_options = 'window.tailwind_compiler_options = ' . json_encode($compiler_options);
+        $inline_tw_compiler_options = 'window.tailwind_compiler_options = ' . wp_json_encode($compiler_options);
         wp_add_inline_script('tailwind-compiler-options', $inline_tw_compiler_options);
 
         // Add frontend constants inline so they're available before tailwindcss-watcher.js runs
-        $inIframe = json_encode(Builders::isBricksEditorFrame() || Builders::isOxygenEditorFrame() || Builders::isOxygen6EditorFrame() || Builders::isElementorEditorPage());
-        $apiVersion2 = json_encode(Builders::has_api_version_2_block());
+        $inIframe = wp_json_encode(Builders::isBricksEditorFrame() || Builders::isOxygenEditorFrame() || Builders::isOxygen6EditorFrame() || Builders::isElementorEditorPage());
+        $apiVersion2 = wp_json_encode(Builders::has_api_version_2_block());
         $uploadUrl = WINDEN_UPLOADS_URL['baseurl'];
         $ajaxurl = admin_url('admin-ajax.php');
 
@@ -337,9 +337,9 @@ window.ajaxurl = '$ajaxurl';";
 
     public static function frontend_consts()
     {
-        $inIframe = json_encode(Builders::isBricksEditorFrame() || Builders::isOxygenEditorFrame() || Builders::isOxygen6EditorFrame() || Builders::isElementorEditorPage());
+        $inIframe = wp_json_encode(Builders::isBricksEditorFrame() || Builders::isOxygenEditorFrame() || Builders::isOxygen6EditorFrame() || Builders::isElementorEditorPage());
         $uploadUrl = WINDEN_UPLOADS_URL['baseurl'];
-        $apiVersion2 = json_encode(Builders::has_api_version_2_block());
+        $apiVersion2 = wp_json_encode(Builders::has_api_version_2_block());
         $ajaxurl = admin_url('admin-ajax.php');
 
         // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Values are safely escaped

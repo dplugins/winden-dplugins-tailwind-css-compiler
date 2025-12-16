@@ -48,10 +48,10 @@ class Admin
 
     function themesOrPluginsData()
     {
-        $bricksData = json_encode(Builders::isBricksThemeActivated() ? BuildersIntegration::bricks() : []);
-        $oxygenData = json_encode(Builders::isOxygenPluginActivated() ? BuildersIntegration::oxygen() : []);
-        $fseData = json_encode(BuildersIntegration::fse());
-        $fontHeroData = json_encode(Builders::isFontHeroPluginActivated() ? BuildersIntegration::fontHero() : []);
+        $bricksData = wp_json_encode(Builders::isBricksThemeActivated() ? BuildersIntegration::bricks() : []);
+        $oxygenData = wp_json_encode(Builders::isOxygenPluginActivated() ? BuildersIntegration::oxygen() : []);
+        $fseData = wp_json_encode(BuildersIntegration::fse());
+        $fontHeroData = wp_json_encode(Builders::isFontHeroPluginActivated() ? BuildersIntegration::fontHero() : []);
 
         // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- JSON data is safely encoded
         echo "<script type='text/javascript'>
@@ -67,15 +67,17 @@ class Admin
         $websiteUrl = WINDEN_WEBSITE_URL;
         $url = WINDEN_PLUGIN_URL;
         $uploadUrl = WINDEN_UPLOADS_URL['baseurl'];
+        $ajaxUrl = admin_url('admin-ajax.php');
         $nonce = wp_create_nonce('winden_nonce');
-        $inIframe = json_encode(Builders::isBricksEditorFrame() || Builders::isOxygenEditorFrame() || Builders::isElementorEditorPage());
-        $apiVersion2 = json_encode(Builders::has_api_version_2_block());
+        $inIframe = wp_json_encode(Builders::isBricksEditorFrame() || Builders::isOxygenEditorFrame() || Builders::isElementorEditorPage());
+        $apiVersion2 = wp_json_encode(Builders::has_api_version_2_block());
 
         // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- URLs and nonces are safely escaped
         echo "<script type='text/javascript'>
             window.pluginUrl = '" . esc_js($url) . "';
             window.uploadUrl = '" . esc_js($uploadUrl) . "';
             window.websiteUrl = '" . esc_js($websiteUrl) . "';
+            window.ajaxUrl = '" . esc_js($ajaxUrl) . "';
             window.nonce = '" . esc_js($nonce) . "';
             window.inIframe = " . esc_js($inIframe) . ";
             window.apiVersion2 = " . esc_js($apiVersion2) . ";

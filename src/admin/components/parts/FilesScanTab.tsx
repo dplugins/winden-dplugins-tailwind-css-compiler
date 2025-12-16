@@ -66,7 +66,7 @@ export const FilesScanTab: React.FC<FilesScanTabProps> = ({ settings, handleChan
   };
 
   // Use WordPress AJAX endpoint
-  const apiEndpoint = `${(window as any).websiteUrl || ''}/wp-admin/admin-ajax.php?action=winden_browse_files&_nonce=${(window as any).nonce || ''}`;
+  const apiEndpoint = `${(window as any).ajaxUrl || ''}?action=winden_browse_files&_nonce=${(window as any).nonce || ''}`;
 
   return (
     <div className="space-y-6">

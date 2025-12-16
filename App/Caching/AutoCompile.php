@@ -118,7 +118,7 @@ class AutoCompile
         }
 
         // Check nonce
-        if (!isset($_POST['_nonce']) || !wp_verify_nonce($_POST['_nonce'], 'winden_nonce')) {
+        if (!isset($_POST['_nonce']) || !wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['_nonce'])), 'winden_nonce')) {
             wp_send_json_error('Invalid nonce');
             return;
         }
