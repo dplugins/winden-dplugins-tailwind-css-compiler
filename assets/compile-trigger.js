@@ -1,6 +1,10 @@
 /**
- * Winden Auto-Compile for All Editors
- * Uses builder-specific save events for instant compilation
+ * Winden Compile Trigger
+ *
+ * Listens to save events from all page builders and triggers CSS compilation
+ *
+ * Purpose: Detect saves and trigger Tailwind CSS compilation
+ * Dependencies: css-injector.js (window.windenCSSInjector), window.tailwindify (Tailwind compiler)
  */
 
 (function() {
@@ -52,67 +56,12 @@
         });
     }
 
-    // Helper: Hot-reload compiled CSS in the page and iframe
+    // Helper: Use css-injector.js to reload CSS
     function reloadCompiledCSS(css) {
-        function injectCSS(doc) {
-            let styleTag = doc.getElementById('winden-compiled-css-hotreload');
-            if (!styleTag) {
-                styleTag = doc.createElement('style');
-                styleTag.id = 'winden-compiled-css-hotreload';
-                doc.head.appendChild(styleTag);
-            }
-            styleTag.textContent = css;
-        }
-
-        // Check if we're in Oxygen main builder (NOT the iframe)
-        // Oxygen main builder has ct_builder=true but NOT oxygen_iframe in URL
-        const isOxygenMainBuilder = window.location.href.includes('ct_builder=true') &&
-                                    !window.location.href.includes('oxygen_iframe=true');
-
-        // For Gutenberg, ONLY inject into iframe, NOT into main editor page
-        // This prevents Winden styles from affecting the WordPress admin UI
-        const shouldSkipMainDocument = isOxygenMainBuilder || isGutenberg;
-
-        // Skip injection in Oxygen main builder or Gutenberg main editor
-        if (!shouldSkipMainDocument) {
-            // Inject in current document
-            injectCSS(document);
-        }
-
-        // If in parent window, also inject in Bricks iframe
-        if (window === window.parent) {
-            const bricksIframe = document.getElementById('bricks-builder-iframe');
-            if (bricksIframe && bricksIframe.contentDocument) {
-                try {
-                    injectCSS(bricksIframe.contentDocument);
-                } catch (e) {
-                    // Silent fail - cross-origin restrictions
-                }
-            }
-
-            // Also inject in Oxygen iframe if we're in Oxygen main builder
-            if (isOxygenMainBuilder) {
-                const oxygenIframe = document.querySelector('iframe[src*="oxygen_iframe"]');
-                if (oxygenIframe && oxygenIframe.contentDocument) {
-                    try {
-                        injectCSS(oxygenIframe.contentDocument);
-                    } catch (e) {
-                        // Silent fail - cross-origin restrictions
-                    }
-                }
-            }
-
-            // Also inject in Gutenberg iframe (WordPress 5.9+)
-            if (isGutenberg) {
-                const gutenbergIframe = document.querySelector('iframe[name="editor-canvas"]');
-                if (gutenbergIframe && gutenbergIframe.contentDocument) {
-                    try {
-                        injectCSS(gutenbergIframe.contentDocument);
-                    } catch (e) {
-                        // Silent fail - cross-origin restrictions
-                    }
-                }
-            }
+        if (window.windenCSSInjector && window.windenCSSInjector.reloadCompiledCSS) {
+            window.windenCSSInjector.reloadCompiledCSS(css);
+        } else {
+            console.error('[Winden] CSS injector not loaded');
         }
     }
 
@@ -134,7 +83,14 @@
 
     // Initialize
     function init() {
-        // Compile on page load if needed
+        // Don't compile on page load for Fancoolo admin page - only after save event
+        if (isFancoolo) {
+            // For Fancoolo, skip initial compile - only compile on save event
+            // CSS will be compiled when the 'fancoolo:postSaved' event fires
+            return;
+        }
+
+        // Compile on page load if needed (for other builders)
         if (window.windenAutoCompile.needsCompile) {
             compile();
         }

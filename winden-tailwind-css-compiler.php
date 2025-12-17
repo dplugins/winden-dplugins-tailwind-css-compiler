@@ -1,7 +1,7 @@
 <?php
 
 /**
- * Plugin Name: Winden - Tailwind CSS design system
+ * Plugin Name: Winden — Tailwind CSS Compiler
  * Plugin URI:  https://dplugins.com/products/winden/
  * Description: Universal Tailwind CSS integration for WordPress Page Builders.
  * Version: 1.0.0

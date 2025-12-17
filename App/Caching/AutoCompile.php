@@ -21,6 +21,9 @@ class AutoCompile
         // Hook into post save actions
         add_action('save_post', [$this, 'on_post_save'], 10, 3);
 
+        // Hook into Fancoolo post save (generic hook from Fancoolo plugin)
+        add_action('fancoolo_post_saved', [$this, 'on_fancoolo_post_save'], 10, 3);
+
         // AJAX endpoints
         add_action('wp_ajax_winden_trigger_recompile', [$this, 'ajax_trigger_recompile']);
         add_action('wp_ajax_winden_compile_from_crawled', [$this, 'ajax_compile_from_crawled']);
@@ -73,6 +76,30 @@ class AutoCompile
     }
 
     /**
+     * Triggered when a Fancoolo post is saved
+     *
+     * @param int $post_id The post ID
+     * @param \WP_Post $post The post object
+     * @param bool $update Whether this is an existing post being updated
+     */
+    public function on_fancoolo_post_save($post_id, $post, $update)
+    {
+        // Avoid infinite loops
+        if (self::$is_compiling) {
+            return;
+        }
+
+        // Mark that we're processing to prevent recursion
+        self::$is_compiling = true;
+
+        // Schedule the crawl to run after the request completes
+        // This prevents slowing down the save operation
+        add_action('shutdown', function() use ($post_id) {
+            $this->crawl_and_flag($post_id);
+        });
+    }
+
+    /**
      * Crawl classes and store for compilation
      *
      * @param int $post_id Optional post ID for context
@@ -98,7 +125,7 @@ class AutoCompile
             }
 
         } catch (\Exception $e) {
-            // Silently fail
+            error_log('[Winden AutoCompile] Error: ' . $e->getMessage());
         } finally {
             // Reset the flag
             self::$is_compiling = false;
@@ -248,15 +275,16 @@ class AutoCompile
         $is_oxygen = Builders::isOxygenEditorPage();
         $is_oxygen6 = Builders::isOxygen6EditorPage();
         $is_elementor = isset($_GET['action']) && $_GET['action'] === 'elementor';
-        $is_builder = $is_bricks || $is_oxygen || $is_oxygen6 || $is_elementor;
+        $is_fancoolo = Builders::isFancooloEditorPage();
+        $is_builder = $is_bricks || $is_oxygen || $is_oxygen6 || $is_elementor || $is_fancoolo;
 
         // Don't load on frontend unless it's a builder editor
         if (!is_admin() && !$is_builder) {
             return;
         }
 
-        // Only load on post edit screens OR in page builders
-        if ($hook && !in_array($hook, ['post.php', 'post-new.php']) && !$is_builder) {
+        // Only load on post edit screens OR in page builders OR Fancoolo admin page
+        if ($hook && !in_array($hook, ['post.php', 'post-new.php', 'toplevel_page_fancoolo-app']) && !$is_builder) {
             return;
         }
 
@@ -283,8 +311,17 @@ class AutoCompile
             'after'
         );
 
-        // Enqueue auto-compile script that listens for post save
-        $dependencies = ['winden-compiler-module', 'jquery'];
+        // Enqueue CSS injector (no dependencies - pure injection logic)
+        wp_enqueue_script(
+            'winden-css-injector',
+            WINDEN_PLUGIN_URL . 'assets/css-injector.js',
+            [],
+            filemtime(WINDEN_PLUGIN_DIR . 'assets/css-injector.js'),
+            true
+        );
+
+        // Enqueue compile trigger script that listens for post save
+        $dependencies = ['winden-compiler-module', 'winden-css-injector', 'jquery'];
 
         // Add Gutenberg dependencies if available
         if (function_exists('get_current_screen')) {
@@ -296,14 +333,14 @@ class AutoCompile
         }
 
         wp_enqueue_script(
-            'winden-auto-compile',
-            WINDEN_PLUGIN_URL . 'assets/post-save-compile.js',
+            'winden-compile-trigger',
+            WINDEN_PLUGIN_URL . 'assets/compile-trigger.js',
             $dependencies,
-            filemtime(WINDEN_PLUGIN_DIR . 'assets/post-save-compile.js'),
+            filemtime(WINDEN_PLUGIN_DIR . 'assets/compile-trigger.js'),
             true
         );
 
-        wp_localize_script('winden-auto-compile', 'windenAutoCompile', [
+        wp_localize_script('winden-compile-trigger', 'windenAutoCompile', [
             'needsCompile' => get_option('winden_needs_recompile', false),
             'clearCache' => get_option('winden_clear_cache_flag', false),
             'ajaxUrl' => admin_url('admin-ajax.php'),

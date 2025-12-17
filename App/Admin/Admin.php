@@ -14,6 +14,7 @@ use Winden\App\Assets\DequeueStyles;
 use Winden\App\Helpers\Builders;
 use Winden\App\Helpers\BuildersIntegration;
 use Winden\App\Helpers\LicenseManager;
+use Winden\App\Frontend\BreakpointIndicator;
 
 new SettingsPage();
 new GetContent();
@@ -23,6 +24,7 @@ new DequeueStyles();
 new SettingsPageBodyClass();
 new TopBar();
 new MigrationNotice();
+new BreakpointIndicator();
 
 // Pro features - Load Pro entry point only if pro folder exists
 // This ensures the plugin works when /pro/ folder is removed (WordPress.org free version)

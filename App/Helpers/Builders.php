@@ -219,6 +219,21 @@ class Builders
     }
 
     // ------------------------------------------------------------------------
+    // Fancoolo
+    // ------------------------------------------------------------------------
+
+    public static function isFancooloEditorPage()
+    {
+        // Check if we're on Fancoolo's admin page
+        return isset($_GET['page']) && $_GET['page'] === 'fancoolo-app';
+    }
+
+    public static function isFancooloPluginActivated()
+    {
+        return is_plugin_active('fancoolo/fancoolo.php') || class_exists('FanCoolo\\App');
+    }
+
+    // ------------------------------------------------------------------------
     // Version
     // ------------------------------------------------------------------------
 

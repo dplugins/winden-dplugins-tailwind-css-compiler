@@ -37,6 +37,88 @@ class SettingsPage
             sprintf('data:image/svg+xml;base64,%s', base64_encode($icon)),
             // 0 // Position (optional)
         );
+
+        // Rename the default submenu from "Winden" to "Settings"
+        add_submenu_page(
+            'winden', // Parent slug
+            'Winden Settings', // Page title
+            'Settings', // Menu title (changed from "Winden")
+            'manage_options', // Capability
+            'winden', // Menu slug (same as parent)
+            [$this, 'create_settings_page'] // Callback function
+        );
+
+        // Add submenu for Breakpoint Indicator toggle
+        add_submenu_page(
+            'winden', // Parent slug
+            'Breakpoint Indicator', // Page title
+            'Breakpoint Indicator', // Menu title
+            'manage_options', // Capability
+            'winden-breakpoint-indicator', // Menu slug
+            [$this, 'toggle_breakpoint_indicator'] // Callback function
+        );
+    }
+
+    /**
+     * Handle breakpoint indicator toggle
+     */
+    public function toggle_breakpoint_indicator()
+    {
+        // Check user capabilities
+        if (!current_user_can('manage_options')) {
+            wp_die('Unauthorized user');
+        }
+
+        // Handle toggle action
+        if (isset($_POST['winden_toggle_breakpoint_indicator'])) {
+            check_admin_referer('winden_breakpoint_indicator_toggle');
+
+            $current_status = get_option('winden_breakpoint_indicator_enabled', 'no');
+            $new_status = $current_status === 'yes' ? 'no' : 'yes';
+
+            update_option('winden_breakpoint_indicator_enabled', $new_status);
+
+            $message = $new_status === 'yes'
+                ? 'Breakpoint Indicator enabled successfully!'
+                : 'Breakpoint Indicator disabled successfully!';
+
+            echo '<div class="notice notice-success is-dismissible"><p>' . esc_html($message) . '</p></div>';
+        }
+
+        $is_enabled = get_option('winden_breakpoint_indicator_enabled', 'no') === 'yes';
+        $button_text = $is_enabled ? 'Disable Breakpoint Indicator' : 'Enable Breakpoint Indicator';
+        $status_text = $is_enabled ? 'Currently: <strong>Enabled</strong>' : 'Currently: <strong>Disabled</strong>';
+
+        ?>
+        <div class="wrap">
+            <h1>Breakpoint Indicator</h1>
+            <p>Toggle the breakpoint indicator that appears on the frontend for logged-in users.</p>
+
+            <div class="card" style="max-width: 600px; padding: 20px; margin-top: 20px;">
+                <h2 style="margin-top: 0;">Status</h2>
+                <p style="font-size: 16px;"><?php echo wp_kses_post($status_text); ?></p>
+
+                <form method="post" action="">
+                    <?php wp_nonce_field('winden_breakpoint_indicator_toggle'); ?>
+                    <input type="hidden" name="winden_toggle_breakpoint_indicator" value="1">
+                    <button type="submit" class="button button-primary button-large">
+                        <?php echo esc_html($button_text); ?>
+                    </button>
+                </form>
+
+                <hr style="margin: 30px 0;">
+
+                <h3>What is the Breakpoint Indicator?</h3>
+                <ul style="line-height: 1.8;">
+                    <li>Shows current responsive breakpoint in bottom-right corner</li>
+                    <li>Displays screen width in pixels</li>
+                    <li>Preview different breakpoints with button interface</li>
+                    <li>Keyboard shortcuts: Cmd/Ctrl + Arrow keys to navigate, ESC to exit</li>
+                    <li>Only visible to logged-in users on the frontend</li>
+                </ul>
+            </div>
+        </div>
+        <?php
     }
 
     public function register_settings()
