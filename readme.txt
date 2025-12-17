@@ -1,4 +1,4 @@
-=== Winden - Tailwind CSS design system for WordPress ===
+=== Winden - Tailwind CSS design system ===
 Contributors: dplugins
 Donate link: https://dplugins.com/
 Tags: tailwind, tailwindcss, css, page builder, gutenberg
