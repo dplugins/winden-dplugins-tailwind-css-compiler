@@ -159,10 +159,16 @@ class GetContent
         if ($config) {
             // Unserialize the data
             $configArray = maybe_unserialize($config);
+
+            // Ensure required keys exist with defaults
+            $javascript = isset($configArray['javascript']) ? $configArray['javascript'] : '';
+            $scss = isset($configArray['scss']) ? $configArray['scss'] : '';
+            $wizzard = isset($configArray['wizzard']) ? $configArray['wizzard'] : [];
+
             $this->handle_json_response([
-                'javascript' => base64_encode($configArray['javascript']),
-                'scss' => base64_encode($configArray['scss']), // Include SCSS in the response
-                'wizzard' => ($configArray['wizzard'])
+                'javascript' => base64_encode($javascript),
+                'scss' => base64_encode($scss), // Include SCSS in the response
+                'wizzard' => $wizzard
             ], 'Content fetched successfully', 'Invalid JSON structure in the configuration');
         } else {
             wp_send_json_error(['message' => 'No content found in the configuration']);

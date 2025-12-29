@@ -192,8 +192,8 @@ function hashString(str, maxLength = 10000) {
   if (str.length > maxLength) {
     const third = Math.floor(maxLength / 3);
     const sampleStr = str.slice(0, third) +
-                     str.slice(Math.floor((str.length - third) / 2), Math.floor((str.length - third) / 2) + third) +
-                     str.slice(-third);
+      str.slice(Math.floor((str.length - third) / 2), Math.floor((str.length - third) / 2) + third) +
+      str.slice(-third);
     str = sampleStr;
   }
 
@@ -406,7 +406,7 @@ function hasScssFeatures(css) {
   const hasScssParentSelector = /&[_-]{2}/.test(css) || /&-[a-z]/.test(css);
 
   return hasScssVariables || hasMixins || hasIncludes || hasExtends ||
-         hasScssFunctions || hasComments || hasScssParentSelector;
+    hasScssFunctions || hasComments || hasScssParentSelector;
 }
 
 /**
@@ -699,8 +699,8 @@ function createModuleSandbox() {
  */
 function isCommonJsConfig(configString) {
   return configString.includes('module.exports') ||
-         configString.includes('exports.') ||
-         (configString.includes('require(') && !configString.includes('export'));
+    configString.includes('exports.') ||
+    (configString.includes('require(') && !configString.includes('export'));
 }
 
 /**
@@ -891,9 +891,9 @@ async function loadModule(modulePath, base, resourceHint, configFileString) {
   // Allows: @plugin "daisyui"; @plugin "flowbite"; @plugin "any-npm-package";
   let resolvedPath = modulePath;
   if (!modulePath.startsWith('https://') &&
-      !modulePath.startsWith('http://') &&
-      !modulePath.startsWith('./') &&
-      !modulePath.startsWith('../')) {
+    !modulePath.startsWith('http://') &&
+    !modulePath.startsWith('./') &&
+    !modulePath.startsWith('../')) {
     resolvedPath = `https://esm.sh/${modulePath}`;
   }
 
@@ -1209,16 +1209,16 @@ function configExtractor() {
         @import "tailwindcss/theme.css" layer(theme);
         @import "tailwindcss/utilities.css" layer(utilities);
       `);
-      
+
       // Extract configuration from all sources
       const sources = {
         tailwindDefaults,
         wizard: wizardCss || '',
         windenStyles: windenStylesCss || ''
       };
-      
+
       const config = extractConfigFromSources(sources);
-      
+
       return {
         config: config.merged,
         sources: config.sources,
@@ -1241,14 +1241,14 @@ window.extractTailwindConfig = configExtractor();
 function styleGuideConfigExtractor() {
   async function extractStyleGuideConfig(customCss, wizardCss, windenStylesCss) {
     try {
-      
+
       // Get Tailwind defaults from the bundled CSS with basic imports
       const tailwindDefaults = await bundleCSS(`
         @layer theme, base, components, utilities;
         @import "tailwindcss/theme.css" layer(theme);
         @import "tailwindcss/utilities.css" layer(utilities);
       `);
-      
+
       // Extract configuration from all sources
       const sources = {
         tailwindDefaults, // Use actual Tailwind defaults
@@ -1258,10 +1258,10 @@ function styleGuideConfigExtractor() {
       };
 
       const config = extractConfigFromSources(sources);
-      
+
       // Convert to StyleGuide format
       const styleGuideConfig = convertToStyleGuideFormat(config.merged);
-      
+
       // Expose breakpoints for plain classes editors (Tailwind v4)
       if (config.merged.breakpoints) {
         const breakpointKeys = Object.keys(config.merged.breakpoints);
@@ -1270,7 +1270,7 @@ function styleGuideConfigExtractor() {
         window.winden_autocomplete_screens = breakpointKeys;
         window.parent.winden_autocomplete_screens = breakpointKeys;
       }
-      
+
       return {
         config: styleGuideConfig,
         sources: config.sources,
@@ -1292,145 +1292,145 @@ window.convertJsConfigToCss = convertJsConfigToCss;
 
 // OPTIMIZATION: Auto-extract breakpoints with retry logic
 async function autoExtractBreakpoints() {
-    try {
-        let wizardContent = '';
-        let windenStylesContent = '';
+  try {
+    let wizardContent = '';
+    let windenStylesContent = '';
 
-        // Try to get wizard content from immediate sources
-        if (window.winden_editor?.wizzard?.configCode) {
-            wizardContent = window.winden_editor.wizzard.configCode;
-        }
-
-        if (window.winden_editor?.scss) {
-            windenStylesContent = window.winden_editor.scss;
-        }
-
-        // If not available, try backend with retry logic
-        if (!wizardContent) {
-            const maxRetries = 1;
-            let lastError = null;
-
-            for (let attempt = 0; attempt <= maxRetries; attempt++) {
-                try {
-                    // Add delay before retry
-                    if (attempt > 0) {
-                        await new Promise(resolve => setTimeout(resolve, 500));
-                    }
-
-                    // Use proper AJAX URL that works with subdirectory WordPress installations
-                    // Try multiple sources, with intelligent fallback for iframes
-                    let ajaxUrl;
-
-                    if (window.windenData?.ajaxUrl) {
-                        ajaxUrl = window.windenData.ajaxUrl;
-                    } else if (window.windenAutoCompile?.ajaxUrl) {
-                        ajaxUrl = window.windenAutoCompile.ajaxUrl;
-                    } else if (window.parent !== window) {
-                        // In iframe: try to get from parent window (with cross-origin protection)
-                        try {
-                            if (window.parent.windenAutoCompile?.ajaxUrl) {
-                                ajaxUrl = window.parent.windenAutoCompile.ajaxUrl;
-                            }
-                        } catch (e) {
-                            // Cross-origin access blocked - ignore and fall through to fallback
-                            console.debug('[winden] Cross-origin parent access blocked, using fallback URL construction');
-                        }
-                    }
-
-                    if (!ajaxUrl) {
-                        // Fallback: construct from current location
-                        // Extract WordPress base path from current URL
-                        const currentPath = window.location.pathname;
-                        const wpAdminIndex = currentPath.indexOf('/wp-admin/');
-                        const basePath = wpAdminIndex > 0 ? currentPath.substring(0, wpAdminIndex) : '';
-                        ajaxUrl = window.ajaxUrl || (window.location.origin + basePath + '/wp-admin/admin-ajax.php');
-                    }
-
-                    ajaxUrl += '?action=get_winden_content';
-                    const response = await fetch(ajaxUrl);
-
-                    if (!response.ok) {
-                        throw new Error(`HTTP ${response.status} ${response.statusText}`);
-                    }
-
-                    const data = await response.json();
-
-                    if (data.success) {
-                        wizardContent = data.data.wizzard?.configCode || '';
-                        windenStylesContent = data.data.scss ? atob(data.data.scss) : '';
-                        break; // Success, exit retry loop
-                    } else {
-                        // On fresh install, no content exists yet - this is expected
-                        console.warn('[winden] autoExtractBreakpoints: No content in database yet, using empty values');
-                        wizardContent = '';
-                        windenStylesContent = '';
-                        break; // Exit retry loop, no need to retry
-                    }
-                } catch (error) {
-                    lastError = error;
-                    if (attempt < maxRetries) {
-                        console.warn(`[winden] autoExtractBreakpoints: Fetch failed (attempt ${attempt + 1}/${maxRetries + 1}), retrying...`, {
-                            error: error.message
-                        });
-                    }
-                }
-            }
-
-            // Log error if all retries failed
-            if (lastError && !wizardContent) {
-                // Construct same URL logic for error reporting
-                let ajaxUrl;
-                if (window.windenData?.ajaxUrl) {
-                    ajaxUrl = window.windenData.ajaxUrl;
-                } else if (window.windenAutoCompile?.ajaxUrl) {
-                    ajaxUrl = window.windenAutoCompile.ajaxUrl;
-                } else if (window.parent !== window && window.parent.windenAutoCompile?.ajaxUrl) {
-                    ajaxUrl = window.parent.windenAutoCompile.ajaxUrl;
-                } else {
-                    const currentPath = window.location.pathname;
-                    const wpAdminIndex = currentPath.indexOf('/wp-admin/');
-                    const basePath = wpAdminIndex > 0 ? currentPath.substring(0, wpAdminIndex) : '';
-                    ajaxUrl = window.ajaxUrl || (window.location.origin + basePath + '/wp-admin/admin-ajax.php');
-                }
-                ajaxUrl += '?action=get_winden_content';
-
-                console.error('[winden] autoExtractBreakpoints: Failed to fetch breakpoints after retry', {
-                    error: lastError.message,
-                    attempts: maxRetries + 1,
-                    url: ajaxUrl
-                });
-            }
-        }
-
-        // Extract using cached system (reuses design system cache)
-        const result = await window.extractStyleGuideConfig('', wizardContent, windenStylesContent);
-
-        if (!result.success) {
-            console.warn('[winden] autoExtractBreakpoints: Extraction failed, using empty array', {
-                error: result.error
-            });
-            // Set empty array as fallback
-            window.winden_autocomplete_screens = [];
-            window.parent.winden_autocomplete_screens = [];
-        }
-    } catch (error) {
-        console.error('[winden] autoExtractBreakpoints: Unexpected error', {
-            error: error.message,
-            stack: error.stack
-        });
-        // Set empty array as fallback
-        window.winden_autocomplete_screens = [];
-        window.parent.winden_autocomplete_screens = [];
+    // Try to get wizard content from immediate sources
+    if (window.winden_editor?.wizzard?.configCode) {
+      wizardContent = window.winden_editor.wizzard.configCode;
     }
+
+    if (window.winden_editor?.scss) {
+      windenStylesContent = window.winden_editor.scss;
+    }
+
+    // If not available, try backend with retry logic
+    if (!wizardContent) {
+      const maxRetries = 1;
+      let lastError = null;
+
+      for (let attempt = 0; attempt <= maxRetries; attempt++) {
+        try {
+          // Add delay before retry
+          if (attempt > 0) {
+            await new Promise(resolve => setTimeout(resolve, 500));
+          }
+
+          // Use proper AJAX URL that works with subdirectory WordPress installations
+          // Try multiple sources, with intelligent fallback for iframes
+          let ajaxUrl;
+
+          if (window.windenData?.ajaxUrl) {
+            ajaxUrl = window.windenData.ajaxUrl;
+          } else if (window.windenAutoCompile?.ajaxUrl) {
+            ajaxUrl = window.windenAutoCompile.ajaxUrl;
+          } else if (window.parent !== window) {
+            // In iframe: try to get from parent window (with cross-origin protection)
+            try {
+              if (window.parent.windenAutoCompile?.ajaxUrl) {
+                ajaxUrl = window.parent.windenAutoCompile.ajaxUrl;
+              }
+            } catch (e) {
+              // Cross-origin access blocked - ignore and fall through to fallback
+              console.debug('[winden] Cross-origin parent access blocked, using fallback URL construction');
+            }
+          }
+
+          if (!ajaxUrl) {
+            // Fallback: construct from current location
+            // Extract WordPress base path from current URL
+            const currentPath = window.location.pathname;
+            const wpAdminIndex = currentPath.indexOf('/wp-admin/');
+            const basePath = wpAdminIndex > 0 ? currentPath.substring(0, wpAdminIndex) : '';
+            ajaxUrl = window.ajaxUrl || (window.location.origin + basePath + '/wp-admin/admin-ajax.php');
+          }
+
+          ajaxUrl += '?action=winden_get_content';
+          const response = await fetch(ajaxUrl);
+
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status} ${response.statusText}`);
+          }
+
+          const data = await response.json();
+
+          if (data.success) {
+            wizardContent = data.data.wizzard?.configCode || '';
+            windenStylesContent = data.data.scss ? atob(data.data.scss) : '';
+            break; // Success, exit retry loop
+          } else {
+            // On fresh install, no content exists yet - this is expected
+            console.warn('[winden] autoExtractBreakpoints: No content in database yet, using empty values');
+            wizardContent = '';
+            windenStylesContent = '';
+            break; // Exit retry loop, no need to retry
+          }
+        } catch (error) {
+          lastError = error;
+          if (attempt < maxRetries) {
+            console.warn(`[winden] autoExtractBreakpoints: Fetch failed (attempt ${attempt + 1}/${maxRetries + 1}), retrying...`, {
+              error: error.message
+            });
+          }
+        }
+      }
+
+      // Log error if all retries failed
+      if (lastError && !wizardContent) {
+        // Construct same URL logic for error reporting
+        let ajaxUrl;
+        if (window.windenData?.ajaxUrl) {
+          ajaxUrl = window.windenData.ajaxUrl;
+        } else if (window.windenAutoCompile?.ajaxUrl) {
+          ajaxUrl = window.windenAutoCompile.ajaxUrl;
+        } else if (window.parent !== window && window.parent.windenAutoCompile?.ajaxUrl) {
+          ajaxUrl = window.parent.windenAutoCompile.ajaxUrl;
+        } else {
+          const currentPath = window.location.pathname;
+          const wpAdminIndex = currentPath.indexOf('/wp-admin/');
+          const basePath = wpAdminIndex > 0 ? currentPath.substring(0, wpAdminIndex) : '';
+          ajaxUrl = window.ajaxUrl || (window.location.origin + basePath + '/wp-admin/admin-ajax.php');
+        }
+        ajaxUrl += '?action=winden_get_content';
+
+        console.error('[winden] autoExtractBreakpoints: Failed to fetch breakpoints after retry', {
+          error: lastError.message,
+          attempts: maxRetries + 1,
+          url: ajaxUrl
+        });
+      }
+    }
+
+    // Extract using cached system (reuses design system cache)
+    const result = await window.extractStyleGuideConfig('', wizardContent, windenStylesContent);
+
+    if (!result.success) {
+      console.warn('[winden] autoExtractBreakpoints: Extraction failed, using empty array', {
+        error: result.error
+      });
+      // Set empty array as fallback
+      window.winden_autocomplete_screens = [];
+      window.parent.winden_autocomplete_screens = [];
+    }
+  } catch (error) {
+    console.error('[winden] autoExtractBreakpoints: Unexpected error', {
+      error: error.message,
+      stack: error.stack
+    });
+    // Set empty array as fallback
+    window.winden_autocomplete_screens = [];
+    window.parent.winden_autocomplete_screens = [];
+  }
 }
 
 // Fix DOMContentLoaded race condition
 // Only call if DOM is ready, otherwise wait for DOMContentLoaded
 if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', autoExtractBreakpoints);
+  document.addEventListener('DOMContentLoaded', autoExtractBreakpoints);
 } else {
-    // DOM already loaded, call immediately
-    autoExtractBreakpoints();
+  // DOM already loaded, call immediately
+  autoExtractBreakpoints();
 }
 
 // Expose globally for React app to call when editor is ready
@@ -1438,5 +1438,5 @@ window.autoExtractBreakpoints = autoExtractBreakpoints;
 
 // Check if cache should be cleared due to config changes
 if (window.windenAutoCompile?.clearCache) {
-    clearAllCaches();
+  clearAllCaches();
 }

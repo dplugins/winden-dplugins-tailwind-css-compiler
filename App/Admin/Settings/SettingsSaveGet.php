@@ -30,7 +30,6 @@ class SettingsSaveGet
         'enable_files_scan',
         'scan_path',
         'scan_file_formats',
-        'save_config_file',
 
         'css_preprocessor',
         'disable_dev_mode',

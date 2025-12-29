@@ -194,7 +194,6 @@ class Sanitization
             'cdn_for_admin',
             'folded_sidebar',
             'enable_files_scan',
-            'save_config_file',
             'disable_dev_mode',
             'inline_compiled_css',
         ];

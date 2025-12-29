@@ -17,7 +17,6 @@ export const initialSettings = {
   folded_sidebar: false,
   scan_path: '',
   scan_file_formats: [] as string[],
-  save_config_file: false,
   css_preprocessor: 'css' as 'css' | 'scss',
 };
 

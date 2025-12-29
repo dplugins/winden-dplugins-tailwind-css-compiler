@@ -16,8 +16,8 @@ class ProvidersHelpers
         // Define a list of handles and their respective attributes
         $attributes_map = [
             // 'inline-module-js'    => 'setup="false"',
-            'winden-config'       => 'type="inline-module"',
-            'tailwind-config'     => 'type="module"',
+            'winden-config' => 'type="inline-module"',
+            'tailwind-config' => 'type="module"',
             'winden-autocomplete' => 'type="module"',
         ];
 
@@ -166,7 +166,7 @@ class ProvidersHelpers
             'cachejs',
             WINDEN_PLUGIN_URL . 'build/compiler/tailwindcss-compiler.js',
             [],
-            null,
+            filemtime(WINDEN_PLUGIN_DIR . 'build/compiler/tailwindcss-compiler.js'),
             true
         );
 
@@ -292,7 +292,7 @@ class ProvidersHelpers
             'cachejs',
             WINDEN_PLUGIN_URL . 'build/compiler/tailwindcss-compiler.js',
             [],
-            null,
+            filemtime(WINDEN_PLUGIN_DIR . 'build/compiler/tailwindcss-compiler.js'),
             true
         );
 

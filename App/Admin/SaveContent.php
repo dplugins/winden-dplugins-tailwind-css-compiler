@@ -127,29 +127,6 @@ class SaveContent
                 file_put_contents($filtered_input_path, $input_content);
             }
 
-            // Save tailwind.config.js in wp-content/scan_path directory (if enabled)
-            $options = get_option('winden_options', []);
-            $scan_path = isset($options['scan_path']) ? $options['scan_path'] : '';
-            $enable_files_scan = isset($options['enable_files_scan']) ? $options['enable_files_scan'] : false;
-            $save_config_file = isset($options['save_config_file']) ? $options['save_config_file'] : false;
-
-            // Only save if scan path is configured, enabled, and writing to config file is enabled
-            if ($enable_files_scan && $save_config_file && !empty($scan_path)) {
-                // Sanitize scan path to prevent directory traversal
-                $sanitized_scan_path = sanitize_text_field($scan_path);
-                // Ensure it's relative to WP_CONTENT_DIR or ABSPATH
-                $scan_config_path = WP_CONTENT_DIR . '/' . trim($sanitized_scan_path, '/') . '/tailwind.config.js';
-                $scan_dir = dirname($scan_config_path);
-
-                if (!file_exists($scan_dir)) {
-                    wp_mkdir_p($scan_dir);
-                }
-
-                if (wp_is_writable($scan_dir)) {
-                    file_put_contents($scan_config_path, $javascript);
-                }
-            }
-
             // Respond with a success message
             wp_send_json_success('Content saved successfully!');
         } else {
