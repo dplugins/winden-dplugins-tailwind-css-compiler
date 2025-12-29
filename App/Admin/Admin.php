@@ -1,6 +1,5 @@
-<?php
-
-namespace Winden\App\Admin;
+<?php namespace Winden\App\Admin;
+if ( ! defined( 'ABSPATH' ) ) exit; // Exit if accessed directly
 
 use Winden\App\Admin\Settings\SettingsPage;
 use Winden\App\Admin\Settings\SettingsSaveGet;

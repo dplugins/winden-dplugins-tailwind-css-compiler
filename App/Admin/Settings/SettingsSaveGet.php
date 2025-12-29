@@ -1,6 +1,5 @@
-<?php
-
-namespace Winden\App\Admin\Settings;
+<?php namespace Winden\App\Admin\Settings;
+if ( ! defined( 'ABSPATH' ) ) exit; // Exit if accessed directly
 
 use Winden\App\Helpers\Sanitization;
 

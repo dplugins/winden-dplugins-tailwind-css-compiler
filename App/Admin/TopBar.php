@@ -1,6 +1,5 @@
-<?php
-
-namespace Winden\App\Admin;
+<?php namespace Winden\App\Admin;
+if ( ! defined( 'ABSPATH' ) ) exit; // Exit if accessed directly
 
 class TopBar
 {

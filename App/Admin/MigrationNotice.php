@@ -1,6 +1,5 @@
-<?php
-
-namespace Winden\App\Admin;
+<?php namespace Winden\App\Admin;
+if ( ! defined( 'ABSPATH' ) ) exit; // Exit if accessed directly
 
 /**
  * Migration Notice for Tailwind v3 to v4 upgrade

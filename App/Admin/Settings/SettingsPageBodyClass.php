@@ -1,6 +1,5 @@
-<?php
-
-namespace Winden\App\Admin\Settings;
+<?php namespace Winden\App\Admin\Settings;
+if ( ! defined( 'ABSPATH' ) ) exit; // Exit if accessed directly
 
 class SettingsPageBodyClass
 {

@@ -1,6 +1,5 @@
-<?php
-
-namespace Winden\App\Helpers;
+<?php namespace Winden\App\Helpers;
+if ( ! defined( 'ABSPATH' ) ) exit; // Exit if accessed directly
 
 /**
  * Migration Handler

@@ -1,6 +1,5 @@
-<?php
-
-namespace Winden\App\Caching;
+<?php namespace Winden\App\Caching;
+if ( ! defined( 'ABSPATH' ) ) exit; // Exit if accessed directly
 
 use Winden\App\Helpers\SettingsOptions;
 use Winden\App\Helpers\Builders;

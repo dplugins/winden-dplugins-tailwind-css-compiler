@@ -1,6 +1,5 @@
-<?php
-
-namespace Winden\App\Frontend;
+<?php namespace Winden\App\Frontend;
+if ( ! defined( 'ABSPATH' ) ) exit; // Exit if accessed directly
 
 /**
  * Breakpoint Indicator for logged-in users

@@ -1,6 +1,5 @@
-<?php
-
-namespace Winden\App\Assets;
+<?php namespace Winden\App\Assets;
+if ( ! defined( 'ABSPATH' ) ) exit; // Exit if accessed directly
 
 class MonacoEditorProvider
 {

@@ -1,6 +1,5 @@
-<?php
-
-namespace Winden\App\Assets\Providers;
+<?php namespace Winden\App\Assets\Providers;
+if ( ! defined( 'ABSPATH' ) ) exit; // Exit if accessed directly
 
 use Winden\App\Helpers\Builders;
 use Winden\App\Helpers\SettingsOptions;
