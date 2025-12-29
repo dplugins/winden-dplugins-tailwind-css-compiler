@@ -172,7 +172,7 @@ class ProvidersHelpers
 
         wp_enqueue_script(
             'winden-autocomplete',
-            'https://',
+            false,
             [],
             null,
             true
@@ -301,7 +301,7 @@ class ProvidersHelpers
 
         wp_enqueue_script(
             'tailwind-compiler-options',
-            'https://',
+            false,
             ['cachejs'],
             null,
             true
@@ -311,15 +311,19 @@ class ProvidersHelpers
         wp_add_inline_script('tailwind-compiler-options', $inline_tw_compiler_options);
 
         // Add frontend constants inline so they're available before tailwindcss-watcher.js runs
-        $inIframe = wp_json_encode(Builders::isBricksEditorFrame() || Builders::isOxygenEditorFrame() || Builders::isOxygen6EditorFrame() || Builders::isElementorEditorPage());
-        $apiVersion2 = wp_json_encode(Builders::has_api_version_2_block());
+        $inIframe = Builders::isBricksEditorFrame() || Builders::isOxygenEditorFrame() || Builders::isOxygen6EditorFrame() || Builders::isElementorEditorPage();
+        $apiVersion2 = Builders::has_api_version_2_block();
         $uploadUrl = WINDEN_UPLOADS_URL['baseurl'];
         $ajaxurl = admin_url('admin-ajax.php');
 
-        $inline_consts = "window.uploadUrl = '$uploadUrl';
-window.inIframe = '$inIframe';
-window.apiVersion2 = '$apiVersion2';
-window.ajaxurl = '$ajaxurl';";
+        // Use wp_json_encode for proper JavaScript escaping
+        $inline_consts = sprintf(
+            'window.uploadUrl = %s; window.inIframe = %s; window.apiVersion2 = %s; window.ajaxurl = %s;',
+            wp_json_encode($uploadUrl),
+            wp_json_encode($inIframe),
+            wp_json_encode($apiVersion2),
+            wp_json_encode($ajaxurl)
+        );
         wp_add_inline_script('tailwind-compiler-options', $inline_consts);
 
         // Note: SCSS compilation is handled by the bundled Dart Sass in build/scss-compiler/sass.dart.min.js

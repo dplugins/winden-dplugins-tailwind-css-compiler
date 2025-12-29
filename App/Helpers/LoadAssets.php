@@ -18,8 +18,8 @@ class LoadAssets
     {
         // Define a list of handles and their respective attributes
         $attributes_map = [
-            'inline-module-js'    => 'setup="false"',
-            'tailwindconfig'     => 'type="inline-module"',
+            'inline-module-js' => 'setup="false"',
+            'tailwindconfig' => 'type="inline-module"',
             'tailwindwizzard' => 'type="inline-module"',
         ];
 
@@ -70,10 +70,12 @@ class LoadAssets
         $javascript_content = isset($winden_editor['javascript']) ? $winden_editor['javascript'] : '';
         $wizzard_content = isset($winden_editor['wizzard']['configCode']) ? $winden_editor['wizzard']['configCode'] : '';
 
-        wp_enqueue_script('tailwindconfig', 'https://');
+        // Note: Content is already sanitized on save by Sanitization::sanitize_javascript/sanitize_css
+        // These are intentionally raw for code editor functionality (admins only can save)
+        wp_enqueue_script('tailwindconfig', false);
         wp_add_inline_script('tailwindconfig', $javascript_content);
 
-        wp_enqueue_script('tailwindwizzard', 'https://');
+        wp_enqueue_script('tailwindwizzard', false);
         wp_add_inline_script('tailwindwizzard', $wizzard_content);
     }
 
@@ -90,7 +92,7 @@ class LoadAssets
 
         wp_enqueue_script(
             'winden-style',
-            'https://'
+            false
         );
 
         $css_content = '';
@@ -100,7 +102,14 @@ class LoadAssets
             $css_content .= $raw_css_content;
         }
 
-        $inline_script = 'var cssContent = `' . $css_content . '`;';
+        // Escape CSS content for use in JavaScript template literal
+        // Replace backticks and ${} to prevent breaking out of template literal
+        $escaped_css = str_replace(['`', '${', '</script'], ['\`', '\${', '<\/script'], $css_content);
+
+        // Usage of wp_add_inline_script means we are outputting inside a script tag.
+        // We construct the JS string here. The CSS content itself is potentially large and complex,
+        // so manual escaping for the template literal context is appropriate, but we should be careful.
+        $inline_script = 'var cssContent = `' . $escaped_css . '`;';
         wp_add_inline_script('winden-style', $inline_script);
     }
 

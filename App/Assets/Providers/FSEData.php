@@ -38,7 +38,7 @@ class FSEData
     {
         // Retrieve the winden_editor option first to check if font sizes are active
         $winden_editor = get_option('winden_editor', []);
-        
+
         // Check if font sizes tab is active
         if (!($winden_editor['wizzard']['fontSizesActive'] ?? false)) {
             return;
@@ -106,9 +106,9 @@ class FSEData
                         if (!empty($value)) {
                             $editorFontSizes[] = [
                                 'fluid' => false,
-                                'name'  => $name,
-                                'size'  => $this->ensureUnit($value),
-                                'slug'  => $this->numberToWordSlug($step)
+                                'name' => $name,
+                                'size' => $this->ensureUnit($value),
+                                'slug' => $this->numberToWordSlug($step)
                             ];
                         }
                     } else {
@@ -125,16 +125,16 @@ class FSEData
                             );
                             $editorFontSizes[] = [
                                 'fluid' => false,  // Set to false because we're providing the clamp directly
-                                'name'  => $name,
-                                'size'  => $clampValue,
-                                'slug'  => $this->numberToWordSlug($step)
+                                'name' => $name,
+                                'size' => $clampValue,
+                                'slug' => $this->numberToWordSlug($step)
                             ];
                         } else if (!empty($minValue)) {
                             $editorFontSizes[] = [
                                 'fluid' => false,
-                                'name'  => $name,
-                                'size'  => $this->ensureUnit($minValue),
-                                'slug'  => $this->numberToWordSlug($step)
+                                'name' => $name,
+                                'size' => $this->ensureUnit($minValue),
+                                'slug' => $this->numberToWordSlug($step)
                             ];
                         }
                     }
@@ -147,9 +147,9 @@ class FSEData
                     if (!empty($value)) {
                         $editorFontSizes[] = [
                             'fluid' => false,  // Set to false because we're providing the clamp directly
-                            'name'  => $name,
-                            'size'  => $value,
-                            'slug'  => $this->numberToWordSlug($step)
+                            'name' => $name,
+                            'size' => $value,
+                            'slug' => $this->numberToWordSlug($step)
                         ];
                     }
                 }
@@ -163,7 +163,7 @@ class FSEData
         // This filter runs on core defaults before theme data is merged
         add_filter('wp_theme_json_data_default', function ($theme_json) {
             $new_data = [
-                'version'  => 3,
+                'version' => 3,
                 'settings' => [
                     'typography' => [
                         'defaultFontSizes' => false,
@@ -177,7 +177,7 @@ class FSEData
         // Add Wizzard font sizes at theme level
         add_filter('wp_theme_json_data_theme', function ($theme_json) use ($editorFontSizes, $extendFontSizesFSE, $theme_font_sizes) {
             $new_data = [
-                'version'  => 3,
+                'version' => 3,
                 'settings' => [
                     'typography' => [
                         'defaultFontSizes' => false,
@@ -195,17 +195,41 @@ class FSEData
     /**
      * Convert numbers in a string to their English word equivalents (supports 0-20, 30, 40, ..., 90, 100)
      */
-    private function numberToWordSlug($str) {
+    private function numberToWordSlug($str)
+    {
         $map = [
-            '0' => 'zero', '1' => 'one', '2' => 'two', '3' => 'three', '4' => 'four', '5' => 'five',
-            '6' => 'six', '7' => 'seven', '8' => 'eight', '9' => 'nine', '10' => 'ten', '11' => 'eleven',
-            '12' => 'twelve', '13' => 'thirteen', '14' => 'fourteen', '15' => 'fifteen', '16' => 'sixteen',
-            '17' => 'seventeen', '18' => 'eighteen', '19' => 'nineteen', '20' => 'twenty',
-            '30' => 'thirty', '40' => 'forty', '50' => 'fifty', '60' => 'sixty', '70' => 'seventy',
-            '80' => 'eighty', '90' => 'ninety', '100' => 'hundred'
+            '0' => 'zero',
+            '1' => 'one',
+            '2' => 'two',
+            '3' => 'three',
+            '4' => 'four',
+            '5' => 'five',
+            '6' => 'six',
+            '7' => 'seven',
+            '8' => 'eight',
+            '9' => 'nine',
+            '10' => 'ten',
+            '11' => 'eleven',
+            '12' => 'twelve',
+            '13' => 'thirteen',
+            '14' => 'fourteen',
+            '15' => 'fifteen',
+            '16' => 'sixteen',
+            '17' => 'seventeen',
+            '18' => 'eighteen',
+            '19' => 'nineteen',
+            '20' => 'twenty',
+            '30' => 'thirty',
+            '40' => 'forty',
+            '50' => 'fifty',
+            '60' => 'sixty',
+            '70' => 'seventy',
+            '80' => 'eighty',
+            '90' => 'ninety',
+            '100' => 'hundred'
         ];
         // Replace numbers with words
-        return strtolower(preg_replace_callback('/\d+/', function($matches) use ($map) {
+        return strtolower(preg_replace_callback('/\d+/', function ($matches) use ($map) {
             $num = $matches[0];
             if (isset($map[$num])) {
                 return $map[$num];
@@ -224,7 +248,7 @@ class FSEData
         $theme_data = \WP_Theme_JSON_Resolver::get_merged_data()->get_data();
         $existing_spacing = [];
         $theme_spacing = [];
-        
+
         // Get existing spacing data from theme.json
         if (
             isset($theme_data['settings']['spacing']['spacingSizes']) &&
@@ -237,10 +261,10 @@ class FSEData
                 }
             }
         }
-        
+
         // Retrieve the winden_editor option
         $winden_editor = get_option('winden_editor', []);
-        
+
         // Check if spacing is active
         if (!($winden_editor['wizzard']['spacesActive'] ?? false)) {
             return;
@@ -359,7 +383,7 @@ class FSEData
             }
         }
 
-        add_filter('wp_theme_json_data_theme', function($theme_json) use ($editorSpacingSizes, $extendSpacingFSE, $theme_spacing) {
+        add_filter('wp_theme_json_data_theme', function ($theme_json) use ($editorSpacingSizes, $extendSpacingFSE, $theme_spacing) {
             $new_data = [
                 'version' => 3,
                 'settings' => [
@@ -385,7 +409,8 @@ class FSEData
      * @param int $maxScreen Maximum screen size
      * @return string CSS clamp() function
      */
-    private function calculateClamp($minSize, $maxSize, $minScreen, $maxScreen) {
+    private function calculateClamp($minSize, $maxSize, $minScreen, $maxScreen)
+    {
         // Calculate slope and intersection (matches frontend formula)
         $slope = ($maxSize - $minSize) / ($maxScreen - $minScreen);
         $intersection = -$minScreen * $slope + $minSize;
@@ -416,7 +441,8 @@ class FSEData
      * @param string|int|float $value Value to check
      * @return string Value with unit
      */
-    private function ensureUnit($value) {
+    private function ensureUnit($value)
+    {
         if (empty($value)) {
             return '';
         }
@@ -439,7 +465,8 @@ class FSEData
      *
      * @deprecated This method is kept for backward compatibility but should not be used for new code
      */
-    private function formatSpacingValue($value) {
+    private function formatSpacingValue($value)
+    {
         // If it's a clamp value
         if (strpos($value, 'clamp') !== false) {
             // Extract the numbers and units
@@ -511,32 +538,32 @@ class FSEData
 
             if (!in_array($white_name, $existing_colors)) {
                 $editorColors[] = [
-                    'name'  => $white_name,
-                    'slug'  => 'white',
+                    'name' => $white_name,
+                    'slug' => 'white',
                     'color' => '#ffffff',
                 ];
             }
 
             if (!in_array($black_name, $existing_colors)) {
                 $editorColors[] = [
-                    'name'  => $black_name,
-                    'slug'  => 'black',
+                    'name' => $black_name,
+                    'slug' => 'black',
                     'color' => '#000000',
                 ];
             }
 
             if (!in_array($transparent_name, $existing_colors)) {
                 $editorColors[] = [
-                    'name'  => $transparent_name,
-                    'slug'  => 'transparent',
+                    'name' => $transparent_name,
+                    'slug' => 'transparent',
                     'color' => 'transparent',
                 ];
             }
 
             if (!in_array($current_name, $existing_colors)) {
                 $editorColors[] = [
-                    'name'  => $current_name,
-                    'slug'  => 'current',
+                    'name' => $current_name,
+                    'slug' => 'current',
                     'color' => 'currentColor',
                 ];
             }
@@ -545,8 +572,8 @@ class FSEData
             // as it inherits from parent element, but we'll include it for completeness
             if (!in_array($inherit_name, $existing_colors)) {
                 $editorColors[] = [
-                    'name'  => $inherit_name,
-                    'slug'  => 'inherit',
+                    'name' => $inherit_name,
+                    'slug' => 'inherit',
                     'color' => 'inherit',
                 ];
             }
@@ -555,7 +582,7 @@ class FSEData
         foreach ($colorEntries as $colorEntry) {
             // Check if shades are enabled for this color
             $enableShades = isset($colorEntry['enableShades']) ? $colorEntry['enableShades'] : true;
-            
+
             if ($enableShades) {
                 // If shades are enabled, add all enabled shades
                 foreach ($colorEntry['shades'] as $shade) {
@@ -571,8 +598,8 @@ class FSEData
                         // Only add if color name doesn't exist in theme.json or if extendColorsFSE is true
                         if (!in_array($name, $existing_colors) || $extendColorsFSE) {
                             $editorColors[] = [
-                                'name'  => $name,
-                                'slug'  => $slug,
+                                'name' => $name,
+                                'slug' => $slug,
                                 'color' => $shade['hex'],
                             ];
                         }
@@ -586,8 +613,8 @@ class FSEData
                 // Only add if color name doesn't exist in theme.json or if extendColorsFSE is true
                 if (!in_array($name, $existing_colors) || $extendColorsFSE) {
                     $editorColors[] = [
-                        'name'  => $name,
-                        'slug'  => $slug,
+                        'name' => $name,
+                        'slug' => $slug,
                         'color' => $colorEntry['hex'],
                     ];
                 }
@@ -598,7 +625,7 @@ class FSEData
         add_theme_support('editor-color-palette', $editorColors);
         add_filter('wp_theme_json_data_theme', function ($theme_json) use ($editorColors, $extendColorsFSE, $theme_colors) {
             $new_data = [
-                'version'  => 3,
+                'version' => 3,
                 'settings' => [
                     'color' => [
                         'defaultPalette' => false,
@@ -620,10 +647,10 @@ class FSEData
                 return;
             }
 
-                    // Get all theme.json data
-        $font_sizes_data = $this->get_font_sizes_theme_json();
-        $spacing_data = $this->get_spacing_theme_json();
-        $colors_data = $this->get_colors_theme_json();
+            // Get all theme.json data
+            $font_sizes_data = $this->get_font_sizes_theme_json();
+            $spacing_data = $this->get_spacing_theme_json();
+            $colors_data = $this->get_colors_theme_json();
 
             // Combine all data
             $complete_theme_json = [
@@ -667,9 +694,9 @@ class FSEData
             if ($disableFluid) {
                 $editorFontSizes[] = [
                     'fluid' => false,
-                    'name'  => $step,
-                    'size'  => $min,
-                    'slug'  => $this->numberToWordSlug($step)
+                    'name' => $step,
+                    'size' => $min,
+                    'slug' => $this->numberToWordSlug($step)
                 ];
             } else {
                 $editorFontSizes[] = [
@@ -677,9 +704,9 @@ class FSEData
                         'min' => $min,
                         'max' => $max,
                     ],
-                    'name'  => $step,
-                    'size'  => $max,
-                    'slug'  => $this->numberToWordSlug($step)
+                    'name' => $step,
+                    'size' => $max,
+                    'slug' => $this->numberToWordSlug($step)
                 ];
             }
         }
@@ -726,16 +753,16 @@ class FSEData
                 // Use the override value
                 $editorSizes[] = [
                     'fluid' => false,
-                    'name'  => $name,
-                    'size'  => $overrides[$step]['value'],
-                    'slug'  => $slug
+                    'name' => $name,
+                    'size' => $overrides[$step]['value'],
+                    'slug' => $slug
                 ];
             } else if ($disableFluid) {
                 $editorSizes[] = [
                     'fluid' => false,
-                    'name'  => $name,
-                    'size'  => $min,
-                    'slug'  => $slug
+                    'name' => $name,
+                    'size' => $min,
+                    'slug' => $slug
                 ];
             } else {
                 $editorSizes[] = [
@@ -743,9 +770,9 @@ class FSEData
                         'min' => $min,
                         'max' => $max,
                     ],
-                    'name'  => $name,
-                    'size'  => $max,
-                    'slug'  => $slug
+                    'name' => $name,
+                    'size' => $max,
+                    'slug' => $slug
                 ];
             }
         }
@@ -787,13 +814,13 @@ class FSEData
 
         if ($includeUtilityColors) {
             $editorColors[] = [
-                'name'  => 'White',
-                'slug'  => 'white',
+                'name' => 'White',
+                'slug' => 'white',
                 'color' => '#ffffff',
             ];
             $editorColors[] = [
-                'name'  => 'Black',
-                'slug'  => 'black',
+                'name' => 'Black',
+                'slug' => 'black',
                 'color' => '#000000',
             ];
         }
@@ -801,7 +828,7 @@ class FSEData
         foreach ($colorEntries as $colorEntry) {
             // Check if shades are enabled for this color
             $enableShades = isset($colorEntry['enableShades']) ? $colorEntry['enableShades'] : true;
-            
+
             if ($enableShades) {
                 // If shades are enabled, add all enabled shades
                 foreach ($colorEntry['shades'] as $shade) {
@@ -815,8 +842,8 @@ class FSEData
                         }
 
                         $editorColors[] = [
-                            'name'  => $name,
-                            'slug'  => $slug,
+                            'name' => $name,
+                            'slug' => $slug,
                             'color' => $shade['hex'],
                         ];
                     }
@@ -825,10 +852,10 @@ class FSEData
                 // If shades are disabled, only add the main color
                 $slug = strtolower(str_replace(' ', '-', $colorEntry['name']));
                 $name = $colorEntry['name'];
-                
+
                 $editorColors[] = [
-                    'name'  => $name,
-                    'slug'  => $slug,
+                    'name' => $name,
+                    'slug' => $slug,
                     'color' => $colorEntry['hex'],
                 ];
             }
@@ -849,19 +876,22 @@ class FSEData
     private function render_debug_panel($theme_json)
     {
         ob_start();
-?>
+        ?>
         <!-- Collapsed State Button (Shown by default) -->
         <div id="winden-debug-collapsed" style="position: fixed; bottom: 30px; right: 30px; z-index: 99999;">
             <button onclick="expandPanel()" style="padding: 8px 16px; cursor: pointer;">Show Theme JSON</button>
         </div>
 
         <!-- Expanded Panel (Hidden by default) -->
-        <div id="winden-debug-panel" style="position: fixed; bottom: 30px; right: 30px; background: white; padding: 20px; border: 2px solid #000; max-height: 80vh; overflow: auto; z-index: 99999; width: 600px; display: none;">
+        <div id="winden-debug-panel"
+            style="position: fixed; bottom: 30px; right: 30px; background: white; padding: 20px; border: 2px solid #000; max-height: 80vh; overflow: auto; z-index: 99999; width: 600px; display: none;">
             <!-- Header with Collapse Button -->
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
                 <div>
-                    <button onclick="switchTab('typography')" style="padding: 8px 16px; margin-right: 5px; cursor: pointer;">Typography</button>
-                    <button onclick="switchTab('spacing')" style="padding: 8px 16px; margin-right: 5px; cursor: pointer;">Spacing</button>
+                    <button onclick="switchTab('typography')"
+                        style="padding: 8px 16px; margin-right: 5px; cursor: pointer;">Typography</button>
+                    <button onclick="switchTab('spacing')"
+                        style="padding: 8px 16px; margin-right: 5px; cursor: pointer;">Spacing</button>
                     <button onclick="switchTab('colors')" style="padding: 8px 16px; cursor: pointer;">Colors</button>
                 </div>
                 <button onclick="collapsePanel()" style="padding: 4px 8px; cursor: pointer;">Collapse</button>
@@ -871,54 +901,57 @@ class FSEData
             <div id="tab-typography" class="theme-json-tab">
                 <h3>Typography</h3>
                 <pre style="background: #f5f5f5; padding: 10px; max-height: 500px; overflow: auto;">
-<?php
-        $typography = [
-            'writingMode' => true,
-            'defaultFontSizes' => false,
-            'fluid' => false,
-            'fontSizes' => $theme_json['settings']['typography']['fontSizes'] ?? []
-        ];
-        echo '"typography": ' . wp_json_encode($typography, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
-?>
-                </pre>
+                        <?php
+                        $typography = [
+                            'writingMode' => true,
+                            'defaultFontSizes' => false,
+                            'fluid' => false,
+                            'fontSizes' => $theme_json['settings']['typography']['fontSizes'] ?? []
+                        ];
+                        // Use esc_html to prevent XSS in debug panel
+                        echo esc_html('"typography": ' . wp_json_encode($typography, JSON_PRETTY_PRINT));
+                        ?>
+                                        </pre>
             </div>
 
             <!-- Spacing Tab -->
             <div id="tab-spacing" class="theme-json-tab" style="display: none;">
                 <h3>Spacing Sizes</h3>
                 <pre style="background: #f5f5f5; padding: 10px; max-height: 500px; overflow: auto;">
-<?php
-        $spacing = [
-            'defaultSpacingSizes' => false,
-            'spacingSizes' => $theme_json['settings']['spacing']['spacingSizes'] ?? [],
-            'units' => [
-                '%',
-                'px',
-                'em',
-                'rem',
-                'vh',
-                'vw'
-            ]
-        ];
-        echo '"spacing": ' . wp_json_encode($spacing, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
-?>
-                </pre>
+                        <?php
+                        $spacing = [
+                            'defaultSpacingSizes' => false,
+                            'spacingSizes' => $theme_json['settings']['spacing']['spacingSizes'] ?? [],
+                            'units' => [
+                                '%',
+                                'px',
+                                'em',
+                                'rem',
+                                'vh',
+                                'vw'
+                            ]
+                        ];
+                        // Use esc_html to prevent XSS in debug panel
+                        echo esc_html('"spacing": ' . wp_json_encode($spacing, JSON_PRETTY_PRINT));
+                        ?>
+                                        </pre>
             </div>
 
             <!-- Colors Tab -->
             <div id="tab-colors" class="theme-json-tab" style="display: none;">
                 <h3>Colors</h3>
                 <pre style="background: #f5f5f5; padding: 10px; max-height: 500px; overflow: auto;">
-<?php
-        $colors = [
-            'defaultDuotone' => false,
-            'defaultGradients' => false,
-            'defaultPalette' => false,
-            'palette' => $theme_json['settings']['color']['palette'] ?? []
-        ];
-        echo '"color": ' . wp_json_encode($colors, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
-?>
-                </pre>
+                        <?php
+                        $colors = [
+                            'defaultDuotone' => false,
+                            'defaultGradients' => false,
+                            'defaultPalette' => false,
+                            'palette' => $theme_json['settings']['color']['palette'] ?? []
+                        ];
+                        // Use esc_html to prevent XSS in debug panel
+                        echo esc_html('"color": ' . wp_json_encode($colors, JSON_PRETTY_PRINT));
+                        ?>
+                                        </pre>
             </div>
 
             <!-- Copy Button -->
@@ -983,7 +1016,7 @@ class FSEData
                 }
             </script>
         </div>
-<?php
+        <?php
         return ob_get_clean();
     }
 }

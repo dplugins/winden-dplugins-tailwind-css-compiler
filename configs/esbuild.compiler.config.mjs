@@ -11,8 +11,8 @@ const __dirname = dirname(__filename);
 const rootDir = path.resolve(__dirname, '..');
 
 // Entry point - compiler source files
-const entryPoint = path.join(rootDir, "src/compile-in-browser/index.js");
-const watchPath = path.join(rootDir, "src/compile-in-browser");
+const entryPoint = path.join(rootDir, "src/compiler/index.js");
+const watchPath = path.join(rootDir, "src/compiler");
 const outputFile = path.join(rootDir, "build/compiler/tailwindcss-compiler.js");
 
 if (process.argv.includes("--watch")) {

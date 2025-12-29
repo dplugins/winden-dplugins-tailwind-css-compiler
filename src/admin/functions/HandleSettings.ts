@@ -8,7 +8,7 @@ export const handleSaveSettings = async (
   setSettings: (settings: Record<string, any>) => void
 ): Promise<void> => {
   setSettings(newSettings); // Update local state
-  const response = await fetch(`${(window as any).ajaxUrl}?action=save_winden_settings`, {
+  const response = await fetch(`${(window as any).ajaxUrl}?action=winden_save_settings`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

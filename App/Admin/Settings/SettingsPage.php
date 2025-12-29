@@ -14,7 +14,7 @@ class SettingsPage
         add_filter('script_loader_tag', [$this, 'modify_script_loader_tag'], 10, 3);
         add_action('admin_menu', [$this, 'add_settings_page']);
         add_action('admin_init', [$this, 'register_settings']);
-        add_action('admin_post_generate_classes', [$this, 'generate_classes_file']);
+        add_action('admin_post_winden_generate_classes', [$this, 'generate_classes_file']);
         add_action('wp_ajax_winden_get_classes', [$this, 'get_classes']); // Register the AJAX action
     }
 
@@ -133,6 +133,11 @@ class SettingsPage
     /**
      * Sanitize callback for winden_option_name
      *
+     * Properly sanitizes different data types:
+     * - Arrays: Recursively sanitizes each element
+     * - Booleans: Preserves boolean type
+     * - Strings: Uses sanitize_text_field()
+     *
      * @param mixed $input The input to sanitize.
      * @return array Sanitized array.
      */
@@ -142,9 +147,38 @@ class SettingsPage
             return [];
         }
 
+        return $this->sanitize_array_recursive($input);
+    }
+
+    /**
+     * Recursively sanitize an array with type-aware sanitization
+     *
+     * @param array $array The array to sanitize.
+     * @return array Sanitized array.
+     */
+    private function sanitize_array_recursive($array)
+    {
         $sanitized = [];
-        foreach ($input as $key => $value) {
-            $sanitized[sanitize_key($key)] = sanitize_text_field($value);
+
+        foreach ($array as $key => $value) {
+            $sanitized_key = sanitize_key($key);
+
+            if (is_array($value)) {
+                // Recursively sanitize arrays
+                $sanitized[$sanitized_key] = $this->sanitize_array_recursive($value);
+            } elseif (is_bool($value)) {
+                // Preserve boolean type
+                $sanitized[$sanitized_key] = (bool) $value;
+            } elseif (is_numeric($value)) {
+                // Preserve numeric values
+                $sanitized[$sanitized_key] = $value;
+            } elseif (is_string($value)) {
+                // Sanitize strings
+                $sanitized[$sanitized_key] = sanitize_text_field($value);
+            } else {
+                // For any other type, convert to string and sanitize
+                $sanitized[$sanitized_key] = sanitize_text_field((string) $value);
+            }
         }
 
         return $sanitized;
@@ -176,7 +210,7 @@ class SettingsPage
         // This ensures chunks load correctly regardless of plugin folder name
         wp_add_inline_script(
             'winden-admin-script',
-            sprintf('window.__webpack_public_path__ = "%s";', WINDEN_PLUGIN_URL . 'build/'),
+            sprintf('window.__webpack_public_path__ = %s;', wp_json_encode(WINDEN_PLUGIN_URL . 'build/')),
             'before'
         );
 

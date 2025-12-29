@@ -22,7 +22,7 @@ class MonacoEditorProvider
         // Create a script handle to attach data to
         wp_enqueue_script(
             'winden-monaco-data',
-            'https://',
+            false,
             [],
             '1.0.0',
             true
@@ -62,7 +62,7 @@ class MonacoEditorProvider
         // Create a temporary script handle to attach data to
         wp_enqueue_script(
             'winden-plain-classes-data',
-            'https://',
+            false,
             [],
             '1.0.0',
             true
@@ -114,7 +114,7 @@ class MonacoEditorProvider
 
         wp_enqueue_script(
             'winden-compiler-options',
-            'https://',
+            false,
             ['winden-cachejs'],
             null,
             true
@@ -187,7 +187,7 @@ class MonacoEditorProvider
     public static function registerMonacoHooks()
     {
         // Action hook for other plugins to enqueue Monaco editor
-        add_action('admin_enqueue_scripts', function() {
+        add_action('admin_enqueue_scripts', function () {
             // Monaco editor for code editing (CSS/SCSS)
             if (did_action('winden_request_monaco_editor')) {
                 self::enqueueMonacoEditor();
@@ -200,20 +200,20 @@ class MonacoEditorProvider
         }, 20);
 
         // Filter hooks for customizing Monaco autocomplete data
-        add_filter('winden_monaco_autocomplete_classes', function($classes) {
+        add_filter('winden_monaco_autocomplete_classes', function ($classes) {
             return $classes;
         }, 10, 1);
 
-        add_filter('winden_monaco_autocomplete_suggestions', function($suggestions) {
+        add_filter('winden_monaco_autocomplete_suggestions', function ($suggestions) {
             return $suggestions;
         }, 10, 1);
 
         // Filter hooks for customizing plain classes autocomplete data
-        add_filter('winden_plain_classes_autocomplete', function($classes) {
+        add_filter('winden_plain_classes_autocomplete', function ($classes) {
             return $classes;
         }, 10, 1);
 
-        add_filter('winden_plain_classes_screens', function($screens) {
+        add_filter('winden_plain_classes_screens', function ($screens) {
             return $screens;
         }, 10, 1);
     }

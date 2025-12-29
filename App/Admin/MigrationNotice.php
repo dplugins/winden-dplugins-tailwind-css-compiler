@@ -12,7 +12,7 @@ class MigrationNotice
     public function __construct()
     {
         add_action('admin_notices', [$this, 'show_v4_migration_notice']);
-        add_action('wp_ajax_dismiss_winden_v4_notice', [$this, 'dismiss_notice']);
+        add_action('wp_ajax_winden_dismiss_v4_notice', [$this, 'dismiss_notice']);
     }
 
     /**
@@ -110,7 +110,7 @@ class MigrationNotice
                                         'Content-Type': 'application/x-www-form-urlencoded',
                                     },
                                     body: new URLSearchParams({
-                                        action: 'dismiss_winden_v4_notice',
+                                        action: 'winden_dismiss_v4_notice',
                                         nonce: '<?php echo esc_js(wp_create_nonce('winden_dismiss_v4')); ?>'
                                     })
                                 });

@@ -15,7 +15,7 @@ export function useWizzardContent() {
             // Import defaults dynamically to avoid circular dependencies
             const { DEFAULT_JS_CONTENT, DEFAULT_CSS_CONTENT } = await import('@/const/contentDefaults');
 
-            const response = await fetch(`${(window as any).ajaxUrl || (window as any).websiteUrl + '/wp-admin/admin-ajax.php'}?action=get_winden_content`);
+            const response = await fetch(`${(window as any).ajaxUrl || (window as any).websiteUrl + '/wp-admin/admin-ajax.php'}?action=winden_get_content`);
             const dbData: WizzardContentResponse = await response.json();
 
             if (!dbData.success) {

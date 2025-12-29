@@ -70,35 +70,8 @@ class Frontend extends BaseProvider
     // Add new method for Oxygen-specific CSS loading
     public function enqueue_compiled_css_oxygen()
     {
-        $settings = SettingsOptions::getWindenOptions();
-        $inline_css = $settings['inline_compiled_css'] ?? false;
-
-        $upload_dir = wp_upload_dir();
-        $css_file_path = $upload_dir['basedir'] . '/winden/output.css';
-        $css_file_url = $upload_dir['baseurl'] . '/winden/output.css';
-
-        if (!file_exists($css_file_path)) {
-            return;
-        }
-
-        if ($inline_css) {
-            // Inline the CSS
-            $css_content = file_get_contents($css_file_path);
-            if ($css_content !== false) {
-                ?>
-                <style id='winden-compiled-css' type='text/css'>
-                    <?php
-                    // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- CSS content from trusted file
-                    echo $css_content;
-                    ?>
-                </style>
-                <?php
-            }
-        } else {
-            // Load as external file (default behavior)
-            ?>
-            <link rel='stylesheet' id='winden-compiled-css' href='<?php echo esc_url($css_file_url); ?>?ver=<?php echo esc_attr(filemtime($css_file_path)); ?>' type='text/css' media='all' />
-            <?php
-        }
+        // Use the same WordPress enqueuing pattern as standard frontend
+        // wp_head hook in Oxygen requires proper enqueuing, not direct output
+        ProvidersHelpers::load_compiled_css(false); // Don't reorder queue in Oxygen
     }
 }

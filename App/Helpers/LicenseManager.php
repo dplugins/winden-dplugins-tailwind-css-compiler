@@ -51,6 +51,7 @@ class LicenseManager
             self::$cachedStatus = $license && $license->isActivated();
             return self::$cachedStatus;
         } catch (\Exception $e) {
+            // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log -- Intentional production logging for license validation errors
             error_log('[Winden License] License check failed: ' . $e->getMessage());
             self::$cachedStatus = false;
             return false;

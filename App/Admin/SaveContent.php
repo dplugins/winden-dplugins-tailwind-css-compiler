@@ -5,23 +5,30 @@ namespace Winden\App\Admin;
 use DateTime;
 use DateTimeZone;
 use Winden\App\Helpers\SettingsOptions;
+use Winden\App\Helpers\Sanitization;
 
 class SaveContent
 {
     public function __construct()
     {
         // Add AJAX action for saving content
-        add_action('wp_ajax_save_winden_content', [$this, 'save_winden_content']);
-        add_action('wp_ajax_nopriv_save_winden_content', [$this, 'save_winden_content']);
-        add_action('wp_ajax_save_winden_cache', [$this, 'save_winden_cache']);
-        add_action('wp_ajax_update_winden_wizzard_state', [$this, 'update_winden_wizzard_state']);
-        add_action('wp_ajax_clear_winden_cache', [$this, 'clear_winden_cache']);
+        add_action('wp_ajax_winden_save_content', [$this, 'save_winden_content']);
+        add_action('wp_ajax_nopriv_winden_save_content', [$this, 'save_winden_content']);
+        add_action('wp_ajax_winden_save_cache', [$this, 'save_winden_cache']);
+        add_action('wp_ajax_winden_update_wizzard_state', [$this, 'update_winden_wizzard_state']);
+        add_action('wp_ajax_winden_clear_cache', [$this, 'clear_winden_cache']);
     }
 
     public function save_winden_content()
     {
         // Get the JSON data from the request
         $data = json_decode(file_get_contents('php://input'), true);
+
+        // Validate JSON structure
+        if (!is_array($data)) {
+            wp_send_json_error('Invalid JSON data received.');
+            return;
+        }
 
         // Check for the necessary permissions and nonce verification if required
         if (!current_user_can('edit_posts') || !wp_verify_nonce(sanitize_text_field(wp_unslash($data['_nonce'] ?? '')), 'winden_nonce')) {
@@ -30,11 +37,34 @@ class SaveContent
         }
 
         if (isset($data['javascript']) && isset($data['scss']) && isset($data['wizzard'])) {
-            // Decode the Base64 content
-            $javascript = json_decode(base64_decode($data['javascript']), true);
-            $scss = json_decode(base64_decode($data['scss']), true);
-            $css = base64_decode($data['css']); // Decode CSS directly as a string
-            $wizzard = json_decode(base64_decode($data['wizzard']), true); // Decode wizzard content
+            // Decode and validate the Base64 content
+            $javascript_raw = base64_decode($data['javascript'], true);
+            $scss_raw = base64_decode($data['scss'], true);
+            $css_raw = base64_decode($data['css'], true);
+            $wizzard_raw = base64_decode($data['wizzard'], true);
+
+            // Validate base64 decoding succeeded
+            if ($javascript_raw === false || $scss_raw === false || $css_raw === false || $wizzard_raw === false) {
+                wp_send_json_error('Invalid base64 encoded data.');
+                return;
+            }
+
+            // Decode JSON
+            $javascript = json_decode($javascript_raw, true);
+            $scss = json_decode($scss_raw, true);
+            $wizzard = json_decode($wizzard_raw, true);
+
+            // Validate JSON decoding
+            if (!is_string($javascript) || !is_string($scss) || !is_array($wizzard)) {
+                wp_send_json_error('Invalid data structure.');
+                return;
+            }
+
+            // Sanitize data based on type and user capabilities
+            $javascript = Sanitization::sanitize_javascript($javascript);
+            $scss = Sanitization::sanitize_css($scss);
+            $css = Sanitization::sanitize_css($css_raw);
+            $wizzard = Sanitization::sanitize_wizzard_state($wizzard);
 
             // Save the data to the database
             $config_data = [
@@ -49,7 +79,6 @@ class SaveContent
             update_option('winden_editor', $config_data);
 
             // Set flag to clear frontend compilation cache on next page load
-            // This ensures old cached compilations don't persist after config changes
             update_option('winden_clear_cache_flag', time());
 
             // Update tailwind_version to v4 in winden_options
@@ -67,51 +96,58 @@ class SaveContent
             $default_style_tab_path = $winden_dir . '/style-tab.css';
             $default_input_path = $winden_dir . '/input.css';
 
-            // Build input.css content: Style Tab + Wizard @theme (for external tools like VS Code)
+            // Build input.css content
             $input_content = $scss;
             if (isset($wizzard['configCode']) && !empty($wizzard['configCode'])) {
                 $input_content .= "\n\n" . $wizzard['configCode'];
             }
 
-            // Always save to default location
+            // Always save to default locations in uploads dir
             file_put_contents($default_config_path, $javascript);
             file_put_contents($default_style_tab_path, $scss);
             file_put_contents($default_input_path, $input_content);
 
             // Allow filtering for additional copy locations
+            // Security check: ensure filtered paths are within allowed directories
             $filtered_config_path = \apply_filters('winden_config_file_path', $default_config_path);
             $filtered_style_tab_path = \apply_filters('winden_scss_file_path', $default_style_tab_path);
             $filtered_input_path = \apply_filters('winden_input_file_path', $default_input_path);
 
-            // Copy to filtered locations if different from default
-            if ($filtered_config_path !== $default_config_path) {
+            // Copy to filtered locations if different and valid
+            if ($filtered_config_path !== $default_config_path && wp_is_writable(dirname($filtered_config_path))) {
                 \wp_mkdir_p(dirname($filtered_config_path));
                 file_put_contents($filtered_config_path, $javascript);
             }
-            if ($filtered_style_tab_path !== $default_style_tab_path) {
+            if ($filtered_style_tab_path !== $default_style_tab_path && wp_is_writable(dirname($filtered_style_tab_path))) {
                 \wp_mkdir_p(dirname($filtered_style_tab_path));
                 file_put_contents($filtered_style_tab_path, $scss);
             }
-            if ($filtered_input_path !== $default_input_path) {
+            if ($filtered_input_path !== $default_input_path && wp_is_writable(dirname($filtered_input_path))) {
                 \wp_mkdir_p(dirname($filtered_input_path));
                 file_put_contents($filtered_input_path, $input_content);
             }
 
-            // Save tailwind.config.js in wp-content/scan_path directory
+            // Save tailwind.config.js in wp-content/scan_path directory (if enabled)
             $options = get_option('winden_options', []);
             $scan_path = isset($options['scan_path']) ? $options['scan_path'] : '';
             $enable_files_scan = isset($options['enable_files_scan']) ? $options['enable_files_scan'] : false;
             $save_config_file = isset($options['save_config_file']) ? $options['save_config_file'] : false;
 
+            // Only save if scan path is configured, enabled, and writing to config file is enabled
             if ($enable_files_scan && $save_config_file && !empty($scan_path)) {
-                $scan_config_path = WP_CONTENT_DIR . '/' . trim($scan_path, '/') . '/tailwind.config.js';
+                // Sanitize scan path to prevent directory traversal
+                $sanitized_scan_path = sanitize_text_field($scan_path);
+                // Ensure it's relative to WP_CONTENT_DIR or ABSPATH
+                $scan_config_path = WP_CONTENT_DIR . '/' . trim($sanitized_scan_path, '/') . '/tailwind.config.js';
                 $scan_dir = dirname($scan_config_path);
 
                 if (!file_exists($scan_dir)) {
                     wp_mkdir_p($scan_dir);
                 }
 
-                file_put_contents($scan_config_path, $combined_content);
+                if (wp_is_writable($scan_dir)) {
+                    file_put_contents($scan_config_path, $javascript);
+                }
             }
 
             // Respond with a success message
@@ -126,6 +162,12 @@ class SaveContent
     {
         // Get the JSON data from the request
         $data = json_decode(file_get_contents('php://input'), true);
+
+        // Validate JSON structure
+        if (!is_array($data)) {
+            wp_send_json_error('Invalid JSON data received.');
+            return;
+        }
 
         // Check for the necessary permissions and nonce verification if required
         if (!current_user_can('edit_posts') || !wp_verify_nonce(sanitize_text_field(wp_unslash($data['_nonce'] ?? '')), 'winden_nonce')) {
@@ -158,8 +200,10 @@ class SaveContent
                     );
 
                     if ($is_old_postcss_error && !$is_scss_error) {
-                        // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log -- Intentional production logging for cache corruption auto-fix
-                        error_log('[Winden Auto-Fix] Clearing OLD corrupted cache before saving: ' . $message);
+                        if (defined('WP_DEBUG') && WP_DEBUG) {
+                            // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log -- Debug-only logging for cache corruption auto-fix
+                            error_log('[Winden Auto-Fix] Clearing OLD corrupted cache before saving: ' . $message);
+                        }
                         delete_option('winden_cache');
 
                         // Delete output.css file if it exists
@@ -180,19 +224,32 @@ class SaveContent
 
         // Check if this is a successful compilation with styles
         if (isset($data['styles']) && !empty($data['styles'])) {
+            // Validate and sanitize compiled CSS
+            if (!is_string($data['styles'])) {
+                wp_send_json_error('Invalid styles data type.');
+                return;
+            }
+
+            $sanitized_styles = Sanitization::sanitize_compiled_css($data['styles']);
+
+            if (empty($sanitized_styles)) {
+                wp_send_json_error('Compiled CSS validation failed.');
+                return;
+            }
+
             // Define default file path
             $upload_dir = wp_upload_dir();
             $default_path = $upload_dir['basedir'] . '/winden/output.css';
 
             // Always save to default location
             \wp_mkdir_p(dirname($default_path));
-            $result = file_put_contents($default_path, $data['styles']);
+            $result = file_put_contents($default_path, $sanitized_styles);
 
             // Copy to filtered location if different
             $filtered_path = \apply_filters('winden_cache_file_path', $default_path);
             if ($filtered_path !== $default_path) {
                 \wp_mkdir_p(dirname($filtered_path));
-                file_put_contents($filtered_path, $data['styles']);
+                file_put_contents($filtered_path, $sanitized_styles);
             }
 
             if ($result === false) {
@@ -211,10 +268,13 @@ class SaveContent
                 return;
             }
 
+            // Sanitize status
+            $status = isset($data['status']) ? Sanitization::sanitize_status($data['status']) : 'completed';
+
             // Update the option in the database - successful compilation
             update_option('winden_cache', [
                 'createdAt' => $formattedDatetime,
-                'status' => $data['status'] ?? 'completed'
+                'status' => $status
             ]);
 
             // Respond with a success message
@@ -223,8 +283,8 @@ class SaveContent
             // This is a failed compilation or error case
             $errors = [];
             if (isset($data['errors'])) {
-                // Errors is already JSON string from frontend
-                $errors = $data['errors'];
+                // Sanitize errors data
+                $errors = Sanitization::sanitize_errors($data['errors']);
             } else {
                 $errors = wp_json_encode([
                     [
@@ -234,11 +294,14 @@ class SaveContent
                 ]);
             }
 
+            // Sanitize status
+            $status = isset($data['status']) ? Sanitization::sanitize_status($data['status']) : 'failed';
+
             // Update the option in the database with error info
             update_option('winden_cache', [
                 'createdAt' => $formattedDatetime,
                 'errors' => $errors,
-                'status' => $data['status'] ?? 'failed'
+                'status' => $status
             ]);
 
             // This is expected behavior for compilation errors, so return success
@@ -254,6 +317,12 @@ class SaveContent
         // Get the JSON data from the request
         $data = json_decode(file_get_contents('php://input'), true);
 
+        // Validate JSON structure
+        if (!is_array($data)) {
+            wp_send_json_error('Invalid JSON data received.');
+            return;
+        }
+
         // Check for the necessary permissions and nonce verification if required
         if (!current_user_can('edit_posts') || !wp_verify_nonce(sanitize_text_field(wp_unslash($data['_nonce'] ?? '')), 'winden_nonce')) {
             wp_send_json_error('You are not allowed to perform this action.');
@@ -261,8 +330,16 @@ class SaveContent
         }
 
         if (isset($data['wizzard'])) {
+            // Validate and sanitize wizzard state
+            if (!is_array($data['wizzard'])) {
+                wp_send_json_error('Invalid wizzard data structure.');
+                return;
+            }
+
+            $sanitized_wizzard = Sanitization::sanitize_wizzard_state($data['wizzard']);
+
             // Update the option in the database
-            update_option('winden_wizzard_state', $data['wizzard']);
+            update_option('winden_wizzard_state', $sanitized_wizzard);
 
             // Respond with a success message
             wp_send_json_success('Wizzard state saved successfully!');

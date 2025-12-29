@@ -40,6 +40,7 @@ class Migration
         // If version is different, run migration
         if (version_compare($stored_version, self::CURRENT_VERSION, '<')) {
             if (defined('WP_DEBUG') && WP_DEBUG) {
+                // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log -- Debug-only logging (only runs when WP_DEBUG is enabled)
                 error_log('[Winden Migration] Migration needed: ' . $stored_version . ' < ' . self::CURRENT_VERSION);
             }
             $this->runMigration($stored_version);
@@ -57,6 +58,7 @@ class Migration
     private function runMigration($from_version)
     {
         if (defined('WP_DEBUG') && WP_DEBUG) {
+            // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log -- Debug-only logging (only runs when WP_DEBUG is enabled)
             error_log('[Winden Migration] Upgrading from version ' . $from_version . ' to ' . self::CURRENT_VERSION);
         }
 
@@ -81,12 +83,14 @@ class Migration
         $debug = defined('WP_DEBUG') && WP_DEBUG;
 
         if ($debug) {
+            // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log -- Debug-only logging (only runs when WP_DEBUG is enabled)
             error_log('[Winden Migration] Running migration to 2.9.0');
         }
 
         // Clear old cache
         $cache_deleted = delete_option('winden_cache');
         if ($cache_deleted && $debug) {
+            // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log -- Debug-only logging (only runs when WP_DEBUG is enabled)
             error_log('[Winden Migration] ✅ Old cache cleared');
         }
 
@@ -96,6 +100,7 @@ class Migration
         if (file_exists($output_css)) {
             wp_delete_file($output_css);
             if ($debug) {
+                // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log -- Debug-only logging (only runs when WP_DEBUG is enabled)
                 error_log('[Winden Migration] ✅ output.css file deleted');
             }
         }
@@ -106,6 +111,7 @@ class Migration
         // Check if config is in old format (array with 'name' keys)
         if (is_array($config) && !empty($config) && isset($config[0]['name'])) {
             if ($debug) {
+                // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log -- Debug-only logging (only runs when WP_DEBUG is enabled)
                 error_log('[Winden Migration] Detected old configuration format, converting...');
             }
             $this->convertOldConfig($config);
@@ -114,6 +120,7 @@ class Migration
         // Ensure wizzard config exists
         if (!isset($config['wizzard'])) {
             if ($debug) {
+                // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log -- Debug-only logging (only runs when WP_DEBUG is enabled)
                 error_log('[Winden Migration] Adding default Wizzard configuration');
             }
             $this->ensureWizzardConfig();
@@ -121,6 +128,7 @@ class Migration
             // Clear old JavaScript-format configCode from Wizzard state
             // It will be regenerated as @theme CSS on next load
             if ($debug) {
+                // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log -- Debug-only logging (only runs when WP_DEBUG is enabled)
                 error_log('[Winden Migration] Clearing old configCode from Wizzard state');
             }
             unset($config['wizzard']['configCode']);
@@ -128,6 +136,7 @@ class Migration
         }
 
         if ($debug) {
+            // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log -- Debug-only logging (only runs when WP_DEBUG is enabled)
             error_log('[Winden Migration] ✅ Migration to 2.9.0 completed');
         }
     }
@@ -167,6 +176,7 @@ class Migration
 
         update_option('winden_editor', $new_config);
         if (defined('WP_DEBUG') && WP_DEBUG) {
+            // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log -- Debug-only logging (only runs when WP_DEBUG is enabled)
             error_log('[Winden Migration] ✅ Configuration converted to new format');
         }
     }

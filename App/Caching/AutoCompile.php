@@ -27,7 +27,7 @@ class AutoCompile
         // AJAX endpoints
         add_action('wp_ajax_winden_trigger_recompile', [$this, 'ajax_trigger_recompile']);
         add_action('wp_ajax_winden_compile_from_crawled', [$this, 'ajax_compile_from_crawled']);
-        add_action('wp_ajax_get_winden_compile_status', [$this, 'ajax_get_compile_status']);
+        add_action('wp_ajax_winden_get_compile_status', [$this, 'ajax_get_compile_status']);
         add_action('wp_ajax_winden_clear_recompile_flag', [$this, 'ajax_clear_recompile_flag']);
 
         // Load auto-compile script in all post editor contexts (Gutenberg, Bricks, Oxygen, Elementor)
@@ -125,6 +125,7 @@ class AutoCompile
             }
 
         } catch (\Exception $e) {
+            // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log -- Intentional production logging for error tracking
             error_log('[Winden AutoCompile] Error: ' . $e->getMessage());
         } finally {
             // Reset the flag

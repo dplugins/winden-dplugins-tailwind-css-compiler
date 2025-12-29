@@ -193,7 +193,7 @@ export const handleFetchedClasses = async (
     }
 
     try {
-      const response = await fetch(`${window.ajaxUrl || window.websiteUrl + '/wp-admin/admin-ajax.php'}?action=save_winden_cache`, {
+      const response = await fetch(`${window.ajaxUrl || window.websiteUrl + '/wp-admin/admin-ajax.php'}?action=winden_save_cache`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

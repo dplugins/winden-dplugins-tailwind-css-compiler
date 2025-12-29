@@ -11,7 +11,7 @@ export const fetchSettings = async (
   callback: ((settings: any) => void) | null = null
 ): Promise<any> => {
   try {
-    const response = await fetch(`${(window as any).ajaxUrl || (window as any).websiteUrl + '/wp-admin/admin-ajax.php'}?action=get_winden_settings`);
+    const response = await fetch(`${(window as any).ajaxUrl || (window as any).websiteUrl + '/wp-admin/admin-ajax.php'}?action=winden_get_settings`);
     const result = await response.json();
     if (result.success) {
       if (json) {
@@ -36,7 +36,7 @@ export const fetchSettings = async (
  */
 export const saveSettings = async (newSettings: Record<string, any>): Promise<void> => {
   try {
-    const response = await fetch(`${(window as any).ajaxUrl || (window as any).websiteUrl + '/wp-admin/admin-ajax.php'}?action=save_winden_settings`, {
+    const response = await fetch(`${(window as any).ajaxUrl || (window as any).websiteUrl + '/wp-admin/admin-ajax.php'}?action=winden_save_settings`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

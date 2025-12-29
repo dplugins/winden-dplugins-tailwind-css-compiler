@@ -120,11 +120,21 @@ class FSE extends BaseProvider
             );
         }
 
-        // Inject CSS into iframe
-        // phpcs:ignore WordPress.WP.EnqueuedResources.NonEnqueuedStylesheet -- Using __unstableResolvedAssets to inject into Gutenberg iframe where wp_enqueue_style cannot be used
+        /**
+         * Inject CSS into Gutenberg block editor iframe
+         *
+         * IMPORTANT: This uses __unstableResolvedAssets, which is the ONLY official way
+         * to inject styles into the block editor iframe in WordPress 5.8+.
+         * wp_enqueue_style() cannot be used here because it loads in the parent window,
+         * not the isolated iframe where content is edited.
+         *
+         * Reference: https://github.com/WordPress/gutenberg/pull/23727
+         * Reference: https://make.wordpress.org/core/2021/06/29/blocks-in-an-iframed-template-editor/
+         */
         if (file_exists($css_file_path)) {
             $version = filemtime($css_file_path);
             $editor_settings['__unstableResolvedAssets']['styles'] .= sprintf(
+                // phpcs:ignore WordPress.WP.EnqueuedResources.NonEnqueuedStylesheet -- Official Gutenberg iframe API (see docs at line 126-132)
                 '<link rel="stylesheet" id="winden-compiled-css-iframe" href="%s?ver=%s" media="all" />',
                 esc_url($css_file_url),
                 esc_attr($version)
@@ -147,34 +157,45 @@ class FSE extends BaseProvider
                 $globals_js
             );
 
+            /**
+             * Inject scripts into Gutenberg block editor iframe
+             *
+             * IMPORTANT: These scripts MUST run inside the iframe (not parent window)
+             * to compile Tailwind CSS for the actual content being edited.
+             * wp_enqueue_script() loads in parent window only.
+             *
+             * __unstableResolvedAssets is the official Gutenberg API for iframe injection.
+             * Reference: https://github.com/WordPress/gutenberg/pull/23727
+             */
+
             // Add compiler script
-            // phpcs:ignore WordPress.WP.EnqueuedResources.NonEnqueuedScript -- Using __unstableResolvedAssets to inject into Gutenberg iframe where wp_enqueue_script cannot be used
             $compiler_path = WINDEN_PLUGIN_DIR . 'build/compiler/tailwindcss-compiler.js';
             if (file_exists($compiler_path)) {
                 $compiler_url = WINDEN_PLUGIN_URL . 'build/compiler/tailwindcss-compiler.js?ver=' . filemtime($compiler_path);
                 $editor_settings['__unstableResolvedAssets']['scripts'] .= sprintf(
+                    // phpcs:ignore WordPress.WP.EnqueuedResources.NonEnqueuedScript -- Official Gutenberg iframe API (see docs at line 160-169)
                     '<script src="%s" id="winden-compiler-iframe"></script>',
                     esc_url($compiler_url)
                 );
             }
 
             // Add watcher script
-            // phpcs:ignore WordPress.WP.EnqueuedResources.NonEnqueuedScript -- Using __unstableResolvedAssets to inject into Gutenberg iframe where wp_enqueue_script cannot be used
             $watcher_path = WINDEN_PLUGIN_DIR . 'assets/tailwindcss-watcher.js';
             if (file_exists($watcher_path)) {
                 $watcher_url = WINDEN_ASSETS_DIR . 'tailwindcss-watcher.js?ver=' . filemtime($watcher_path);
                 $editor_settings['__unstableResolvedAssets']['scripts'] .= sprintf(
+                    // phpcs:ignore WordPress.WP.EnqueuedResources.NonEnqueuedScript -- Official Gutenberg iframe API (see docs at line 160-169)
                     '<script src="%s" id="winden-watcher-iframe"></script>',
                     esc_url($watcher_url)
                 );
             }
 
             // Add broadcast listener
-            // phpcs:ignore WordPress.WP.EnqueuedResources.NonEnqueuedScript -- Using __unstableResolvedAssets to inject into Gutenberg iframe where wp_enqueue_script cannot be used
             $broadcast_path = WINDEN_PLUGIN_DIR . 'assets/broadcast-listener.js';
             if (file_exists($broadcast_path)) {
                 $broadcast_url = WINDEN_ASSETS_DIR . 'broadcast-listener.js?ver=' . filemtime($broadcast_path);
                 $editor_settings['__unstableResolvedAssets']['scripts'] .= sprintf(
+                    // phpcs:ignore WordPress.WP.EnqueuedResources.NonEnqueuedScript -- Official Gutenberg iframe API (see docs at line 160-169)
                     '<script src="%s" id="winden-broadcast-iframe"></script>',
                     esc_url($broadcast_url)
                 );

@@ -47,7 +47,7 @@ export const fetchContent = async (
 
   try {
     // Fetch all content from database
-    const dbResponse = await fetch(`${window.ajaxUrl || window.websiteUrl + '/wp-admin/admin-ajax.php'}?action=get_winden_content`);
+    const dbResponse = await fetch(`${window.ajaxUrl || window.websiteUrl + '/wp-admin/admin-ajax.php'}?action=winden_get_content`);
     const dbData = await dbResponse.json();
 
     if (dbData.success) {
@@ -123,7 +123,7 @@ export const fetchContent = async (
  */
 export const fetchWizzardState = async (): Promise<WizzardState | []> => {
   try {
-    const response = await fetch(`${window.ajaxUrl || window.websiteUrl + '/wp-admin/admin-ajax.php'}?action=get_winden_wizzard_state`);
+    const response = await fetch(`${window.ajaxUrl || window.websiteUrl + '/wp-admin/admin-ajax.php'}?action=winden_get_wizzard_state`);
     const data = await response.json();
 
     if (data.success) {

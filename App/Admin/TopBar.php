@@ -33,6 +33,7 @@ class TopBar
     public function add_top_bar_link($wp_admin_bar)
     {
         // Check if we are on the settings page
+        // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Reading WordPress admin page parameter, not processing user input
         if (isset($_GET['page']) && $_GET['page'] === 'winden') {
             return; // Do not add the link on the settings page
         }

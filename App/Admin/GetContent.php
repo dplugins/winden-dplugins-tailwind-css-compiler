@@ -7,15 +7,15 @@ class GetContent
     public function __construct()
     {
         // Logged-in user endpoints
-        add_action('wp_ajax_get_winden_content', [$this, 'get_winden_content_callback']);
-        add_action('wp_ajax_get_winden_cache', [$this, 'get_winden_cache']);
-        add_action('wp_ajax_get_winden_wizzard_state', [$this, 'get_winden_wizzard_state']);
-        add_action('wp_ajax_get_crawled_classes', [$this, 'get_crawled_classes']);
+        add_action('wp_ajax_winden_get_content', [$this, 'get_winden_content_callback']);
+        add_action('wp_ajax_winden_get_cache', [$this, 'get_winden_cache']);
+        add_action('wp_ajax_winden_get_wizzard_state', [$this, 'get_winden_wizzard_state']);
+        add_action('wp_ajax_winden_get_crawled_classes', [$this, 'get_crawled_classes']);
 
         // Public endpoints (logged-out users)
-        add_action('wp_ajax_nopriv_get_winden_content', [$this, 'get_winden_content_callback']);
-        add_action('wp_ajax_nopriv_get_winden_cache', [$this, 'get_winden_cache']);
-        add_action('wp_ajax_nopriv_get_winden_wizzard_state', [$this, 'get_winden_wizzard_state']);
+        add_action('wp_ajax_nopriv_winden_get_content', [$this, 'get_winden_content_callback']);
+        add_action('wp_ajax_nopriv_winden_get_cache', [$this, 'get_winden_cache']);
+        add_action('wp_ajax_nopriv_winden_get_wizzard_state', [$this, 'get_winden_wizzard_state']);
     }
 
     public function get_winden_content_callback()
@@ -220,8 +220,10 @@ class GetContent
                     );
 
                     if ($is_old_postcss_error && !$is_scss_error) {
-                        // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log -- Intentional production logging for cache corruption auto-fix
-                        error_log('[Winden Auto-Fix] Detected OLD corrupted cache on fetch, clearing: ' . $message);
+                        if (defined('WP_DEBUG') && WP_DEBUG) {
+                            // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log -- Debug-only logging for cache corruption auto-fix
+                            error_log('[Winden Auto-Fix] Detected OLD corrupted cache on fetch, clearing: ' . $message);
+                        }
 
                         // Clear corrupted cache
                         delete_option('winden_cache');

@@ -2,6 +2,8 @@
 
 namespace Winden\App\Admin\Settings;
 
+use Winden\App\Helpers\Sanitization;
+
 class SettingsSaveGet
 {
     private $keys = [
@@ -37,10 +39,10 @@ class SettingsSaveGet
 
     public function __construct()
     {
-        add_action('wp_ajax_save_winden_settings', [$this, 'save_winden_settings']);
-        add_action('wp_ajax_nopriv_save_winden_settings', [$this, 'save_winden_settings']);
-        add_action('wp_ajax_get_winden_settings', [$this, 'get_winden_settings']);
-        add_action('wp_ajax_nopriv_get_winden_settings', [$this, 'get_winden_settings']);
+        add_action('wp_ajax_winden_save_settings', [$this, 'save_winden_settings']);
+        add_action('wp_ajax_nopriv_winden_save_settings', [$this, 'save_winden_settings']);
+        add_action('wp_ajax_winden_get_settings', [$this, 'get_winden_settings']);
+        add_action('wp_ajax_nopriv_winden_get_settings', [$this, 'get_winden_settings']);
     }
 
     public function save_winden_settings()
@@ -48,35 +50,27 @@ class SettingsSaveGet
         // Get the JSON data from the request
         $data = json_decode(file_get_contents('php://input'), true);
 
+        // Validate JSON structure
+        if (!is_array($data)) {
+            wp_send_json_error('Invalid JSON data received.');
+            return;
+        }
+
         // Check for the necessary permissions and nonce verification if required
         if (!current_user_can('manage_options') || !wp_verify_nonce(sanitize_text_field(wp_unslash($data['_nonce'] ?? '')), 'winden_nonce')) {
             wp_send_json_error('You are not allowed to perform this action.');
             return;
         }
 
-        // DEBUG: Log received data
-        // error_log('[Winden Settings] Received data keys: ' . implode(', ', array_keys($data)));
-        // error_log('[Winden Settings] Allowed keys: ' . implode(', ', $this->keys));
-
         // Filter the data to only include keys that are in the $keys array
         $filtered_data = array_intersect_key($data, array_flip($this->keys));
 
-        // DEBUG: Log filtered data
-        // error_log('[Winden Settings] Filtered data keys: ' . implode(', ', array_keys($filtered_data)));
-        // error_log('[Winden Settings] Filtered data: ' . print_r($filtered_data, true));
+        // Sanitize all settings values with type-aware sanitization
+        $sanitized_data = Sanitization::sanitize_settings($filtered_data);
 
-        // Ensure scan_path is always an array
-        if (isset($filtered_data['scan_path'])) {
-            if (!is_array($filtered_data['scan_path'])) {
-                $filtered_data['scan_path'] = $filtered_data['scan_path'] ? [$filtered_data['scan_path']] : [];
-            }
-            // Remove any empty paths
-            $filtered_data['scan_path'] = array_filter($filtered_data['scan_path'], 'strlen');
-        }
-
-        if (!empty($filtered_data)) {
+        if (!empty($sanitized_data)) {
             // Update the option in the database
-            $update_result = update_option('winden_options', $filtered_data);
+            $update_result = update_option('winden_options', $sanitized_data);
 
             // DEBUG: Log what was saved
             // error_log('[Winden Settings] Settings saved successfully. update_option returned: ' . ($update_result ? 'true' : 'false'));

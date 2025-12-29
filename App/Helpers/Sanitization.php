@@ -1,0 +1,232 @@
+<?php
+
+namespace Winden\App\Helpers;
+
+/**
+ * Sanitization helper functions for Winden plugin
+ *
+ * Handles type-aware sanitization while preserving functionality
+ * for code editor features (CSS/JS).
+ */
+class Sanitization
+{
+    /**
+     * Sanitize CSS content
+     *
+     * Allows CSS for users with unfiltered_html capability,
+     * otherwise uses wp_kses_post for safe CSS.
+     *
+     * @param string $css CSS content
+     * @return string Sanitized CSS
+     */
+    public static function sanitize_css($css)
+    {
+        if (!is_string($css)) {
+            return '';
+        }
+
+        // Admins/editors can save any CSS
+        if (current_user_can('unfiltered_html')) {
+            return $css;
+        }
+
+        // Others get safe CSS via wp_kses_post
+        return wp_kses_post($css);
+    }
+
+    /**
+     * Sanitize JavaScript content
+     *
+     * Only allows JavaScript for users with unfiltered_html capability.
+     *
+     * @param string $js JavaScript content
+     * @return string Sanitized JavaScript or empty string
+     */
+    public static function sanitize_javascript($js)
+    {
+        if (!is_string($js)) {
+            return '';
+        }
+
+        // Only admins/editors can save JavaScript
+        if (current_user_can('unfiltered_html')) {
+            return $js;
+        }
+
+        return '';
+    }
+
+    /**
+     * Recursively sanitize array with type preservation
+     *
+     * @param array $array Array to sanitize
+     * @return array Sanitized array
+     */
+    public static function sanitize_array_recursive($array)
+    {
+        if (!is_array($array)) {
+            return [];
+        }
+
+        $sanitized = [];
+
+        foreach ($array as $key => $value) {
+            $sanitized_key = sanitize_key($key);
+
+            if (is_array($value)) {
+                $sanitized[$sanitized_key] = self::sanitize_array_recursive($value);
+            } elseif (is_bool($value)) {
+                $sanitized[$sanitized_key] = (bool) $value;
+            } elseif (is_numeric($value)) {
+                $sanitized[$sanitized_key] = $value;
+            } elseif ($sanitized_key === 'configCode') {
+                // Wizzard CSS config
+                $sanitized[$sanitized_key] = self::sanitize_css($value);
+            } elseif (in_array($sanitized_key, ['hex', 'color'], true)) {
+                // Hex color values
+                $sanitized[$sanitized_key] = sanitize_hex_color($value);
+            } else {
+                $sanitized[$sanitized_key] = sanitize_text_field($value);
+            }
+        }
+
+        return $sanitized;
+    }
+
+    /**
+     * Sanitize Wizzard state data
+     *
+     * @param array $wizzard Wizzard state
+     * @return array Sanitized wizzard data
+     */
+    public static function sanitize_wizzard_state($wizzard)
+    {
+        return self::sanitize_array_recursive($wizzard);
+    }
+
+    /**
+     * Sanitize compiled CSS output
+     *
+     * @param string $css Compiled CSS
+     * @return string Sanitized CSS
+     */
+    public static function sanitize_compiled_css($css)
+    {
+        return self::sanitize_css($css);
+    }
+
+    /**
+     * Sanitize error messages
+     *
+     * @param mixed $errors Error data (string or array)
+     * @return string Sanitized JSON string
+     */
+    public static function sanitize_errors($errors)
+    {
+        // Decode if JSON string
+        if (is_string($errors)) {
+            $decoded = json_decode($errors, true);
+            if (is_array($decoded)) {
+                $errors = $decoded;
+            } else {
+                return wp_json_encode([]);
+            }
+        }
+
+        if (!is_array($errors)) {
+            return wp_json_encode([]);
+        }
+
+        $sanitized = [];
+        foreach ($errors as $error) {
+            if (!is_array($error)) {
+                continue;
+            }
+
+            $sanitized[] = [
+                'title' => isset($error['title']) ? sanitize_text_field($error['title']) : '',
+                'message' => isset($error['message']) ? sanitize_text_field($error['message']) : '',
+                'line' => isset($error['line']) ? absint($error['line']) : 0,
+                'column' => isset($error['column']) ? absint($error['column']) : 0,
+            ];
+        }
+
+        return wp_json_encode($sanitized);
+    }
+
+    /**
+     * Sanitize status value
+     *
+     * @param string $status Status value
+     * @return string Sanitized status
+     */
+    public static function sanitize_status($status)
+    {
+        $allowed = ['completed', 'failed', 'pending'];
+        return in_array($status, $allowed, true) ? $status : 'completed';
+    }
+
+    /**
+     * Sanitize settings array
+     *
+     * @param array $settings Settings data
+     * @return array Sanitized settings
+     */
+    public static function sanitize_settings($settings)
+    {
+        if (!is_array($settings)) {
+            return [];
+        }
+
+        $sanitized = [];
+        $boolean_keys = [
+            'autocomplete_gutenberg',
+            'autocomplete_bricks',
+            'autocomplete_oxygen',
+            'autocomplete_oxygen6',
+            'autocomplete_elementor',
+            'dequeue_styles_gutenberg',
+            'dequeue_styles_bricks',
+            'dequeue_styles_oxygen',
+            'register_wizzard_data_in_fse',
+            'register_wizzard_data_in_bricks',
+            'compiled_css',
+            'cdn_for_admin',
+            'folded_sidebar',
+            'enable_files_scan',
+            'save_config_file',
+            'disable_dev_mode',
+            'inline_compiled_css',
+        ];
+
+        foreach ($settings as $key => $value) {
+            $key = sanitize_key($key);
+
+            if (in_array($key, $boolean_keys, true)) {
+                $sanitized[$key] = (bool) $value;
+            } elseif ($key === 'scan_path') {
+                // Array of paths - prevent path traversal
+                if (!is_array($value)) {
+                    $value = $value ? [$value] : [];
+                }
+                $sanitized[$key] = array_map(function ($path) {
+                    $path = str_replace(['../', '..\\'], '', $path);
+                    return sanitize_text_field(trim($path, '/\\'));
+                }, $value);
+            } elseif ($key === 'scan_file_formats') {
+                // Array of file extensions
+                if (!is_array($value)) {
+                    $value = $value ? [$value] : [];
+                }
+                $sanitized[$key] = array_map('sanitize_text_field', $value);
+            } elseif ($key === 'css_preprocessor') {
+                // Whitelist: css or scss
+                $sanitized[$key] = in_array($value, ['css', 'scss'], true) ? $value : 'css';
+            } else {
+                $sanitized[$key] = sanitize_text_field($value);
+            }
+        }
+
+        return $sanitized;
+    }
+}
