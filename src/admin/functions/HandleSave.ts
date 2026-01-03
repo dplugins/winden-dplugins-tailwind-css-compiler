@@ -194,8 +194,6 @@ export const handleWizzardStateUpdate = async (
     const result = await response.json();
 
     if (result.success) {
-      // console.log('Wizzard state updated successfully!');
-
       // Broadcast Wizzard update to other tabs
       windenBroadcast.postMessage({
         type: 'WIZZARD_UPDATED',
@@ -209,9 +207,9 @@ export const handleWizzardStateUpdate = async (
         callback();
       }
     } else {
-      console.error('Error updating wizzard state: ', result.data);
+      console.error('Error updating wizzard state:', result.data);
     }
   } catch (error) {
-    console.error('Error updating wizzard state: ', error);
+    console.error('Error updating wizzard state:', error);
   }
 };

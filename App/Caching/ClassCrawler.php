@@ -58,9 +58,31 @@ class ClassCrawler
             'funculo'
         ]));
 
+        // Default exclusions - post types that never contain Tailwind classes
+        $excluded_post_types = [
+            'attachment',
+            'revision',
+            'custom_css',
+        ];
+
+        /**
+         * Filter the list of excluded post types
+         *
+         * @param array $excluded_post_types Array of post type slugs to exclude from class scanning
+         * @return array Modified array of post types to exclude
+         *
+         * @example
+         * add_filter('winden_excluded_post_types', function($excluded) {
+         *     $excluded[] = 'product';  // Exclude WooCommerce products
+         *     $excluded[] = 'edd_license';  // Exclude EDD licenses
+         *     return $excluded;
+         * });
+         */
+        $excluded_post_types = apply_filters('winden_excluded_post_types', $excluded_post_types);
+
         // Convert arrays to sets for efficient removal
         $post_types_set = array_flip($post_types);
-        $remove_set = array_flip(['edd_license_log']);
+        $remove_set = array_flip($excluded_post_types);
 
         // Calculate the difference between the sets
         $result_set = array_diff_key($post_types_set, $remove_set);
@@ -134,7 +156,8 @@ class ClassCrawler
             // Process Oxygen classes if plugin is active and posts exist
             if (Builders::isOxygenPluginActivated() && !empty($this->posts)) {
                 $oxygenCrawler = new \Winden\Pro\Crawlers\OxygenCrawler($this->posts);
-                $this->classes = array_merge($this->classes, $oxygenCrawler->classes());
+                $oxygenClasses = $oxygenCrawler->classes();
+                $this->classes = array_merge($this->classes, $oxygenClasses);
             }
 
             // Process Oxygen 6 classes if plugin is active and posts exist
@@ -147,15 +170,18 @@ class ClassCrawler
             // Process Elementor classes if plugin is active and posts exist
             if (Builders::isElementorPluginActivated() && !empty($this->posts)) {
                 $elementorCrawler = new \Winden\Pro\Crawlers\ElementorCrawler($this->posts);
-                $this->classes = array_merge($this->classes, $elementorCrawler->classes());
+                $elementorClasses = $elementorCrawler->classes();
+                $this->classes = array_merge($this->classes, $elementorClasses);
             }
         }
 
         $scorgCrawler = new ScriptsOrganizerCrawler();
-        $this->classes = array_merge($this->classes, $scorgCrawler->classes());
+        $scorgClasses = $scorgCrawler->classes();
+        $this->classes = array_merge($this->classes, $scorgClasses);
 
         $metaBoxBlockViews = new MetaBoxBlockViews();
-        $this->classes = array_merge($this->classes, $metaBoxBlockViews->classes());
+        $metaBoxClasses = $metaBoxBlockViews->classes();
+        $this->classes = array_merge($this->classes, $metaBoxClasses);
 
         // Scan Fancoolo custom post type and meta fields
         $fancooloCrawler = new FancooloCrawler($this->posts);
@@ -205,7 +231,8 @@ class ClassCrawler
 
         // Execute custom crawlers through hooks
         $hookCrawler = new HookCrawler();
-        $this->classes = array_merge($this->classes, $hookCrawler->classes());
+        $hookClasses = $hookCrawler->classes();
+        $this->classes = array_merge($this->classes, $hookClasses);
 
         $finalClasses = array_unique($this->classes);
 

@@ -29,23 +29,13 @@ FEATURE-SUGGESTIONS.md
 README.md
 
 # Source files (build output is in /build)
-src/
-configs/
 node_modules/
 tests/
 
 # Package manager files
 composer.json
-composer.lock
 package.json
-package-lock.json
 
-# Build config files
-esbuild.admin.config.js
-esbuild.autocomplete.config.js
-esbuild.compiler.config.mjs
-esbuild.plugins.js
-tsconfig.json
 
 # Misc
 *.log

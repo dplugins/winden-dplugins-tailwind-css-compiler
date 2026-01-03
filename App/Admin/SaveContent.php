@@ -306,13 +306,19 @@ class SaveContent
         }
 
         if (isset($data['wizzard'])) {
+            // Decode base64
+            $decoded_wizzard = base64_decode($data['wizzard'], true);
+
+            // Parse JSON
+            $wizzard_array = json_decode($decoded_wizzard, true);
+
             // Validate and sanitize wizzard state
-            if (!is_array($data['wizzard'])) {
+            if (!is_array($wizzard_array)) {
                 wp_send_json_error('Invalid wizzard data structure.');
                 return;
             }
 
-            $sanitized_wizzard = Sanitization::sanitize_wizzard_state($data['wizzard']);
+            $sanitized_wizzard = Sanitization::sanitize_wizzard_state($wizzard_array);
 
             // Update the option in the database
             update_option('winden_wizzard_state', $sanitized_wizzard);
@@ -320,7 +326,6 @@ class SaveContent
             // Respond with a success message
             wp_send_json_success('Wizzard state saved successfully!');
         } else {
-            // Respond with an error message
             wp_send_json_error('Invalid data received.');
         }
     }

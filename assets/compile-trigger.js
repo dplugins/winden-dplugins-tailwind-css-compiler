@@ -48,11 +48,13 @@
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                compile();
+                // Don't await - let compile run in background
+                compile().catch(err => console.error('[Winden] Compile error:', err));
             }
         })
         .catch(() => {
-            compile();
+            // Don't await - let compile run in background
+            compile().catch(err => console.error('[Winden] Compile error:', err));
         });
     }
 

@@ -23,6 +23,9 @@ class AutoCompile
         // Hook into Fancoolo post save (generic hook from Fancoolo plugin)
         add_action('fancoolo_post_saved', [$this, 'on_fancoolo_post_save'], 10, 3);
 
+        // Async crawl handler
+        add_action('winden_async_crawl', [$this, 'handle_async_crawl']);
+
         // AJAX endpoints
         add_action('wp_ajax_winden_trigger_recompile', [$this, 'ajax_trigger_recompile']);
         add_action('wp_ajax_winden_compile_from_crawled', [$this, 'ajax_compile_from_crawled']);
@@ -33,6 +36,14 @@ class AutoCompile
         add_action('enqueue_block_editor_assets', [$this, 'enqueue_auto_compile_script']); // Gutenberg
         add_action('admin_enqueue_scripts', [$this, 'enqueue_auto_compile_script']); // Classic editor & other builders
         add_action('wp_enqueue_scripts', [$this, 'enqueue_auto_compile_script'], 99999999); // Frontend builders (Bricks 2)
+    }
+
+    /**
+     * Handle async crawl from WP Cron
+     */
+    public function handle_async_crawl($post_id)
+    {
+        $this->crawl_and_flag($post_id);
     }
 
     /**
@@ -67,11 +78,14 @@ class AutoCompile
         // Mark that we're processing to prevent recursion
         self::$is_compiling = true;
 
-        // Schedule the crawl to run after the request completes
-        // This prevents slowing down the save operation
-        add_action('shutdown', function() use ($post_id) {
-            $this->crawl_and_flag($post_id);
-        });
+        // Schedule the crawl to run asynchronously via WP Cron
+        // This prevents blocking the save operation completely
+        if (!wp_next_scheduled('winden_async_crawl', [$post_id])) {
+            wp_schedule_single_event(time(), 'winden_async_crawl', [$post_id]);
+        }
+
+        // Spawn WP Cron immediately in background
+        spawn_cron();
     }
 
     /**
@@ -91,11 +105,14 @@ class AutoCompile
         // Mark that we're processing to prevent recursion
         self::$is_compiling = true;
 
-        // Schedule the crawl to run after the request completes
-        // This prevents slowing down the save operation
-        add_action('shutdown', function() use ($post_id) {
-            $this->crawl_and_flag($post_id);
-        });
+        // Schedule the crawl to run asynchronously via WP Cron
+        // This prevents blocking the save operation completely
+        if (!wp_next_scheduled('winden_async_crawl', [$post_id])) {
+            wp_schedule_single_event(time(), 'winden_async_crawl', [$post_id]);
+        }
+
+        // Spawn WP Cron immediately in background
+        spawn_cron();
     }
 
     /**
@@ -152,12 +169,18 @@ class AutoCompile
 
         $post_id = isset($_POST['post_id']) ? intval($_POST['post_id']) : 0;
 
-        // Trigger crawl immediately
-        $this->crawl_and_flag($post_id);
+        // Schedule async crawl instead of running immediately
+        // This returns control to the browser instantly
+        if (!wp_next_scheduled('winden_async_crawl', [$post_id])) {
+            wp_schedule_single_event(time(), 'winden_async_crawl', [$post_id]);
+        }
+
+        // Trigger WP Cron in background
+        spawn_cron();
 
         wp_send_json_success([
-            'message' => 'Crawl completed, ready to compile',
-            'needs_recompile' => get_option('winden_needs_recompile', false)
+            'message' => 'Crawl scheduled, ready to compile',
+            'needs_recompile' => true // Will be set by the async crawl
         ]);
     }
 

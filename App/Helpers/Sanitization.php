@@ -60,9 +60,10 @@ class Sanitization
      * Recursively sanitize array with type preservation
      *
      * @param array $array Array to sanitize
+     * @param bool $preserve_key_case Whether to preserve original key casing (for Wizzard state)
      * @return array Sanitized array
      */
-    public static function sanitize_array_recursive($array)
+    public static function sanitize_array_recursive($array, $preserve_key_case = false)
     {
         if (!is_array($array)) {
             return [];
@@ -71,16 +72,25 @@ class Sanitization
         $sanitized = [];
 
         foreach ($array as $key => $value) {
-            $sanitized_key = sanitize_key($key);
+            // CRITICAL FIX: For Wizzard state, preserve camelCase keys (configCode, activeTab, etc.)
+            // WordPress sanitize_key() converts to lowercase which breaks JavaScript compatibility
+            if ($preserve_key_case) {
+                // Validate key is alphanumeric/underscore but keep original casing
+                $sanitized_key = preg_replace('/[^a-zA-Z0-9_]/', '', $key);
+            } else {
+                // Use WordPress standard sanitization (lowercase)
+                $sanitized_key = sanitize_key($key);
+            }
 
             if (is_array($value)) {
-                $sanitized[$sanitized_key] = self::sanitize_array_recursive($value);
+                // Recursively preserve key case for nested arrays
+                $sanitized[$sanitized_key] = self::sanitize_array_recursive($value, $preserve_key_case);
             } elseif (is_bool($value)) {
                 $sanitized[$sanitized_key] = (bool) $value;
             } elseif (is_numeric($value)) {
                 $sanitized[$sanitized_key] = $value;
-            } elseif ($sanitized_key === 'configCode') {
-                // Wizzard CSS config
+            } elseif ($sanitized_key === 'configCode' || $sanitized_key === 'configcode') {
+                // Wizzard CSS config (handle both cases during migration)
                 $sanitized[$sanitized_key] = self::sanitize_css($value);
             } elseif (in_array($sanitized_key, ['hex', 'color'], true)) {
                 // Hex color values
@@ -96,12 +106,15 @@ class Sanitization
     /**
      * Sanitize Wizzard state data
      *
+     * IMPORTANT: Preserves camelCase keys (configCode, activeTab, etc.) for JavaScript compatibility
+     *
      * @param array $wizzard Wizzard state
      * @return array Sanitized wizzard data
      */
     public static function sanitize_wizzard_state($wizzard)
     {
-        return self::sanitize_array_recursive($wizzard);
+        // CRITICAL: Pass true to preserve camelCase keys
+        return self::sanitize_array_recursive($wizzard, true);
     }
 
     /**

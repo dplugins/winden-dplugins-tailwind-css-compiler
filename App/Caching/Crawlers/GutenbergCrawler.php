@@ -20,10 +20,12 @@ class GutenbergCrawler
         $classes = [];
 
         foreach ($this->posts as $post) {
-            $content = do_blocks($post->post_content);
-            $content = do_shortcode($content);
-            $postClasses = $this->parseString($content);
+            // Extract classes directly from raw post_content without rendering
+            // This is MUCH faster than do_blocks()/do_shortcode() which execute PHP code
+            // and can be slow when plugins like EDD-SL add heavy filters
+            $postClasses = $this->parseString($post->post_content);
 
+            // Also parse blocks to get className attributes
             $blocks = parse_blocks($post->post_content);
             $blocksClasses = $this->extractClassesFromBlocks($blocks);
 
