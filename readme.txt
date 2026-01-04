@@ -1,4 +1,4 @@
-=== Winden - Tailwind CSS Compiler ===
+=== Winden DPlugins - Tailwind CSS Compiler ===
 Contributors: dplugins
 Donate link: https://dplugins.com/
 Tags: tailwind, tailwindcss, css, page builder, gutenberg
