@@ -1,7 +1,7 @@
 <?php
 
 /**
- * Plugin Name: Winden — Tailwind CSS Compiler
+ * Plugin Name: Winden - Tailwind CSS Compiler
  * Plugin URI:  https://dplugins.com/products/winden/
  * Description: Universal Tailwind CSS integration for WordPress Page Builders.
  * Version: 1.0.0
@@ -12,16 +12,16 @@
  * Requires at least: 6.2
  * Tested up to: 6.9
  * Requires PHP: 7.4
- * Text Domain: winden
+ * Text Domain: winden-tailwind-css-compiler
  */
 
 if (!defined('ABSPATH')) exit; // Exit if accessed directly
 
-define('WINDEN_WEBSITE_URL', get_site_url());
-define('WINDEN_UPLOADS_URL', wp_upload_dir());
-define('WINDEN_PLUGIN_DIR', plugin_dir_path(__FILE__));
-define('WINDEN_PLUGIN_URL', plugin_dir_url(__FILE__));
-define('WINDEN_ASSETS_DIR', plugin_dir_url(__FILE__) . 'assets/');
+define('WINDTACS_WEBSITE_URL', get_site_url());
+define('WINDTACS_UPLOADS_URL', wp_upload_dir());
+define('WINDTACS_PLUGIN_DIR', plugin_dir_path(__FILE__));
+define('WINDTACS_PLUGIN_URL', plugin_dir_url(__FILE__));
+define('WINDTACS_ASSETS_DIR', plugin_dir_url(__FILE__) . 'assets/');
 
 // Include the Composer autoload
 require __DIR__ . '/vendor/autoload.php';

@@ -14,7 +14,7 @@ class SettingsPageBodyClass
         // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Reading WordPress admin page parameter, not processing user input
         if (isset($_GET['page']) && $_GET['page'] === 'winden') {
             // Retrieve the winden_options from the database
-            $settings = get_option('winden_options', [
+            $settings = get_option('winden_dplugins_options', [
                 'folded_sidebar' => false
             ]);
 

@@ -59,9 +59,9 @@ class Frontend extends BaseProvider
     {
         wp_enqueue_script(
             'winden-broadcast-listener',
-            WINDEN_ASSETS_DIR . 'broadcast-listener.js',
+            WINDTACS_ASSETS_DIR . 'broadcast-listener.js',
             [], // No dependencies
-            filemtime(WINDEN_PLUGIN_DIR . 'assets/broadcast-listener.js'),
+            filemtime(WINDTACS_PLUGIN_DIR . 'assets/broadcast-listener.js'),
             true // Load in footer
         );
     }

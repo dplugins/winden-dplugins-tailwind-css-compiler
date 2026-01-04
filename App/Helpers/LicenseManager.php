@@ -25,7 +25,7 @@ class LicenseManager
      */
     public static function proFolderExists(): bool
     {
-        return file_exists(WINDEN_PLUGIN_DIR . 'pro/App/License/License.php');
+        return file_exists(WINDTACS_PLUGIN_DIR . 'pro/App/License/License.php');
     }
 
     /**

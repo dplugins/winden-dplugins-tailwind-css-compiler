@@ -34,7 +34,7 @@ class MonacoEditorProvider
                 'classes' => array_values($classes),
                 'suggestions' => array_values($suggestions),
                 'tailwindVersion' => $tailwind_version,
-                'pluginUrl' => WINDEN_PLUGIN_URL,
+                'pluginUrl' => WINDTACS_PLUGIN_URL,
                 'uploadsUrl' => wp_upload_dir()['baseurl'],
             ])
         );
@@ -90,7 +90,7 @@ class MonacoEditorProvider
         // Always use v4
         wp_enqueue_script(
             'winden-cachejs',
-            WINDEN_PLUGIN_URL . 'build/compiler/tailwindcss-compiler.js',
+            WINDTACS_PLUGIN_URL . 'build/compiler/tailwindcss-compiler.js',
             [],
             null,
             true
@@ -99,7 +99,7 @@ class MonacoEditorProvider
         // Build v4 @config directive
         $wizzard_state = '@config "' . wp_upload_dir()['baseurl'] . '/winden/tailwind.config.js"; ';
 
-        $winden_editor = get_option('winden_editor');
+        $winden_editor = get_option('winden_dplugins_editor');
         if (isset($winden_editor['wizzard']['configCode'])) {
             $wizzard_state .= $winden_editor['wizzard']['configCode'];
         }
@@ -128,9 +128,9 @@ class MonacoEditorProvider
         // Load the Tailwind watcher (watches DOM changes and triggers compilation)
         wp_enqueue_script(
             'winden-tailwind-watcher',
-            WINDEN_ASSETS_DIR . 'tailwindcss-watcher.js',
+            WINDTACS_ASSETS_DIR . 'tailwindcss-watcher.js',
             ['winden-cachejs', 'winden-compiler-options'],
-            filemtime(WINDEN_PLUGIN_DIR . 'assets/tailwindcss-watcher.js'),
+            filemtime(WINDTACS_PLUGIN_DIR . 'assets/tailwindcss-watcher.js'),
             true
         );
     }
@@ -155,7 +155,7 @@ class MonacoEditorProvider
 
         // Get breakpoints/screens
         $screens = [];
-        $winden_editor = get_option('winden_editor');
+        $winden_editor = get_option('winden_dplugins_editor');
         if (isset($winden_editor['wizzard']['breakpoints'])) {
             $breakpoints = $winden_editor['wizzard']['breakpoints'];
             if (is_array($breakpoints)) {
@@ -226,7 +226,7 @@ class MonacoEditorProvider
     {
         return [
             'paths' => [
-                'vs' => WINDEN_PLUGIN_URL . 'node_modules/monaco-editor/min/vs'
+                'vs' => WINDTACS_PLUGIN_URL . 'node_modules/monaco-editor/min/vs'
             ]
         ];
     }
