@@ -48,11 +48,11 @@ class FSE extends BaseProvider
         // If dev mode is enabled, load compiler and watcher scripts
         if (!$dev_mode_disabled) {
             // Load the compiler
-            $compiler_path = WINDEN_PLUGIN_DIR . 'build/compiler/tailwindcss-compiler.js';
+            $compiler_path = WINDTACS_PLUGIN_DIR . 'build/compiler/tailwindcss-compiler.js';
             if (file_exists($compiler_path)) {
                 wp_enqueue_script(
                     'winden-tailwind-compiler',
-                    WINDEN_PLUGIN_URL . 'build/compiler/tailwindcss-compiler.js',
+                    WINDTACS_PLUGIN_URL . 'build/compiler/tailwindcss-compiler.js',
                     array(),
                     filemtime($compiler_path),
                     true
@@ -62,7 +62,7 @@ class FSE extends BaseProvider
                 $compiler_options = $this->get_compiler_options($settings);
                 $config_js = sprintf(
                     'window.uploadUrl = %s; window.ajaxurl = %s; window.tailwind_compiler_options = %s;',
-                    wp_json_encode(WINDEN_UPLOADS_URL['baseurl']),
+                    wp_json_encode(WINDTACS_UPLOADS_URL['baseurl']),
                     wp_json_encode(admin_url('admin-ajax.php')),
                     wp_json_encode($compiler_options)
                 );
@@ -70,11 +70,11 @@ class FSE extends BaseProvider
             }
 
             // Load the watcher script
-            $watcher_path = WINDEN_PLUGIN_DIR . 'assets/tailwindcss-watcher.js';
+            $watcher_path = WINDTACS_PLUGIN_DIR . 'assets/tailwindcss-watcher.js';
             if (file_exists($watcher_path)) {
                 wp_enqueue_script(
                     'winden-tailwind-watcher',
-                    WINDEN_ASSETS_DIR . 'tailwindcss-watcher.js',
+                    WINDTACS_ASSETS_DIR . 'tailwindcss-watcher.js',
                     array('winden-tailwind-compiler'),
                     filemtime($watcher_path),
                     true
@@ -82,11 +82,11 @@ class FSE extends BaseProvider
             }
 
             // Load broadcast listener for real-time updates
-            $broadcast_path = WINDEN_PLUGIN_DIR . 'assets/broadcast-listener.js';
+            $broadcast_path = WINDTACS_PLUGIN_DIR . 'assets/broadcast-listener.js';
             if (file_exists($broadcast_path)) {
                 wp_enqueue_script(
                     'winden-broadcast-listener',
-                    WINDEN_ASSETS_DIR . 'broadcast-listener.js',
+                    WINDTACS_ASSETS_DIR . 'broadcast-listener.js',
                     array(),
                     filemtime($broadcast_path),
                     true
@@ -146,7 +146,7 @@ class FSE extends BaseProvider
             $compiler_options = $this->get_compiler_options($settings);
             $globals_js = sprintf(
                 'window.uploadUrl = %s; window.ajaxurl = %s; window.tailwind_compiler_options = %s;',
-                wp_json_encode(WINDEN_UPLOADS_URL['baseurl']),
+                wp_json_encode(WINDTACS_UPLOADS_URL['baseurl']),
                 wp_json_encode(admin_url('admin-ajax.php')),
                 wp_json_encode($compiler_options)
             );
@@ -168,9 +168,9 @@ class FSE extends BaseProvider
              */
 
             // Add compiler script
-            $compiler_path = WINDEN_PLUGIN_DIR . 'build/compiler/tailwindcss-compiler.js';
+            $compiler_path = WINDTACS_PLUGIN_DIR . 'build/compiler/tailwindcss-compiler.js';
             if (file_exists($compiler_path)) {
-                $compiler_url = WINDEN_PLUGIN_URL . 'build/compiler/tailwindcss-compiler.js?ver=' . filemtime($compiler_path);
+                $compiler_url = WINDTACS_PLUGIN_URL . 'build/compiler/tailwindcss-compiler.js?ver=' . filemtime($compiler_path);
                 $editor_settings['__unstableResolvedAssets']['scripts'] .= sprintf(
                     // phpcs:ignore WordPress.WP.EnqueuedResources.NonEnqueuedScript -- Official Gutenberg iframe API (see docs at line 160-169)
                     '<script src="%s" id="winden-compiler-iframe"></script>',
@@ -179,9 +179,9 @@ class FSE extends BaseProvider
             }
 
             // Add watcher script
-            $watcher_path = WINDEN_PLUGIN_DIR . 'assets/tailwindcss-watcher.js';
+            $watcher_path = WINDTACS_PLUGIN_DIR . 'assets/tailwindcss-watcher.js';
             if (file_exists($watcher_path)) {
-                $watcher_url = WINDEN_ASSETS_DIR . 'tailwindcss-watcher.js?ver=' . filemtime($watcher_path);
+                $watcher_url = WINDTACS_ASSETS_DIR . 'tailwindcss-watcher.js?ver=' . filemtime($watcher_path);
                 $editor_settings['__unstableResolvedAssets']['scripts'] .= sprintf(
                     // phpcs:ignore WordPress.WP.EnqueuedResources.NonEnqueuedScript -- Official Gutenberg iframe API (see docs at line 160-169)
                     '<script src="%s" id="winden-watcher-iframe"></script>',
@@ -190,9 +190,9 @@ class FSE extends BaseProvider
             }
 
             // Add broadcast listener
-            $broadcast_path = WINDEN_PLUGIN_DIR . 'assets/broadcast-listener.js';
+            $broadcast_path = WINDTACS_PLUGIN_DIR . 'assets/broadcast-listener.js';
             if (file_exists($broadcast_path)) {
-                $broadcast_url = WINDEN_ASSETS_DIR . 'broadcast-listener.js?ver=' . filemtime($broadcast_path);
+                $broadcast_url = WINDTACS_ASSETS_DIR . 'broadcast-listener.js?ver=' . filemtime($broadcast_path);
                 $editor_settings['__unstableResolvedAssets']['scripts'] .= sprintf(
                     // phpcs:ignore WordPress.WP.EnqueuedResources.NonEnqueuedScript -- Official Gutenberg iframe API (see docs at line 160-169)
                     '<script src="%s" id="winden-broadcast-iframe"></script>',

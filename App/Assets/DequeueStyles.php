@@ -13,7 +13,7 @@ class DequeueStyles
 
     public function dequeueAssets()
     {
-        $settings = get_option('winden_options', [
+        $settings = get_option('winden_dplugins_options', [
             'dequeue_styles_gutenberg' => false,
             'dequeue_styles_bricks' => false,
             'dequeue_styles_oxygen' => false,

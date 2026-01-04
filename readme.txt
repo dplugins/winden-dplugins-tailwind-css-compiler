@@ -1,4 +1,4 @@
-=== Winden - Tailwind CSS ===
+=== Winden - Tailwind CSS Compiler ===
 Contributors: dplugins
 Donate link: https://dplugins.com/
 Tags: tailwind, tailwindcss, css, page builder, gutenberg
@@ -13,7 +13,27 @@ Universal Tailwind CSS v4 integration for WordPress.
 
 This plugin transforms your WordPress site into a modern development environment with Tailwind CSS v4.
 
-**Source Code**: https://github.com/dplugins/winden
+== Source Code & Build Information ==
+
+This plugin includes compiled and minified JavaScript and CSS files built from source code.
+
+**Repository**: https://github.com/dplugins/winden
+
+**Source Files**:
+* TypeScript/JavaScript sources in /src/ directory
+* SCSS sources in /src/ directory
+
+**Compiled Assets**:
+* Minified JS files in /build/ directory
+* Compiled CSS files in /build/ directory
+
+**Building from Source**:
+1. Clone: https://github.com/dplugins/winden
+2. npm install
+3. npm run build
+4. Compiled files will be generated in /build/ directory
+
+All source code is publicly available for review and modification.
 
 
 == Description ==
@@ -95,6 +115,7 @@ Winden works with any WordPress theme. It adds Tailwind CSS utilities without co
 * Visual Wizzard for design tokens
 * Multi-tab style editor
 * Gutenberg support
+* WordPress.org compliance updates: text domain, prefix standardization, security improvements
 
 == Upgrade Notice ==
 

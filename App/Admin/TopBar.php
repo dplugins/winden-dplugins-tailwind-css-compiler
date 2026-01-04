@@ -19,9 +19,9 @@ class TopBar
                 wp_die('Unauthorized');
             }
 
-            $current_status = get_option('winden_breakpoint_indicator_enabled', 'no');
+            $current_status = get_option('winden_dplugins_breakpoint_indicator_enabled', 'no');
             $new_status = $current_status === 'yes' ? 'no' : 'yes';
-            update_option('winden_breakpoint_indicator_enabled', $new_status);
+            update_option('winden_dplugins_breakpoint_indicator_enabled', $new_status);
 
             // Redirect back to the previous page
             wp_safe_redirect(wp_get_referer() ? wp_get_referer() : admin_url());
@@ -42,7 +42,7 @@ class TopBar
         $icon = $style . '<div class="winden-topbar">' . $svg . 'Edit Winden</div>';
 
         $args = array(
-            'id'    => 'winden_editor',  // Unique ID for the link.
+            'id'    => 'winden_dplugins_editor',  // Unique ID for the link.
             'title' => $icon,  // The text of the link.
             'href'  => admin_url('admin.php?page=winden'),  // The URL where the link points.
             'meta'  => array(
@@ -53,11 +53,11 @@ class TopBar
         $wp_admin_bar->add_node($args);
 
         // Add submenu for Breakpoint Indicator
-        $is_enabled = get_option('winden_breakpoint_indicator_enabled', 'no') === 'yes';
+        $is_enabled = get_option('winden_dplugins_breakpoint_indicator_enabled', 'no') === 'yes';
         $status_icon = $is_enabled ? '✓ ' : '';
 
         $wp_admin_bar->add_node(array(
-            'parent' => 'winden_editor',
+            'parent' => 'winden_dplugins_editor',
             'id'     => 'winden_breakpoint_indicator',
             'title'  => $status_icon . 'Breakpoint Indicator',
             'href'   => wp_nonce_url(admin_url('admin.php?winden_toggle_bp=1'), 'winden_toggle_bp', 'nonce'),

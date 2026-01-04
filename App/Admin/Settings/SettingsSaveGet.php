@@ -68,13 +68,13 @@ class SettingsSaveGet
 
         if (!empty($sanitized_data)) {
             // Update the option in the database
-            $update_result = update_option('winden_options', $sanitized_data);
+            $update_result = update_option('winden_dplugins_options', $sanitized_data);
 
             // DEBUG: Log what was saved
             // error_log('[Winden Settings] Settings saved successfully. update_option returned: ' . ($update_result ? 'true' : 'false'));
 
             // DEBUG: Verify what was actually saved by reading it back
-            // $verify = get_option('winden_options');
+            // $verify = get_option('winden_dplugins_options');
             // error_log('[Winden Settings] Verification - Read back from DB: ' . print_r($verify, true));
 
             // Respond with a success message
@@ -97,7 +97,7 @@ class SettingsSaveGet
         }
 
         // Retrieve the settings from the database
-        $settings = get_option('winden_options', array_fill_keys($this->keys, false));
+        $settings = get_option('winden_dplugins_options', array_fill_keys($this->keys, false));
 
         // DEBUG: Log what was retrieved
         // error_log('[Winden Settings GET] Retrieved settings: ' . print_r($settings, true));

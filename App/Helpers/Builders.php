@@ -239,7 +239,7 @@ class Builders
 
     public static function version()
     {
-        $pluginMeta = file_get_contents(WINDEN_PLUGIN_DIR . 'winden.php');
+        $pluginMeta = file_get_contents(WINDTACS_PLUGIN_DIR . 'winden.php');
         preg_match('/(Version:\s)(.*)/', $pluginMeta, $metadata);
 
         return apply_filters('winden/version', $metadata[2]);
@@ -251,7 +251,7 @@ class Builders
 
     public static function baseName()
     {
-        // return basename(WINDEN_PLUGIN_DIR);
+        // return basename(WINDTACS_PLUGIN_DIR);
         return 'winden';
     }
 

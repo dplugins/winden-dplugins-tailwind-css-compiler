@@ -36,7 +36,7 @@ class FSEData
     public function add_wizzard_font_sizes()
     {
         // Retrieve the winden_editor option first to check if font sizes are active
-        $winden_editor = get_option('winden_editor', []);
+        $winden_editor = get_option('winden_dplugins_editor', []);
 
         // Check if font sizes tab is active
         if (!($winden_editor['wizzard']['fontSizesActive'] ?? false)) {
@@ -262,7 +262,7 @@ class FSEData
         }
 
         // Retrieve the winden_editor option
-        $winden_editor = get_option('winden_editor', []);
+        $winden_editor = get_option('winden_dplugins_editor', []);
 
         // Check if spacing is active
         if (!($winden_editor['wizzard']['spacesActive'] ?? false)) {
@@ -493,7 +493,7 @@ class FSEData
     public function add_wizzard_color_palette()
     {
         // Retrieve the winden_editor option, default to an empty array if not available
-        $winden_editor = get_option('winden_editor', []);
+        $winden_editor = get_option('winden_dplugins_editor', []);
 
         // Check if colors tab is active
         if (!($winden_editor['wizzard']['colorsActive'] ?? false)) {
@@ -529,11 +529,11 @@ class FSEData
 
         // Add utility colors if enabled and not already in theme.json
         if ($includeUtilityColors) {
-            $white_name = __('White', 'winden');
-            $black_name = __('Black', 'winden');
-            $transparent_name = __('Transparent', 'winden');
-            $inherit_name = __('Inherit', 'winden');
-            $current_name = __('Current', 'winden');
+            $white_name = __('White', 'winden-dplugins-tailwind-css-compiler');
+            $black_name = __('Black', 'winden-dplugins-tailwind-css-compiler');
+            $transparent_name = __('Transparent', 'winden-dplugins-tailwind-css-compiler');
+            $inherit_name = __('Inherit', 'winden-dplugins-tailwind-css-compiler');
+            $current_name = __('Current', 'winden-dplugins-tailwind-css-compiler');
 
             if (!in_array($white_name, $existing_colors)) {
                 $editorColors[] = [
@@ -672,7 +672,7 @@ class FSEData
      */
     private function get_font_sizes_theme_json()
     {
-        $winden_editor = get_option('winden_editor', []);
+        $winden_editor = get_option('winden_dplugins_editor', []);
 
         // Check if font sizes tab is active
         if (!($winden_editor['wizzard']['fontSizesActive'] ?? false)) {
@@ -727,7 +727,7 @@ class FSEData
      */
     private function get_spacing_theme_json()
     {
-        $winden_editor = get_option('winden_editor', []);
+        $winden_editor = get_option('winden_dplugins_editor', []);
 
         // Check if spacing tab is active
         if (!($winden_editor['wizzard']['spacesActive'] ?? false)) {
@@ -799,7 +799,7 @@ class FSEData
      */
     private function get_colors_theme_json()
     {
-        $winden_editor = get_option('winden_editor', []);
+        $winden_editor = get_option('winden_dplugins_editor', []);
 
         // Check if colors tab is active
         if (!($winden_editor['wizzard']['colorsActive'] ?? false)) {
