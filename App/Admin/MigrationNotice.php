@@ -31,7 +31,7 @@ class MigrationNotice
         }
 
         // Check if still on v3
-        $options = get_option('winden_dplugins_options', []);
+        $options = get_option('winden_options', []);
         if (isset($options['tailwind_version']) && $options['tailwind_version'] === 'v3') {
             ?>
             <style>

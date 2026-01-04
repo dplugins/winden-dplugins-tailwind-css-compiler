@@ -17,7 +17,7 @@ class BreakpointIndicator
     public function init()
     {
         // Check if breakpoint indicator is enabled
-        $is_enabled = get_option('winden_dplugins_breakpoint_indicator_enabled', 'no') === 'yes';
+        $is_enabled = get_option('winden_breakpoint_indicator_enabled', 'no') === 'yes';
 
         // Only load for logged-in users on frontend when enabled
         if ($is_enabled && is_user_logged_in() && !is_admin()) {
@@ -27,8 +27,8 @@ class BreakpointIndicator
 
     public function enqueueAssets()
     {
-        $js_file = WINDTACS_PLUGIN_DIR . 'assets/breakpoint-indicator.js';
-        $css_file = WINDTACS_PLUGIN_DIR . 'assets/breakpoint-indicator.css';
+        $js_file = WINDEN_PLUGIN_DIR . 'assets/breakpoint-indicator.js';
+        $css_file = WINDEN_PLUGIN_DIR . 'assets/breakpoint-indicator.css';
 
         if (!file_exists($js_file) || !file_exists($css_file)) {
             return;
@@ -36,7 +36,7 @@ class BreakpointIndicator
 
         wp_enqueue_script(
             'winden-breakpoint-indicator',
-            WINDTACS_ASSETS_DIR . 'breakpoint-indicator.js',
+            WINDEN_ASSETS_DIR . 'breakpoint-indicator.js',
             [],
             filemtime($js_file),
             true
@@ -44,7 +44,7 @@ class BreakpointIndicator
 
         wp_enqueue_style(
             'winden-breakpoint-indicator',
-            WINDTACS_ASSETS_DIR . 'breakpoint-indicator.css',
+            WINDEN_ASSETS_DIR . 'breakpoint-indicator.css',
             [],
             filemtime($css_file)
         );

@@ -29,7 +29,7 @@ new BreakpointIndicator();
 // This ensures the plugin works when /pro/ folder is removed (WordPress.org free version)
 // WordPress.org handles updates automatically for the free version
 if (LicenseManager::proFolderExists()) {
-    require_once WINDTACS_PLUGIN_DIR . 'pro/App/App.php';
+    require_once WINDEN_PLUGIN_DIR . 'pro/App/App.php';
     new \Winden\Pro\App();
 }
 
@@ -65,9 +65,9 @@ class Admin
 
     function pluginUrl()
     {
-        $websiteUrl = WINDTACS_WEBSITE_URL;
-        $url = WINDTACS_PLUGIN_URL;
-        $uploadUrl = WINDTACS_UPLOADS_URL['baseurl'];
+        $websiteUrl = WINDEN_WEBSITE_URL;
+        $url = WINDEN_PLUGIN_URL;
+        $uploadUrl = WINDEN_UPLOADS_URL['baseurl'];
         $ajaxUrl = admin_url('admin-ajax.php');
         $nonce = wp_create_nonce('winden_nonce');
         $inIframe = wp_json_encode(Builders::isBricksEditorFrame() || Builders::isOxygenEditorFrame() || Builders::isElementorEditorPage());

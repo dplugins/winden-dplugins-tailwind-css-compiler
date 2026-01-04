@@ -75,15 +75,15 @@ class SaveContent
             ];
 
             // Update the option in the database
-            update_option('winden_dplugins_editor', $config_data);
+            update_option('winden_editor', $config_data);
 
             // Set flag to clear frontend compilation cache on next page load
-            update_option('winden_dplugins_clear_cache_flag', time());
+            update_option('winden_clear_cache_flag', time());
 
             // Update tailwind_version to v4 in winden_options
-            $winden_options = get_option('winden_dplugins_options', []);
+            $winden_options = get_option('winden_options', []);
             $winden_options['tailwind_version'] = 'v4';
-            update_option('winden_dplugins_options', $winden_options);
+            update_option('winden_options', $winden_options);
 
             // Define default file paths in winden folder
             $upload_dir = wp_upload_dir();
@@ -153,7 +153,7 @@ class SaveContent
 
         // AUTO-FIX: Clear OLD PostCSS corrupted cache from plugin migration
         // Do NOT clear legitimate SCSS compilation errors (those should be saved and shown)
-        $existing_cache = get_option('winden_dplugins_cache');
+        $existing_cache = get_option('winden_cache');
         if ($existing_cache && isset($existing_cache['errors'])) {
             $errors = is_string($existing_cache['errors']) ? json_decode($existing_cache['errors'], true) : $existing_cache['errors'];
 
@@ -180,7 +180,7 @@ class SaveContent
                             // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log -- Debug-only logging for cache corruption auto-fix
                             error_log('[Winden Auto-Fix] Clearing OLD corrupted cache before saving: ' . $message);
                         }
-                        delete_option('winden_dplugins_cache');
+                        delete_option('winden_cache');
 
                         // Delete output.css file if it exists
                         $upload_dir_temp = wp_upload_dir();
@@ -230,7 +230,7 @@ class SaveContent
 
             if ($result === false) {
                 // Update the option in the database
-                update_option('winden_dplugins_cache', [
+                update_option('winden_cache', [
                     'createdAt' => $formattedDatetime,
                     'errors' => wp_json_encode([
                         [
@@ -248,7 +248,7 @@ class SaveContent
             $status = isset($data['status']) ? Sanitization::sanitize_status($data['status']) : 'completed';
 
             // Update the option in the database - successful compilation
-            update_option('winden_dplugins_cache', [
+            update_option('winden_cache', [
                 'createdAt' => $formattedDatetime,
                 'status' => $status
             ]);
@@ -274,7 +274,7 @@ class SaveContent
             $status = isset($data['status']) ? Sanitization::sanitize_status($data['status']) : 'failed';
 
             // Update the option in the database with error info
-            update_option('winden_dplugins_cache', [
+            update_option('winden_cache', [
                 'createdAt' => $formattedDatetime,
                 'errors' => $errors,
                 'status' => $status
@@ -321,7 +321,7 @@ class SaveContent
             $sanitized_wizzard = Sanitization::sanitize_wizzard_state($wizzard_array);
 
             // Update the option in the database
-            update_option('winden_dplugins_wizzard_state', $sanitized_wizzard);
+            update_option('winden_wizzard_state', $sanitized_wizzard);
 
             // Respond with a success message
             wp_send_json_success('Wizzard state saved successfully!');
@@ -342,7 +342,7 @@ class SaveContent
         }
 
         // Delete the cache option
-        $deleted = delete_option('winden_dplugins_cache');
+        $deleted = delete_option('winden_cache');
 
         // Also delete the output.css file if it exists
         $upload_dir = wp_upload_dir();

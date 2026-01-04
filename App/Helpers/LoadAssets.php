@@ -42,16 +42,16 @@ class LoadAssets
         if (in_array('inlinemodule', $scripts)) {
             wp_enqueue_script(
                 'inline-module-js',
-                WINDTACS_ASSETS_DIR . 'inline-module.js'
+                WINDEN_ASSETS_DIR . 'inline-module.js'
             );
         }
         if (in_array('cachejs', $scripts)) {
-            $compiler_path = WINDTACS_PLUGIN_DIR . 'build/compiler/tailwindcss-compiler.js';
+            $compiler_path = WINDEN_PLUGIN_DIR . 'build/compiler/tailwindcss-compiler.js';
             $compiler_version = file_exists($compiler_path) ? filemtime($compiler_path) : WINDEN_VERSION;
 
             wp_enqueue_script(
                 'cachejs',
-                WINDTACS_PLUGIN_URL . 'build/compiler/tailwindcss-compiler.js',
+                WINDEN_PLUGIN_URL . 'build/compiler/tailwindcss-compiler.js',
                 array(),
                 $compiler_version,
                 true // Load in footer
@@ -66,7 +66,7 @@ class LoadAssets
         }
         self::$inlineScriptsLoaded = true;
 
-        $winden_editor = get_option('winden_dplugins_editor');
+        $winden_editor = get_option('winden_editor');
         $javascript_content = isset($winden_editor['javascript']) ? $winden_editor['javascript'] : '';
         $wizzard_content = isset($winden_editor['wizzard']['configCode']) ? $winden_editor['wizzard']['configCode'] : '';
 
@@ -86,7 +86,7 @@ class LoadAssets
         }
         self::$inlineCSSLoaded = true;
 
-        $winden_editor = get_option('winden_dplugins_editor');
+        $winden_editor = get_option('winden_editor');
         $raw_css_content = isset($winden_editor['scss']) ? $winden_editor['scss'] : '';
         $compiled_css_content = isset($winden_editor['compiled_scss']) ? $winden_editor['compiled_scss'] : '';
 

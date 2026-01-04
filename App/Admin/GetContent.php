@@ -19,7 +19,7 @@ class GetContent
 
     public function get_winden_content_callback()
     {
-        $config = get_option('winden_dplugins_editor');
+        $config = get_option('winden_editor');
 
         // Check if data is available and is an array in old format
         if (is_array($config) && !empty($config)) {
@@ -197,7 +197,7 @@ class GetContent
 
     public function get_winden_cache()
     {
-        $cache = get_option('winden_dplugins_cache');
+        $cache = get_option('winden_cache');
 
         // AUTO-FIX: If cache contains OLD PostCSS syntax errors from plugin migration, clear it
         // Do NOT clear legitimate SCSS compilation errors (those should be shown to user)
@@ -231,7 +231,7 @@ class GetContent
                         }
 
                         // Clear corrupted cache
-                        delete_option('winden_dplugins_cache');
+                        delete_option('winden_cache');
 
                         // Delete output.css file if it exists
                         $upload_dir = wp_upload_dir();
@@ -264,11 +264,11 @@ class GetContent
 
     public function get_winden_wizzard_state()
     {
-        $wizzard_state = get_option('winden_dplugins_wizzard_state');
+        $wizzard_state = get_option('winden_wizzard_state');
         
         // If no wizard state found, get it from editor
         if (!$wizzard_state) {
-            $winden_editor = get_option('winden_dplugins_editor', []);
+            $winden_editor = get_option('winden_editor', []);
             $wizzard_state = $winden_editor['wizzard'] ?? null;
         }
 

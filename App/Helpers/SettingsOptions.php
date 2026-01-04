@@ -6,7 +6,7 @@ class SettingsOptions
 {
     public static function getWindenOptions()
     {
-        $options = get_option('winden_dplugins_options', [
+        $options = get_option('winden_options', [
             'css_preprocessor' => 'css',
             'autocomplete_gutenberg' => false,
             'autocomplete_bricks' => false,

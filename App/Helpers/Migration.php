@@ -11,12 +11,12 @@ class Migration
     /**
      * Version option key
      */
-    const VERSION_OPTION = 'winden_dplugins_version';
+    const VERSION_OPTION = 'winden_version';
 
     /**
      * Current plugin version (must match winden.php Plugin Version header)
      */
-    const CURRENT_VERSION = '1.0.0';
+    const CURRENT_VERSION = '2.9.0';
 
     /**
      * Initialize migration checks
@@ -61,12 +61,7 @@ class Migration
             error_log('[Winden Migration] Upgrading from version ' . $from_version . ' to ' . self::CURRENT_VERSION);
         }
 
-        // Migration 1: Migrate database option keys for WordPress.org compliance
-        if (version_compare($from_version, '1.0.0', '<')) {
-            $this->migrateOptionKeys();
-        }
-
-        // Migration 2: Clear cache for versions below 2.9.0
+        // Migration 1: Clear cache for versions below 2.9.0
         if (version_compare($from_version, '2.9.0', '<')) {
             $this->migrateTo290();
         }
@@ -75,50 +70,6 @@ class Migration
         // if (version_compare($from_version, '3.0.0', '<')) {
         //     $this->migrateTo300();
         // }
-    }
-
-    /**
-     * Migrate database option keys for WordPress.org compliance
-     *
-     * Migrates old option keys (winden_*) to new keys (winden_dplugins_*)
-     */
-    private function migrateOptionKeys()
-    {
-        $debug = defined('WP_DEBUG') && WP_DEBUG;
-
-        if ($debug) {
-            // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log -- Debug-only logging (only runs when WP_DEBUG is enabled)
-            error_log('[Winden Migration] Running option key migration for WordPress.org compliance');
-        }
-
-        // Map old option keys to new ones
-        $options_to_migrate = [
-            'winden_editor'                        => 'winden_dplugins_editor',
-            'winden_cache'                         => 'winden_dplugins_cache',
-            'winden_wizzard_state'                 => 'winden_dplugins_wizzard_state',
-            'winden_options'                       => 'winden_dplugins_options',
-            'winden_clear_cache_flag'              => 'winden_dplugins_clear_cache_flag',
-            'winden_version'                       => 'winden_dplugins_version',
-            'winden_breakpoint_indicator_enabled'  => 'winden_dplugins_breakpoint_indicator_enabled',
-        ];
-
-        foreach ($options_to_migrate as $old_key => $new_key) {
-            // Only migrate if old key exists and new key doesn't
-            $old_value = get_option($old_key);
-            if ($old_value !== false && get_option($new_key) === false) {
-                update_option($new_key, $old_value);
-                delete_option($old_key);
-                if ($debug) {
-                    // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log -- Debug-only logging (only runs when WP_DEBUG is enabled)
-                    error_log('[Winden Migration] ✅ Migrated option key: ' . $old_key . ' → ' . $new_key);
-                }
-            }
-        }
-
-        if ($debug) {
-            // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log -- Debug-only logging (only runs when WP_DEBUG is enabled)
-            error_log('[Winden Migration] ✅ Option key migration completed');
-        }
     }
 
     /**
@@ -136,7 +87,7 @@ class Migration
         }
 
         // Clear old cache
-        $cache_deleted = delete_option('winden_dplugins_cache');
+        $cache_deleted = delete_option('winden_cache');
         if ($cache_deleted && $debug) {
             // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log -- Debug-only logging (only runs when WP_DEBUG is enabled)
             error_log('[Winden Migration] ✅ Old cache cleared');
@@ -154,7 +105,7 @@ class Migration
         }
 
         // Validate and fix configuration if needed
-        $config = get_option('winden_dplugins_editor', []);
+        $config = get_option('winden_editor', []);
 
         // Check if config is in old format (array with 'name' keys)
         if (is_array($config) && !empty($config) && isset($config[0]['name'])) {
@@ -180,7 +131,7 @@ class Migration
                 error_log('[Winden Migration] Clearing old configCode from Wizzard state');
             }
             unset($config['wizzard']['configCode']);
-            update_option('winden_dplugins_editor', $config);
+            update_option('winden_editor', $config);
         }
 
         if ($debug) {
@@ -222,7 +173,7 @@ class Migration
 @import "tailwindcss/utilities.css" layer(utilities);';
         }
 
-        update_option('winden_dplugins_editor', $new_config);
+        update_option('winden_editor', $new_config);
         if (defined('WP_DEBUG') && WP_DEBUG) {
             // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log -- Debug-only logging (only runs when WP_DEBUG is enabled)
             error_log('[Winden Migration] ✅ Configuration converted to new format');
@@ -234,11 +185,11 @@ class Migration
      */
     private function ensureWizzardConfig()
     {
-        $config = get_option('winden_dplugins_editor', []);
+        $config = get_option('winden_editor', []);
 
         if (!isset($config['wizzard'])) {
             $config['wizzard'] = $this->getDefaultWizzardConfig();
-            update_option('winden_dplugins_editor', $config);
+            update_option('winden_editor', $config);
         }
     }
 

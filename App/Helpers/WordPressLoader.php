@@ -123,7 +123,7 @@ class WordPressLoader
             $composer_file = $search_path . '/composer.json';
             if (file_exists($composer_file)) {
                 $composer = json_decode(file_get_contents($composer_file), true);
-                if (isset($composer['name']) && strpos($composer['name'], 'winden-tailwind-css-compiler') !== false) {
+                if (isset($composer['name']) && strpos($composer['name'], 'winden') !== false) {
                     return $search_path;
                 }
             }

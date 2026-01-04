@@ -239,7 +239,7 @@ class AutoCompile
 
         // Return classes and config to browser for compilation
         // Even with empty classes, we still need to compile (for @apply directives, custom components, etc.)
-        $editor_content = get_option('winden_dplugins_editor', []);
+        $editor_content = get_option('winden_editor', []);
 
         // Wizzard data is stored inside winden_editor['wizzard']
         $wizzard_state = isset($editor_content['wizzard']) ? $editor_content['wizzard'] : null;
@@ -314,9 +314,9 @@ class AutoCompile
         // Load the browser-based Tailwind compiler
         wp_enqueue_script(
             'winden-compiler-module',
-            WINDTACS_PLUGIN_URL . 'build/compiler/tailwindcss-compiler.js',
+            WINDEN_PLUGIN_URL . 'build/compiler/tailwindcss-compiler.js',
             [],
-            filemtime(WINDTACS_PLUGIN_DIR . 'build/compiler/tailwindcss-compiler.js'),
+            filemtime(WINDEN_PLUGIN_DIR . 'build/compiler/tailwindcss-compiler.js'),
             true
         );
 
@@ -337,9 +337,9 @@ class AutoCompile
         // Enqueue CSS injector (no dependencies - pure injection logic)
         wp_enqueue_script(
             'winden-css-injector',
-            WINDTACS_PLUGIN_URL . 'assets/css-injector.js',
+            WINDEN_PLUGIN_URL . 'assets/css-injector.js',
             [],
-            filemtime(WINDTACS_PLUGIN_DIR . 'assets/css-injector.js'),
+            filemtime(WINDEN_PLUGIN_DIR . 'assets/css-injector.js'),
             true
         );
 
@@ -357,15 +357,15 @@ class AutoCompile
 
         wp_enqueue_script(
             'winden-compile-trigger',
-            WINDTACS_PLUGIN_URL . 'assets/compile-trigger.js',
+            WINDEN_PLUGIN_URL . 'assets/compile-trigger.js',
             $dependencies,
-            filemtime(WINDTACS_PLUGIN_DIR . 'assets/compile-trigger.js'),
+            filemtime(WINDEN_PLUGIN_DIR . 'assets/compile-trigger.js'),
             true
         );
 
         wp_localize_script('winden-compile-trigger', 'windenAutoCompile', [
             'needsCompile' => get_option('winden_needs_recompile', false),
-            'clearCache' => get_option('winden_dplugins_clear_cache_flag', false),
+            'clearCache' => get_option('winden_clear_cache_flag', false),
             'ajaxUrl' => admin_url('admin-ajax.php'),
             'nonce' => wp_create_nonce('winden_nonce')
         ]);

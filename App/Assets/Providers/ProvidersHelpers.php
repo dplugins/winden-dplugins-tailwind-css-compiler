@@ -41,7 +41,7 @@ class ProvidersHelpers
         $config_content = '';
 
         try {
-            $wizzard_state_opt = get_option('winden_dplugins_editor');
+            $wizzard_state_opt = get_option('winden_editor');
             if (isset($wizzard_state_opt['wizzard']) && isset($wizzard_state_opt['wizzard']['configCode'])) {
                 $wizzard_state = $wizzard_state_opt['wizzard']['configCode'];
             }
@@ -145,7 +145,7 @@ class ProvidersHelpers
 
     public static function get_css_content()
     {
-        $winden_editor = get_option('winden_dplugins_editor');
+        $winden_editor = get_option('winden_editor');
         $raw_css_content = isset($winden_editor['scss']) ? $winden_editor['scss'] : '';
         $compiled_css_content = isset($winden_editor['compiled_scss']) ? $winden_editor['compiled_scss'] : '';
 
@@ -163,9 +163,9 @@ class ProvidersHelpers
     {
         wp_enqueue_script(
             'cachejs',
-            WINDTACS_PLUGIN_URL . 'build/compiler/tailwindcss-compiler.js',
+            WINDEN_PLUGIN_URL . 'build/compiler/tailwindcss-compiler.js',
             [],
-            filemtime(WINDTACS_PLUGIN_DIR . 'build/compiler/tailwindcss-compiler.js'),
+            filemtime(WINDEN_PLUGIN_DIR . 'build/compiler/tailwindcss-compiler.js'),
             true
         );
 
@@ -249,7 +249,7 @@ class ProvidersHelpers
             $build_dir = 'build/plain-classes/';
         }
 
-        $asset_file_path = WINDTACS_PLUGIN_DIR . $build_dir . $folder_name . '/index.asset.php';
+        $asset_file_path = WINDEN_PLUGIN_DIR . $build_dir . $folder_name . '/index.asset.php';
 
         // Check if the asset file exists for JS
         if (file_exists($asset_file_path)) {
@@ -262,7 +262,7 @@ class ProvidersHelpers
             // Enqueue the JS with dependencies and version
             wp_enqueue_script(
                 $script_handle, // Unique handle for each integration
-                WINDTACS_PLUGIN_URL . $build_dir . $folder_name . '/index.js', // JS file path
+                WINDEN_PLUGIN_URL . $build_dir . $folder_name . '/index.js', // JS file path
                 $asset_file['dependencies'], // JS dependencies from asset file
                 $asset_file['version'], // JS version from asset file
                 true // In footer
@@ -274,7 +274,7 @@ class ProvidersHelpers
             // Enqueue the CSS with version matching the JS version for cache-busting
             wp_enqueue_style(
                 $style_handle, // Unique handle for CSS
-                WINDTACS_PLUGIN_URL . $build_dir . $folder_name . '/index.css', // CSS file path
+                WINDEN_PLUGIN_URL . $build_dir . $folder_name . '/index.css', // CSS file path
                 [], // Dependencies, if any
                 $asset_file['version'] // Version, matching the JS version
             );
@@ -289,9 +289,9 @@ class ProvidersHelpers
     {
         wp_enqueue_script(
             'cachejs',
-            WINDTACS_PLUGIN_URL . 'build/compiler/tailwindcss-compiler.js',
+            WINDEN_PLUGIN_URL . 'build/compiler/tailwindcss-compiler.js',
             [],
-            filemtime(WINDTACS_PLUGIN_DIR . 'build/compiler/tailwindcss-compiler.js'),
+            filemtime(WINDEN_PLUGIN_DIR . 'build/compiler/tailwindcss-compiler.js'),
             true
         );
 
@@ -312,7 +312,7 @@ class ProvidersHelpers
         // Add frontend constants inline so they're available before tailwindcss-watcher.js runs
         $inIframe = Builders::isBricksEditorFrame() || Builders::isOxygenEditorFrame() || Builders::isOxygen6EditorFrame() || Builders::isElementorEditorPage();
         $apiVersion2 = Builders::has_api_version_2_block();
-        $uploadUrl = WINDTACS_UPLOADS_URL['baseurl'];
+        $uploadUrl = WINDEN_UPLOADS_URL['baseurl'];
         $ajaxurl = admin_url('admin-ajax.php');
 
         // Use wp_json_encode for proper JavaScript escaping
@@ -331,9 +331,9 @@ class ProvidersHelpers
         // Load the Tailwind watcher (watches DOM changes and triggers compilation)
         wp_enqueue_script(
             'tailwindcss-watcher',
-            WINDTACS_ASSETS_DIR . 'tailwindcss-watcher.js',
+            WINDEN_ASSETS_DIR . 'tailwindcss-watcher.js',
             ['cachejs', 'tailwind-compiler-options'],
-            filemtime(WINDTACS_PLUGIN_DIR . 'assets/tailwindcss-watcher.js'),
+            filemtime(WINDEN_PLUGIN_DIR . 'assets/tailwindcss-watcher.js'),
             true
         );
     }
@@ -341,7 +341,7 @@ class ProvidersHelpers
     public static function frontend_consts()
     {
         $inIframe = wp_json_encode(Builders::isBricksEditorFrame() || Builders::isOxygenEditorFrame() || Builders::isOxygen6EditorFrame() || Builders::isElementorEditorPage());
-        $uploadUrl = WINDTACS_UPLOADS_URL['baseurl'];
+        $uploadUrl = WINDEN_UPLOADS_URL['baseurl'];
         $apiVersion2 = wp_json_encode(Builders::has_api_version_2_block());
         $ajaxurl = admin_url('admin-ajax.php');
 

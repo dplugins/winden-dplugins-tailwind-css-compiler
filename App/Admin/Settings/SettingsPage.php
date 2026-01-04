@@ -72,10 +72,10 @@ class SettingsPage
         if (isset($_POST['winden_toggle_breakpoint_indicator'])) {
             check_admin_referer('winden_breakpoint_indicator_toggle');
 
-            $current_status = get_option('winden_dplugins_breakpoint_indicator_enabled', 'no');
+            $current_status = get_option('winden_breakpoint_indicator_enabled', 'no');
             $new_status = $current_status === 'yes' ? 'no' : 'yes';
 
-            update_option('winden_dplugins_breakpoint_indicator_enabled', $new_status);
+            update_option('winden_breakpoint_indicator_enabled', $new_status);
 
             $message = $new_status === 'yes'
                 ? 'Breakpoint Indicator enabled successfully!'
@@ -84,7 +84,7 @@ class SettingsPage
             echo '<div class="notice notice-success is-dismissible"><p>' . esc_html($message) . '</p></div>';
         }
 
-        $is_enabled = get_option('winden_dplugins_breakpoint_indicator_enabled', 'no') === 'yes';
+        $is_enabled = get_option('winden_breakpoint_indicator_enabled', 'no') === 'yes';
         $button_text = $is_enabled ? 'Disable Breakpoint Indicator' : 'Enable Breakpoint Indicator';
         $status_text = $is_enabled ? 'Currently: <strong>Enabled</strong>' : 'Currently: <strong>Disabled</strong>';
 
@@ -195,11 +195,11 @@ class SettingsPage
         $proExists = LicenseManager::proFolderExists() ? 'true' : 'false';
 
         // Enqueue the script and asset file
-        $asset_file = include WINDTACS_PLUGIN_DIR . 'build/admin/index.asset.php';
+        $asset_file = include WINDEN_PLUGIN_DIR . 'build/admin/index.asset.php';
 
         wp_enqueue_script(
             'winden-admin-script',
-            WINDTACS_PLUGIN_URL . 'build/admin/index.js',
+            WINDEN_PLUGIN_URL . 'build/admin/index.js',
             $asset_file['dependencies'], // Add dependencies if any
             $asset_file['version'], // Add version if any
             true // Load in footer
@@ -209,7 +209,7 @@ class SettingsPage
         // This ensures chunks load correctly regardless of plugin folder name
         wp_add_inline_script(
             'winden-admin-script',
-            sprintf('window.__webpack_public_path__ = %s;', wp_json_encode(WINDTACS_PLUGIN_URL . 'build/')),
+            sprintf('window.__webpack_public_path__ = %s;', wp_json_encode(WINDEN_PLUGIN_URL . 'build/')),
             'before'
         );
 
@@ -218,15 +218,15 @@ class SettingsPage
             'winden-admin-script',
             'windenData',
             [
-                'pluginUrl' => WINDTACS_PLUGIN_URL,
-                'buildUrl' => WINDTACS_PLUGIN_URL . 'build/',
+                'pluginUrl' => WINDEN_PLUGIN_URL,
+                'buildUrl' => WINDEN_PLUGIN_URL . 'build/',
                 'ajaxUrl' => admin_url('admin-ajax.php')
             ]
         );
 
         wp_enqueue_style(
             'winden-admin-style',
-            WINDTACS_PLUGIN_URL . 'build/admin/index.css',
+            WINDEN_PLUGIN_URL . 'build/admin/index.css',
             [],
             $asset_file['version']
         );
