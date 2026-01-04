@@ -9,9 +9,7 @@ Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
-Universal Tailwind CSS v4 integration for WordPress.
-
-This plugin transforms your WordPress site into a modern development environment with Tailwind CSS v4.
+Browser-based Tailwind CSS v4 compiler for WordPress. No build tools required.
 
 == Source Code & Build Information ==
 

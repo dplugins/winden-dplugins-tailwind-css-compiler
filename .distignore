@@ -25,6 +25,7 @@ learnings-docs/
 ARCHITECTURE.md
 CLAUDE.md
 COMPILER-IMPROVEMENTS.md
+DEV-README.md
 FEATURE-SUGGESTIONS.md
 README.md
 
@@ -32,9 +33,6 @@ README.md
 node_modules/
 tests/
 
-# Package manager files
-composer.json
-package.json
 
 
 # Misc

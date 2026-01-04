@@ -232,7 +232,8 @@ npm run build:compiler       # Compiler only
 npm run plugin-zip
 
 # Alternative: Use WP-CLI (recommended)
-wp dist-archive .
+
+wp dist-archive "wp-content/plugins/winden-dplugins-tailwind-css-compiler/"
 ```
 
 ### Utilities
