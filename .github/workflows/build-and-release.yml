@@ -61,4 +61,4 @@ jobs:
         with:
           files: winden-*.zip
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.WPORG_DEPLOY_KEY }}
