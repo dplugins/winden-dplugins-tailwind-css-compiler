@@ -72,7 +72,7 @@
     "@tailwindcss/postcss": "^4.1.18",
     "browser-sync": "^3.0.4",
     "chokidar": "^4.0.3",
-    "esbuild": "^0.25.12",
+    "esbuild": "^0.27.2",
     "esbuild-plugin-copy": "^2.1.1",
     "esbuild-plugin-inline-import": "^1.1.0",
     "esbuild-plugin-polyfill-node": "^0.3.0",
