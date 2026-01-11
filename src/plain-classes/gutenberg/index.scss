@@ -3,3 +3,39 @@
 .winauto-li-hovered {
   background: var(--winauto-bg--hover);
 }
+
+
+$action: #2271b1;
+
+.plain-classes{
+    display: grid;
+
+    textarea {
+        padding: 2px 5px;
+    }
+}
+
+.plain-classes-container {
+    padding: 12px;
+    padding-bottom: 16px;
+    border: none;
+    border-top: 1px solid #e0e0e0;
+    margin-top: -1px;
+
+    textarea {
+        width: 100%;
+    }
+}
+
+.plain-classes-container-header {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-bottom: 8px;
+
+    h3{
+        margin: 0px !important;
+        font-size: 13px;
+        text-transform: none;
+    }
+}

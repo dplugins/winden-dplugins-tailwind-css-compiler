@@ -2,6 +2,7 @@
 if ( ! defined( 'ABSPATH' ) ) exit; // Exit if accessed directly
 
 use Winden\App\Helpers\Sanitization;
+use Winden\App\Helpers\SettingsOptions;
 
 class SettingsSaveGet
 {
@@ -96,11 +97,8 @@ class SettingsSaveGet
             return;
         }
 
-        // Retrieve the settings from the database
-        $settings = get_option('winden_dplugins_options', array_fill_keys($this->keys, false));
-
-        // DEBUG: Log what was retrieved
-        // error_log('[Winden Settings GET] Retrieved settings: ' . print_r($settings, true));
+        // Retrieve the settings using centralized defaults from SettingsOptions
+        $settings = SettingsOptions::getWindenOptions();
 
         // Respond with the settings
         wp_send_json_success($settings);
