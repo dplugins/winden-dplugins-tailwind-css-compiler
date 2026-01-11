@@ -161,21 +161,24 @@ class ProvidersHelpers
 
     public static function enqueue_autocomplete_scripts()
     {
-        wp_enqueue_script(
-            'cachejs',
-            WINDTACS_PLUGIN_URL . 'build/compiler/tailwindcss-compiler.js',
-            [],
-            filemtime(WINDTACS_PLUGIN_DIR . 'build/compiler/tailwindcss-compiler.js'),
-            true
-        );
+        // Use consistent handle 'winden-compiler-module' to match AutoCompile.php
+        $compiler_handle = 'winden-compiler-module';
 
-        wp_enqueue_script(
-            'winden-autocomplete',
-            false,
-            [],
-            null,
-            true
-        );
+        // Only enqueue if not already enqueued
+        if (!wp_script_is($compiler_handle, 'enqueued')) {
+            wp_enqueue_script(
+                $compiler_handle,
+                WINDTACS_PLUGIN_URL . 'build/compiler/tailwindcss-compiler.js',
+                [],
+                filemtime(WINDTACS_PLUGIN_DIR . 'build/compiler/tailwindcss-compiler.js'),
+                true
+            );
+        }
+
+        // Register script with empty string to allow inline content attachment
+        // Using wp_register_script + wp_enqueue_script pattern for inline-only scripts
+        wp_register_script('winden-autocomplete', '', [$compiler_handle], null, true);
+        wp_enqueue_script('winden-autocomplete');
 
         // Use shared autocomplete JS function
         $autocomplete_js = self::get_autocomplete_js();
@@ -287,24 +290,28 @@ class ProvidersHelpers
 
     public static function framework_scripts($important = '')
     {
-        wp_enqueue_script(
-            'cachejs',
-            WINDTACS_PLUGIN_URL . 'build/compiler/tailwindcss-compiler.js',
-            [],
-            filemtime(WINDTACS_PLUGIN_DIR . 'build/compiler/tailwindcss-compiler.js'),
-            true
-        );
+        // Use consistent handle 'winden-compiler-module' to match AutoCompile.php
+        // This ensures the compiler is loaded once regardless of which system loads it first
+        $compiler_handle = 'winden-compiler-module';
+
+        // Only enqueue if not already enqueued
+        if (!wp_script_is($compiler_handle, 'enqueued')) {
+            wp_enqueue_script(
+                $compiler_handle,
+                WINDTACS_PLUGIN_URL . 'build/compiler/tailwindcss-compiler.js',
+                [],
+                filemtime(WINDTACS_PLUGIN_DIR . 'build/compiler/tailwindcss-compiler.js'),
+                true
+            );
+        }
 
         // Get compiler options using shared helper
         $compiler_options = self::get_compiler_options($important);
 
-        wp_enqueue_script(
-            'tailwind-compiler-options',
-            false,
-            ['cachejs'],
-            null,
-            true
-        );
+        // Register script with empty string to allow inline content attachment
+        // Using wp_register_script + wp_enqueue_script pattern for inline-only scripts
+        wp_register_script('tailwind-compiler-options', '', [$compiler_handle], null, true);
+        wp_enqueue_script('tailwind-compiler-options');
 
         $inline_tw_compiler_options = 'window.tailwind_compiler_options = ' . wp_json_encode($compiler_options);
         wp_add_inline_script('tailwind-compiler-options', $inline_tw_compiler_options);
@@ -332,7 +339,7 @@ class ProvidersHelpers
         wp_enqueue_script(
             'tailwindcss-watcher',
             WINDTACS_ASSETS_DIR . 'tailwindcss-watcher.js',
-            ['cachejs', 'tailwind-compiler-options'],
+            ['winden-compiler-module', 'tailwind-compiler-options'],
             filemtime(WINDTACS_PLUGIN_DIR . 'assets/tailwindcss-watcher.js'),
             true
         );

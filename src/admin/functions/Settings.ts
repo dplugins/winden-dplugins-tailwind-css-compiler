@@ -1,3 +1,5 @@
+import type { WindenSettings, WordPressAjaxResponse } from '@/types/api.d';
+
 /**
  * Fetch settings from WordPress
  * @param setSettings - State setter function
@@ -6,13 +8,13 @@
  * @returns Settings data if json=true, otherwise void
  */
 export const fetchSettings = async (
-  setSettings: (settings: any) => void,
+  setSettings: (settings: WindenSettings) => void,
   json: boolean = false,
-  callback: ((settings: any) => void) | null = null
-): Promise<any> => {
+  callback: ((settings: WindenSettings) => void) | null = null
+): Promise<WindenSettings | void> => {
   try {
-    const response = await fetch(`${(window as any).ajaxUrl || (window as any).websiteUrl + '/wp-admin/admin-ajax.php'}?action=winden_get_settings`);
-    const result = await response.json();
+    const response = await fetch(`${window.ajaxUrl || window.websiteUrl + '/wp-admin/admin-ajax.php'}?action=winden_get_settings`);
+    const result: WordPressAjaxResponse<WindenSettings> = await response.json();
     if (result.success) {
       if (json) {
         return result.data;
@@ -34,16 +36,16 @@ export const fetchSettings = async (
  * Save settings to WordPress
  * @param newSettings - Settings object to save
  */
-export const saveSettings = async (newSettings: Record<string, any>): Promise<void> => {
+export const saveSettings = async (newSettings: WindenSettings): Promise<void> => {
   try {
-    const response = await fetch(`${(window as any).ajaxUrl || (window as any).websiteUrl + '/wp-admin/admin-ajax.php'}?action=winden_save_settings`, {
+    const response = await fetch(`${window.ajaxUrl || window.websiteUrl + '/wp-admin/admin-ajax.php'}?action=winden_save_settings`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ ...newSettings, '_nonce': (window as any).nonce }),
+      body: JSON.stringify({ ...newSettings, '_nonce': window.nonce }),
     });
-    const result = await response.json();
+    const result: WordPressAjaxResponse<unknown> = await response.json();
     if (result.success) {
       // console.log('Settings saved successfully!');
     } else {

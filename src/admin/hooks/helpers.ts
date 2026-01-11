@@ -2,6 +2,7 @@ import { useState } from "react"
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { http } from '@/utils'
 import { AxiosError } from 'axios'
+import type { HelpersState, HelpersPayload } from '@/types/api.d'
 
 export function useHelpersState() {
     const fetch = async (): Promise<HelpersState> => {
@@ -18,7 +19,7 @@ export function useHelpersState() {
 }
 
 export function useHelpersMutator() {
-    const update = async (payload: any): Promise<HelpersState> => {
+    const update = async (payload: HelpersPayload): Promise<HelpersState> => {
         const { data } = await http().post('helper_options', payload)
 
         return data.data
@@ -26,7 +27,7 @@ export function useHelpersMutator() {
 
     const queryClient = useQueryClient()
 
-    return useMutation<HelpersState, AxiosError, any>({
+    return useMutation<HelpersState, AxiosError, HelpersPayload>({
         mutationKey: ['helper_options'],
         mutationFn: update,
         onSuccess: (data) => {
@@ -42,7 +43,7 @@ export function useHelpers() {
         return saved === 'true';
     });
 
-    const toggleSidebar = (callback: () => void) => {
+    const toggleSidebar = (callback?: () => void) => {
         setSidebarOpen(!sidebarOpen);
         if (typeof callback === 'function') {
             callback();

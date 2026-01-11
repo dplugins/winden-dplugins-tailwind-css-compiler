@@ -1,5 +1,5 @@
 import React, { useEffect, useId, useState } from "react";
-import { scaleOptions } from "../const/scaleConstants";
+import { SCALE_OPTIONS } from "./constants";
 
 import { Input } from "@el/Input";
 import InputWithResetButton from "@el/InputWithResetButton";
@@ -19,7 +19,7 @@ import {
  * @returns Whether the value is a preset ratio
  */
 const hasPresetRatio = (value: number | string | undefined | null): boolean =>
-  scaleOptions.some((option) =>
+  SCALE_OPTIONS.some((option) =>
     typeof option === "number"
       ? Number(option) === Number(value)
       : option === value
@@ -129,7 +129,7 @@ const RatioField: React.FC<RatioFieldProps> = ({
         </SelectTrigger>
         <SelectContent>
           <SelectGroup>
-            {scaleOptions.map((option) => (
+            {SCALE_OPTIONS.map((option) => (
               <SelectItem key={option} value={String(option)}>
                 {option}
               </SelectItem>

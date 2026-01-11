@@ -7,21 +7,35 @@
  * - Instant CSS/config updates without page refresh
  */
 
+import type { WindenSettings } from '@/types/api.d';
+
+/**
+ * Broadcast message data payload
+ */
+export interface BroadcastMessageData {
+  javascript?: string;
+  scss?: string;
+  wizzard?: string;
+  css?: string;
+  settings?: WindenSettings;
+}
+
 export type WindenBroadcastMessage = {
   type: 'CONTENT_SAVED' | 'WIZZARD_UPDATED' | 'SETTINGS_UPDATED' | 'CACHE_CLEARED';
   timestamp: number;
-  data?: {
-    javascript?: string;
-    scss?: string;
-    wizzard?: string;
-    css?: string;
-    settings?: Record<string, any>;
-  };
+  data?: BroadcastMessageData;
 };
+
+/**
+ * Listener callback types for different message scenarios
+ */
+type MessageDataListener = (data: BroadcastMessageData | undefined) => void;
+type FullMessageListener = (message: WindenBroadcastMessage) => void;
+type BroadcastListener = MessageDataListener | FullMessageListener;
 
 class WindenBroadcastChannel {
   private channel: BroadcastChannel | null = null;
-  private listeners: Map<string, Set<(data: any) => void>> = new Map();
+  private listeners: Map<string, Set<BroadcastListener>> = new Map();
   private isSupported: boolean = false;
 
   constructor() {
@@ -51,13 +65,13 @@ class WindenBroadcastChannel {
       // Trigger registered listeners for this message type
       const typeListeners = this.listeners.get(message.type);
       if (typeListeners) {
-        typeListeners.forEach(callback => callback(message.data));
+        typeListeners.forEach(callback => (callback as MessageDataListener)(message.data));
       }
 
-      // Trigger wildcard listeners
+      // Trigger wildcard listeners (receive full message)
       const wildcardListeners = this.listeners.get('*');
       if (wildcardListeners) {
-        wildcardListeners.forEach(callback => callback(message));
+        wildcardListeners.forEach(callback => (callback as FullMessageListener)(message));
       }
     };
   }
@@ -82,8 +96,12 @@ class WindenBroadcastChannel {
 
   /**
    * Listen for specific message types
+   * @param type - Message type to listen for, or '*' for all messages
+   * @param callback - Callback receives message.data for specific types, full message for '*'
    */
-  public on(type: WindenBroadcastMessage['type'] | '*', callback: (data: any) => void) {
+  public on(type: WindenBroadcastMessage['type'], callback: MessageDataListener): () => void;
+  public on(type: '*', callback: FullMessageListener): () => void;
+  public on(type: WindenBroadcastMessage['type'] | '*', callback: BroadcastListener): () => void {
     if (!this.listeners.has(type)) {
       this.listeners.set(type, new Set());
     }
@@ -98,7 +116,9 @@ class WindenBroadcastChannel {
   /**
    * Remove a listener
    */
-  public off(type: WindenBroadcastMessage['type'] | '*', callback: (data: any) => void) {
+  public off(type: WindenBroadcastMessage['type'], callback: MessageDataListener): void;
+  public off(type: '*', callback: FullMessageListener): void;
+  public off(type: WindenBroadcastMessage['type'] | '*', callback: BroadcastListener): void {
     this.listeners.get(type)?.delete(callback);
   }
 

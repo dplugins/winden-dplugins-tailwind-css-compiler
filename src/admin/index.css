@@ -1,5 +1,7 @@
 @import "tailwindcss";
 
+
+
 @custom-variant dark (&:where(.dark, .dark *));
 
 @source "./**/**/*.{php,html,js,jsx,tsx,ts}";
@@ -101,6 +103,10 @@
   overflow: unset !important;
 }
 
+img {
+  /* This is messing sidebar images */
+  display: unset;
+}
 
 hr {
   border: 0;

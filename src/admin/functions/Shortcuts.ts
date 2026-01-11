@@ -1,4 +1,19 @@
 import { useEffect } from 'react';
+import type { WizzardState } from '@/types/wizzard';
+
+/**
+ * Content ref type for save operations
+ */
+type ContentRef = React.MutableRefObject<string>;
+type WizzardRef = React.MutableRefObject<WizzardState | null>;
+
+/**
+ * Save handler function signature
+ */
+type SaveHandler = (
+  jsContentRef?: ContentRef,
+  scssContentRef?: ContentRef
+) => void | Promise<void>;
 
 /**
  * Custom hook to handle Ctrl/Cmd + S save shortcut
@@ -9,10 +24,10 @@ import { useEffect } from 'react';
  * @param isDataLoading - Loading state flag
  */
 export const useSaveShortcut = (
-  handleSave: (jsContentRef?: any, scssContentRef?: any) => void,
-  jsContentRef: React.MutableRefObject<any>,
-  scssContentRef: React.MutableRefObject<any>,
-  wizzardContentRef: React.MutableRefObject<any>,
+  handleSave: SaveHandler,
+  jsContentRef: ContentRef,
+  scssContentRef: ContentRef,
+  wizzardContentRef: WizzardRef,
   isDataLoading: boolean
 ): void => {
   useEffect(() => {

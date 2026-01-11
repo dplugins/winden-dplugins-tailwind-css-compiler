@@ -1,6 +1,8 @@
 <?php namespace Winden\App\Admin;
 if ( ! defined( 'ABSPATH' ) ) exit; // Exit if accessed directly
 
+use Winden\App\Helpers\Sanitization;
+
 class GetContent
 {
     public function __construct()
@@ -15,6 +17,7 @@ class GetContent
         add_action('wp_ajax_nopriv_winden_get_content', [$this, 'get_winden_content_callback']);
         add_action('wp_ajax_nopriv_winden_get_cache', [$this, 'get_winden_cache']);
         add_action('wp_ajax_nopriv_winden_get_wizzard_state', [$this, 'get_winden_wizzard_state']);
+        add_action('wp_ajax_nopriv_winden_get_crawled_classes', [$this, 'get_crawled_classes']);
     }
 
     public function get_winden_content_callback()
@@ -164,6 +167,9 @@ class GetContent
             $scss = isset($configArray['scss']) ? $configArray['scss'] : '';
             $wizzard = isset($configArray['wizzard']) ? $configArray['wizzard'] : [];
 
+            // Normalize lowercase keys to camelCase (fixes old corrupted data)
+            $wizzard = Sanitization::normalize_wizzard_keys($wizzard);
+
             $this->handle_json_response([
                 'javascript' => base64_encode($javascript),
                 'scss' => base64_encode($scss), // Include SCSS in the response
@@ -265,7 +271,7 @@ class GetContent
     public function get_winden_wizzard_state()
     {
         $wizzard_state = get_option('winden_dplugins_wizzard_state');
-        
+
         // If no wizard state found, get it from editor
         if (!$wizzard_state) {
             $winden_editor = get_option('winden_dplugins_editor', []);
@@ -273,6 +279,8 @@ class GetContent
         }
 
         if ($wizzard_state) {
+            // Normalize lowercase keys to camelCase (fixes old corrupted data)
+            $wizzard_state = Sanitization::normalize_wizzard_keys($wizzard_state);
             wp_send_json_success($wizzard_state);
         } else {
             wp_send_json_error(['message' => 'No wizzard state found']);
@@ -283,8 +291,9 @@ class GetContent
 
     public function get_crawled_classes()
     {
-        // Check if the user has the right capability
-        if (!current_user_can('manage_options')) {
+        // Check if the user has edit capability (less restrictive than manage_options)
+        // This allows editors to use autocomplete in page builders
+        if (!current_user_can('edit_posts')) {
             wp_send_json_error('Unauthorized user');
             return;
         }

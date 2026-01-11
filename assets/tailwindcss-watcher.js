@@ -356,7 +356,11 @@ const compileClasses = async (compileOptions = {}) => {
 
         // Determine if compilation should proceed based on environment
         let shouldCompile = false;
-        if (window?.inIframe ? JSON.parse(window.inIframe) : true) {
+
+        // Always compile when force option is set (e.g., from broadcast listener hot reload)
+        if (options.force) {
+            shouldCompile = true;
+        } else if (window?.inIframe ? JSON.parse(window.inIframe) : true) {
             if (window?.apiVersion2 ? JSON.parse(window.apiVersion2) : false) {
                 shouldCompile = true;
             } else {
@@ -368,6 +372,7 @@ const compileClasses = async (compileOptions = {}) => {
 
         // Check for uploadUrl in current window first, then parent (for iframe scenarios)
         const hasUploadUrl = window.uploadUrl || (window.parent !== window && window.parent?.uploadUrl);
+
         if (document.body && classes.size > 0 && window.tailwindify && hasUploadUrl && shouldCompile) {
             // Check if classes have changed before proceeding (unless forced)
             if (!options.force && !hasClassesChanged(classes, previousClassnames)) {

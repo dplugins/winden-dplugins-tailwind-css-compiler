@@ -139,15 +139,16 @@ export const Autocomplete = ({
       if (isPreviewMode) {
         return;
       }
-      
-      if (Array.isArray(event.detail.newClasses)) {
-        const _tags = getBreakpointTags(event.detail.newClasses);
-        const _screen = getMatchingScreenKey() ?? "default";
 
+      if (Array.isArray(event.detail.newClasses)) {
         if (isScreenChecked) {
+          const _tags = getBreakpointTags(event.detail.newClasses);
+          const _screen = getMatchingScreenKey() ?? "default";
           setSelectedTags(_tags[_screen]);
         } else {
-          setSelectedTags(Object.values(_tags).flat());
+          // Don't use getBreakpointTags when not in screen mode
+          // It uses Object.values().flat() which doesn't preserve order
+          setSelectedTags(event.detail.newClasses);
         }
       }
     };
@@ -201,8 +202,8 @@ export const Autocomplete = ({
       setTempTags(null);
       setLastPreviewClass(null);
       
-      // Clean up any remaining preview styles
-      if (typeof wp !== 'undefined' && wp.data && wp.data.select) {
+      // Clean up any remaining preview styles (Gutenberg only)
+      if (typeof wp !== 'undefined' && wp.data && wp.data.select && wp.data.select('core/block-editor')) {
         const selectedBlock = wp.data.select('core/block-editor').getSelectedBlock();
         if (selectedBlock) {
           const editorIframe = document.querySelector('iframe[name="editor-canvas"]') || document.querySelector('iframe.block-editor-iframe');
@@ -265,9 +266,9 @@ export const Autocomplete = ({
     // Find the active element (the one being edited in Gutenberg)
     let activeElement = null;
     
-    if (typeof wp !== 'undefined' && wp.data && wp.data.select) {
+    if (typeof wp !== 'undefined' && wp.data && wp.data.select && wp.data.select('core/block-editor')) {
       const selectedBlock = wp.data.select('core/block-editor').getSelectedBlock();
-      
+
       if (selectedBlock) {
         const editorIframe = document.querySelector('iframe[name="editor-canvas"]') || document.querySelector('iframe.block-editor-iframe');
         const iframeDocument = editorIframe ? editorIframe.contentDocument || editorIframe.contentWindow.document : null;

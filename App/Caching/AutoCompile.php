@@ -118,15 +118,25 @@ class AutoCompile
     /**
      * Crawl classes and store for compilation
      *
-     * @param int $post_id Optional post ID for context
+     * @param int $post_id Optional post ID - if provided, uses fast single-post crawling
      * @param bool $compile_now Whether to compile immediately (for non-JS contexts)
      */
     public function crawl_and_flag($post_id = null, $compile_now = false)
     {
         try {
-            // Crawl all classes from the site
-            $crawler = new ClassCrawler();
-            $classes = $crawler->classes();
+            if ($post_id && $post_id > 0) {
+                // Fast path: Only crawl the single post and update the per-post index
+                // This is much faster than crawling all 10,000+ posts
+                $classes = ClassCrawler::crawlSinglePost($post_id);
+            } else {
+                // Full crawl: Scan all posts (used for initial crawl or manual refresh)
+                $crawler = new ClassCrawler();
+                $classes = $crawler->classes();
+
+                // On full crawl, clear the per-post index so it rebuilds fresh
+                // This ensures no stale post data persists
+                delete_option('winden_post_classes_index');
+            }
 
             // Store the classes and timestamp
             update_option('winden_crawled_classes', $classes);
@@ -169,18 +179,13 @@ class AutoCompile
 
         $post_id = isset($_POST['post_id']) ? intval($_POST['post_id']) : 0;
 
-        // Schedule async crawl instead of running immediately
-        // This returns control to the browser instantly
-        if (!wp_next_scheduled('winden_async_crawl', [$post_id])) {
-            wp_schedule_single_event(time(), 'winden_async_crawl', [$post_id]);
-        }
-
-        // Trigger WP Cron in background
-        spawn_cron();
+        // Run crawl SYNCHRONOUSLY so classes are fresh before compile
+        // This ensures winden_crawled_classes has the latest classes
+        $this->crawl_and_flag($post_id);
 
         wp_send_json_success([
-            'message' => 'Crawl scheduled, ready to compile',
-            'needs_recompile' => true // Will be set by the async crawl
+            'message' => 'Crawl completed, ready to compile',
+            'needs_recompile' => true
         ]);
     }
 
@@ -343,8 +348,17 @@ class AutoCompile
             true
         );
 
+        // Enqueue compiler core module (shared logic for compile-trigger and post-save-compile)
+        wp_enqueue_script(
+            'winden-compiler-core',
+            WINDTACS_PLUGIN_URL . 'assets/winden-compiler-core.js',
+            ['winden-compiler-module'],
+            filemtime(WINDTACS_PLUGIN_DIR . 'assets/winden-compiler-core.js'),
+            true
+        );
+
         // Enqueue compile trigger script that listens for post save
-        $dependencies = ['winden-compiler-module', 'winden-css-injector', 'jquery'];
+        $dependencies = ['winden-compiler-core', 'winden-css-injector', 'jquery'];
 
         // Add Gutenberg dependencies if available
         if (function_exists('get_current_screen')) {

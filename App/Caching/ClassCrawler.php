@@ -34,10 +34,60 @@ class ClassCrawler
     private array $classes;
     private array $posts;
 
-    public function __construct()
+    /**
+     * @param int|null $single_post_id If provided, only crawl this single post (for incremental updates)
+     */
+    public function __construct(?int $single_post_id = null)
     {
         $this->classes = [];
-        $this->posts = $this->queryPosts();
+
+        if ($single_post_id && $single_post_id > 0) {
+            // Single post mode: only query this specific post
+            $post = get_post($single_post_id);
+            $this->posts = $post ? [$post] : [];
+        } else {
+            // Full crawl mode: query all posts
+            $this->posts = $this->queryPosts();
+        }
+    }
+
+    /**
+     * Crawl classes from a single post and update the cache correctly
+     * This removes old classes from that post and adds new ones
+     *
+     * @param int $post_id The post ID to crawl
+     * @return array Merged array of all classes (other posts + new from this post)
+     */
+    public static function crawlSinglePost(int $post_id): array
+    {
+        // Get per-post class index (tracks which classes belong to which post)
+        $post_classes_index = get_option('winden_post_classes_index', []);
+        if (!is_array($post_classes_index)) {
+            $post_classes_index = [];
+        }
+
+        // Get the old classes for this specific post (before the edit)
+        $old_post_classes = $post_classes_index[$post_id] ?? [];
+
+        // Crawl the updated post to get its current classes
+        $crawler = new self($post_id);
+        $new_post_classes = $crawler->classes();
+
+        // Update the index with new classes for this post
+        $post_classes_index[$post_id] = $new_post_classes;
+        update_option('winden_post_classes_index', $post_classes_index);
+
+        // Build the complete class list from all posts
+        // This ensures removed classes don't persist
+        $all_classes = [];
+        foreach ($post_classes_index as $pid => $classes) {
+            if (is_array($classes)) {
+                $all_classes = array_merge($all_classes, $classes);
+            }
+        }
+
+        // Deduplicate and return
+        return array_values(array_unique($all_classes));
     }
 
     private function queryPosts(): array

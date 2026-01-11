@@ -81,19 +81,13 @@ const Backups: React.FC<BackupsProps> = ({ onExport }) => {
   const handleFetchWizzardState = async (): Promise<void> => {
     const wizzardState = await fetchWizzardState();
 
-    if (wizzardState?.length) {
-      try {
-        const jsonData = JSON.parse(atob(wizzardState as string));
-        // Ensure jsonData is an array
-        if (Array.isArray(jsonData)) {
-          setStates(jsonData);
-        } else {
-          // Single object found instead of array - this is expected for a fresh install
-          // Initialize with empty array since backups haven't been created yet
-          setStates([]);
-        }
-      } catch (error) {
-        console.error("Invalid JSON: ", error);
+    if (wizzardState) {
+      // wizzardState is already decoded by the API, no need for atob
+      if (Array.isArray(wizzardState)) {
+        setStates(wizzardState);
+      } else {
+        // Single object found instead of array - this is expected for a fresh install
+        // Initialize with empty array since backups haven't been created yet
         setStates([]);
       }
     } else {

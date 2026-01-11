@@ -47,7 +47,7 @@ class LoadAssets
         }
         if (in_array('cachejs', $scripts)) {
             $compiler_path = WINDTACS_PLUGIN_DIR . 'build/compiler/tailwindcss-compiler.js';
-            $compiler_version = file_exists($compiler_path) ? filemtime($compiler_path) : WINDEN_VERSION;
+            $compiler_version = file_exists($compiler_path) ? filemtime($compiler_path) : WINDTACS_VERSION;
 
             wp_enqueue_script(
                 'cachejs',

@@ -130,6 +130,12 @@ class Builders
             return bricks_is_builder_iframe();
         }
 
+        // Fallback: Check URL parameters directly if Bricks function not available
+        // Bricks iframe has ?bricks=run&brickspreview=true
+        if (isset($_GET['bricks']) && isset($_GET['brickspreview'])) {
+            return true;
+        }
+
         return false;
     }
 

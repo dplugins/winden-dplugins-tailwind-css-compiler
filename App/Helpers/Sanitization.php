@@ -118,6 +118,108 @@ class Sanitization
     }
 
     /**
+     * Map of lowercase keys to their correct camelCase equivalents
+     * Used to normalize data from old database format
+     */
+    private static $key_mapping = [
+        'activetab' => 'activeTab',
+        'configcode' => 'configCode',
+        'statename' => 'stateName',
+        'breakpointsactive' => 'breakpointsActive',
+        'extendbreakpoints' => 'extendBreakpoints',
+        'desktopfirst' => 'desktopFirst',
+        'fontfamily' => 'fontFamily',
+        'fontfamilyactive' => 'fontFamilyActive',
+        'extendfontfamily' => 'extendFontFamily',
+        'colorentries' => 'colorEntries',
+        'colorsactive' => 'colorsActive',
+        'extendcolors' => 'extendColors',
+        'includeutilitycolors' => 'includeUtilityColors',
+        'spacesactive' => 'spacesActive',
+        'includeutilitysizes' => 'includeUtilitySizes',
+        'borderradiusactive' => 'borderRadiusActive',
+        'borderradius' => 'borderRadius',
+        'fontsizesactive' => 'fontSizesActive',
+        'fontsize' => 'fontSize',
+        'extendcolorsfse' => 'extendColorsFSE',
+        'extendfontsizesfse' => 'extendFontSizesFSE',
+        'extendspacingfse' => 'extendSpacingFSE',
+        'extendfontfamilyfse' => 'extendFontFamilyFSE',
+        'extendscreensfse' => 'extendScreensFSE',
+        'extendcolorsbricks' => 'extendColorsBricks',
+        'extendfontsizesbricks' => 'extendFontSizesBricks',
+        'extendspacingbricks' => 'extendSpacingBricks',
+        'extendfontfamilybricks' => 'extendFontFamilyBricks',
+        'extendscreensbricks' => 'extendScreensBricks',
+        'extendcolorsoxygen' => 'extendColorsOxygen',
+        'extendfontsizesoxygen' => 'extendFontSizesOxygen',
+        'extendspacingoxygen' => 'extendSpacingOxygen',
+        'extendfontfamilyoxygen' => 'extendFontFamilyOxygen',
+        'extendscreensoxygen' => 'extendScreensOxygen',
+        'extendfonthero' => 'extendFontHero',
+        'extendborderradiusfse' => 'extendBorderRadiusFSE',
+        'extendborderradiusbricks' => 'extendBorderRadiusBricks',
+        'extendborderradiusoxygen' => 'extendBorderRadiusOxygen',
+        'minlightness' => 'minLightness',
+        'maxlightness' => 'maxLightness',
+        'colorformat' => 'colorFormat',
+        'enableshades' => 'enableShades',
+        'reverseshades' => 'reverseShades',
+        'islocked' => 'isLocked',
+        'isenabled' => 'isEnabled',
+        'isdefault' => 'isDefault',
+        'disablefluid' => 'disableFluid',
+        'userem' => 'useRem',
+        'remsize' => 'remSize',
+        'minbasesize' => 'minBaseSize',
+        'minscaleratio' => 'minScaleRatio',
+        'minscreensize' => 'minScreenSize',
+        'maxbasesize' => 'maxBaseSize',
+        'maxscaleratio' => 'maxScaleRatio',
+        'maxscreensize' => 'maxScreenSize',
+        'basestep' => 'baseStep',
+        'decimalplaces' => 'decimalPlaces',
+        'stepvalues' => 'stepValues',
+        'minmaxvalues' => 'minMaxValues',
+        'manualmode' => 'manualMode',
+        'manualvalues' => 'manualValues',
+        'originalgeneratedcolors' => 'originalGeneratedColors',
+        'ismaincolorchange' => 'isMainColorChange',
+    ];
+
+    /**
+     * Normalize Wizzard state keys from lowercase to camelCase
+     *
+     * Fixes data corrupted by WordPress sanitize_key() which converts to lowercase
+     *
+     * @param array $data Wizzard state data with potentially lowercase keys
+     * @return array Data with normalized camelCase keys
+     */
+    public static function normalize_wizzard_keys($data)
+    {
+        if (!is_array($data)) {
+            return $data;
+        }
+
+        $normalized = [];
+
+        foreach ($data as $key => $value) {
+            // Check if this key needs to be mapped to camelCase
+            $lower_key = strtolower($key);
+            $normalized_key = isset(self::$key_mapping[$lower_key]) ? self::$key_mapping[$lower_key] : $key;
+
+            // Recursively normalize nested arrays
+            if (is_array($value)) {
+                $normalized[$normalized_key] = self::normalize_wizzard_keys($value);
+            } else {
+                $normalized[$normalized_key] = $value;
+            }
+        }
+
+        return $normalized;
+    }
+
+    /**
      * Sanitize compiled CSS output
      *
      * @param string $css Compiled CSS

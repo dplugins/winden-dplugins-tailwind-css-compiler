@@ -21,6 +21,10 @@
 
     const isFancoolo = window.location.href.includes('page=fancoolo-app');
 
+    // Bricks main builder (not the iframe) - has ?bricks= but NOT ?brickspreview=
+    const isBricksMainBuilder = window.location.href.includes('bricks=') &&
+                                !window.location.href.includes('brickspreview=');
+
     /**
      * Inject CSS into a document
      * @param {Document} doc - The document to inject CSS into
@@ -56,11 +60,11 @@
             return; // Don't inject anywhere else for Fancoolo
         }
 
-        // For Gutenberg, ONLY inject into iframe, NOT into main editor page
-        // This prevents Winden styles from affecting the WordPress admin UI
-        const shouldSkipMainDocument = isOxygenMainBuilder || isGutenberg;
+        // For page builders, ONLY inject into iframe, NOT into main editor page
+        // This prevents Winden styles from affecting the builder UI
+        const shouldSkipMainDocument = isOxygenMainBuilder || isGutenberg || isBricksMainBuilder;
 
-        // Skip injection in Oxygen main builder or Gutenberg main editor
+        // Skip injection in builder main windows - only inject into their iframes
         if (!shouldSkipMainDocument) {
             injectCSS(document, css);
         }

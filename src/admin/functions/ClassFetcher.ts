@@ -1,29 +1,10 @@
 import type { WizzardState } from '@/types/wizzard';
+import type { CacheStatus, CacheError, CachePayload, WordPressAjaxResponse } from '@/types/api.d';
 
-declare global {
-  interface Window {
-    tailwindify?: (
-      classes: string[],
-      css: string,
-      config: string,
-      preprocessor: string
-    ) => Promise<{ css?: string; error?: { message: string } }>;
-    uploadUrl?: string;
-    websiteUrl?: string;
-    nonce?: string;
-  }
-}
-
-interface CacheError {
-  title: string;
-  message: string;
-}
-
-interface CachePayload {
-  styles?: string;
-  status?: 'completed' | 'failed';
-  errors?: string;
-}
+/**
+ * Input classes can come in various formats from different sources
+ */
+type ClassesInput = string[] | string | Record<string, string> | null;
 
 /**
  * Fetch classes from WordPress backend
@@ -36,7 +17,7 @@ export const fetchClasses = async (
 ): Promise<void> => {
   try {
     const response = await fetch(`${window.ajaxUrl || window.websiteUrl + '/wp-admin/admin-ajax.php'}?action=winden_get_classes`);
-    const data = await response.json();
+    const data: WordPressAjaxResponse<{ classes: string[] }> = await response.json();
 
     if (data.success) {
       handleFetchedClasses(data.data.classes);
@@ -61,13 +42,13 @@ export const fetchClasses = async (
  * @param tailwind_version - Tailwind version
  */
 export const handleFetchedClasses = async (
-  classes: string[] | string | Record<string, any> | null,
+  classes: ClassesInput,
   scriptLoaded: boolean,
   scssContent: string,
   jsContent: string,
   setCacheInProgress: (inProgress: boolean) => void,
-  fetchCacheStatus: (setCacheStatus: (status: any) => void) => void,
-  setCacheStatus: (status: any) => void,
+  fetchCacheStatus: (setCacheStatus: (status: CacheStatus) => void) => void,
+  setCacheStatus: (status: CacheStatus) => void,
   wizzardContentRef: React.MutableRefObject<WizzardState | null>,
   wizzardContent: WizzardState | null,
   css_preprocessor: string = 'css',
@@ -139,7 +120,7 @@ export const handleFetchedClasses = async (
         let classesArray: string[];
         if (!Array.isArray(classes)) {
           if (typeof classes === 'object' && classes !== null) {
-            classesArray = Object.values(classes);
+            classesArray = Object.values(classes) as string[];
           } else if (typeof classes === 'string') {
             classesArray = classes.split(/[\s,]+/).filter(c => c);
           } else {
@@ -154,7 +135,7 @@ export const handleFetchedClasses = async (
 
         const tw = await window.tailwindify(classesArray, scssContent, getConfigFileString, css_preprocessor);
 
-        if ('error' in tw) {
+        if ('error' in tw && tw.error) {
           console.error('[ClassFetcher] Compilation error:', tw.error);
           const errorMessage = tw.error.message || 'Compilation failed';
           errors.push({
@@ -175,10 +156,12 @@ export const handleFetchedClasses = async (
           payload.status = 'failed';
         }
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('[ClassFetcher] Compilation error:', error);
 
-      const errorMessage = error?.message || error?.toString() || 'Unknown compilation error';
+      const errorMessage = error instanceof Error
+        ? error.message
+        : String(error) || 'Unknown compilation error';
 
       errors.push({
         title: 'Compilation Error',
@@ -201,7 +184,7 @@ export const handleFetchedClasses = async (
         body: JSON.stringify({ ...payload, '_nonce': window.nonce }),
       });
 
-      const result = await response.json();
+      const result: WordPressAjaxResponse<unknown> = await response.json();
 
       if (!result.success) {
         console.error('[CACHE] Error saving cache:', result.data);

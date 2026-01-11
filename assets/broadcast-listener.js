@@ -120,16 +120,48 @@
       invalidateCssCache: true
     };
 
+    let compiled = false;
+
     // Primary method: window.compile (from tailwindcss-watcher.js)
     if (typeof window.compile === 'function') {
       try {
         window.compile(compileOptions);
-        log('Recompilation requested');
+        log('Recompilation requested via window.compile');
+        compiled = true;
       } catch (error) {
         console.error('[Winden Broadcast] Failed to call window.compile:', error);
       }
-    } else {
-      log('window.compile not available');
+    }
+
+    // Fallback: Try to find compile function in iframes (Oxygen6, Bricks, etc.)
+    // The watcher runs inside the iframe and sets window.compile there
+    if (!compiled) {
+      const iframeSelectors = [
+        'iframe[src*="breakdance_iframe"]',
+        'iframe[src*="oxygen"]',
+        'iframe.breakdance-iframe',
+        'iframe#preview-iframe',
+        'iframe[name="editor-canvas"]',
+        'iframe[src*="bricks"]'
+      ];
+
+      for (const selector of iframeSelectors) {
+        try {
+          const iframe = document.querySelector(selector);
+          if (iframe && iframe.contentWindow && typeof iframe.contentWindow.compile === 'function') {
+            iframe.contentWindow.compile(compileOptions);
+            log('Recompilation requested via iframe.contentWindow.compile');
+            compiled = true;
+            break;
+          }
+        } catch (e) {
+          // Cross-origin access blocked, continue trying
+        }
+      }
+    }
+
+    if (!compiled) {
+      log('window.compile not available in window or iframes');
     }
 
     // Legacy fallback: clear cache directly
@@ -264,6 +296,27 @@
       // Ignore cross-origin access issues
     }
 
+    // Also apply to iframes (for Oxygen6, Bricks, etc.)
+    const iframeSelectors = [
+      'iframe[src*="breakdance_iframe"]',
+      'iframe[src*="oxygen"]',
+      'iframe.breakdance-iframe',
+      'iframe#preview-iframe',
+      'iframe[name="editor-canvas"]',
+      'iframe[src*="bricks"]'
+    ];
+
+    for (const selector of iframeSelectors) {
+      try {
+        const iframe = document.querySelector(selector);
+        if (iframe && iframe.contentWindow) {
+          applyToWindow(iframe.contentWindow);
+        }
+      } catch (e) {
+        // Cross-origin access blocked, continue trying
+      }
+    }
+
     return didUpdate;
   }
 
@@ -281,17 +334,9 @@
         }
       }
 
-      // For Gutenberg/page builders: Force recompilation
-      if (typeof window.compile === 'function') {
-        forceRecompilation();
-        // Notification removed - silent update
-      }
-      else {
-        // In production mode (dev mode disabled), the compiler isn't loaded
-        // Force a page reload to fetch the new compiled CSS
-        log('Production mode detected - reloading page to fetch new CSS');
-        window.location.reload();
-      }
+      // Always try forceRecompilation first - it now handles iframe contexts
+      // forceRecompilation() will find window.compile in current window or iframes
+      forceRecompilation();
     } catch (error) {
       console.error('[Winden Broadcast] Error updating config:', error);
     }
@@ -474,7 +519,7 @@
     },
     // Enable debug logging at runtime
     enableDebug: function() {
-      window.WINDEN_BROADCAST_DEBUG = true;
+      window.WINDTACS_BROADCAST_DEBUG = true;
     }
   };
 

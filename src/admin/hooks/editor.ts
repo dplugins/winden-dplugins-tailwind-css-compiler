@@ -1,6 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { http } from '@/utils'
 import { AxiosError } from 'axios'
+import type { EditorState, EditorPayload, FileState } from '@/types/api.d'
+
+/**
+ * Callback type for editor cache updates
+ */
+type EditorCacheCallback = () => void;
 
 export function useEditorState() {
     const fetch = async (): Promise<EditorState> => {
@@ -39,20 +45,25 @@ export function useEditorMutator() {
 export function useEditorCache() {
     const queryClient = useQueryClient()
 
-    const update = (filename: string, data: Partial<FileState>, callback?: any) => {
-        queryClient.setQueryData(['editor'], (oldState: EditorState) => {
-            return oldState
-                ? JSON.parse(JSON.stringify(oldState)).map(
-                    (file: FileState) => {
-                        if (file.name === filename) {
-                            file = Object.assign(file, data)
-                        }
+    const update = (filename: string, data: Partial<FileState>, callback?: EditorCacheCallback): void => {
+        queryClient.setQueryData(['editor'], (oldState: EditorState | undefined) => {
+            if (!oldState) return []
 
-                        return file
+            return JSON.parse(JSON.stringify(oldState)).map(
+                (file: FileState) => {
+                    if (file.name === filename) {
+                        file = Object.assign(file, data)
                     }
-                )
-                : []
+
+                    return file
+                }
+            )
         })
+
+        // Execute callback if provided
+        if (callback) {
+            callback()
+        }
     }
 
     return {
