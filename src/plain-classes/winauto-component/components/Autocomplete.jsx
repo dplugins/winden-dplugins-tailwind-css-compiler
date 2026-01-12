@@ -22,6 +22,7 @@ export const Autocomplete = ({
   dragOverScreen,
   dragData,
   onPreviewChange,
+  blockId = null,
 }) => {
   const inputRef = useRef(null);
   const tagRefs = useRef([]);
@@ -135,6 +136,11 @@ export const Autocomplete = ({
     document.addEventListener("mousedown", handleClickOutside);
 
     const handleActiveElementClassesChange = (event) => {
+      // Only respond to events for this specific block (if blockId is provided)
+      if (blockId && event.detail.blockId && event.detail.blockId !== blockId) {
+        return;
+      }
+
       // Ignore changes when in preview mode to prevent suggestions from closing
       if (isPreviewMode) {
         return;
@@ -146,8 +152,6 @@ export const Autocomplete = ({
           const _screen = getMatchingScreenKey() ?? "default";
           setSelectedTags(_tags[_screen]);
         } else {
-          // Don't use getBreakpointTags when not in screen mode
-          // It uses Object.values().flat() which doesn't preserve order
           setSelectedTags(event.detail.newClasses);
         }
       }
@@ -201,7 +205,7 @@ export const Autocomplete = ({
       setHoveredSuggestion(null);
       setTempTags(null);
       setLastPreviewClass(null);
-      
+
       // Clean up any remaining preview styles (Gutenberg only)
       if (typeof wp !== 'undefined' && wp.data && wp.data.select && wp.data.select('core/block-editor')) {
         const selectedBlock = wp.data.select('core/block-editor').getSelectedBlock();
@@ -210,10 +214,10 @@ export const Autocomplete = ({
           const iframeDocument = editorIframe ? editorIframe.contentDocument || editorIframe.contentWindow.document : null;
 
           if (iframeDocument) {
+            // Get the block element directly - don't search for inner elements
             const blockElement = iframeDocument.querySelector('[data-block="' + selectedBlock.clientId + '"]');
-            const activeElementToClean = blockElement ? (blockElement.querySelector('.block-editor-rich-text__editable') || blockElement) : null;
-            if (activeElementToClean) {
-              activeElementToClean.classList.remove('winden-preview');
+            if (blockElement) {
+              blockElement.classList.remove('winden-preview');
             }
           }
         }
@@ -265,7 +269,7 @@ export const Autocomplete = ({
   const applyPreviewStyles = (tags, isPreview = true) => {
     // Find the active element (the one being edited in Gutenberg)
     let activeElement = null;
-    
+
     if (typeof wp !== 'undefined' && wp.data && wp.data.select && wp.data.select('core/block-editor')) {
       const selectedBlock = wp.data.select('core/block-editor').getSelectedBlock();
 
@@ -274,37 +278,35 @@ export const Autocomplete = ({
         const iframeDocument = editorIframe ? editorIframe.contentDocument || editorIframe.contentWindow.document : null;
 
         if (iframeDocument) {
-          const blockElement = iframeDocument.querySelector('[data-block="' + selectedBlock.clientId + '"]');
-          activeElement = blockElement ? (blockElement.querySelector('.block-editor-rich-text__editable') || blockElement) : null;
+          // Get the block element directly - don't search for inner editable elements
+          // This ensures we apply styles to the selected block, not its children
+          activeElement = iframeDocument.querySelector('[data-block="' + selectedBlock.clientId + '"]');
         }
       }
     }
 
     if (activeElement) {
-      // First, remove any classes that were explicitly applied by a previous preview
-      if (lastPreviewClass) {
+      // Only add/remove the preview class, don't modify other classes
+      // This prevents destroying existing classes on the element
+      if (isPreview && lastPreviewClass) {
         activeElement.classList.remove(lastPreviewClass);
       }
-      activeElement.classList.remove('winden-preview'); // Always remove the marker class from the active element
-
-      // Get all classes currently on the activeElement
-      const currentClassesOnElement = Array.from(activeElement.classList);
-      
-      // Determine classes to remove: any class currently on the element that is NOT in the new 'tags'
-      const classesToRemove = currentClassesOnElement.filter(cls => !tags.includes(cls));
-
-      // Determine classes to add: any class in 'tags' that is NOT currently on the element
-      const classesToAdd = tags.filter(cls => !currentClassesOnElement.includes(cls));
-
-      classesToRemove.forEach(cls => activeElement.classList.remove(cls));
-      classesToAdd.forEach(cls => activeElement.classList.add(cls));
+      activeElement.classList.remove('winden-preview');
 
       if (isPreview) {
-        const newPreviewClass = editingTagIndex !== -1 && tags.length > editingTagIndex ? tags[editingTagIndex] : null;
-        setLastPreviewClass(newPreviewClass);
+        // Only add the NEW class being previewed, not all tags
+        const newPreviewClass = tags.length > 0 ? tags[tags.length - 1] : null;
+        if (newPreviewClass) {
+          activeElement.classList.add(newPreviewClass);
+          setLastPreviewClass(newPreviewClass);
+        }
         activeElement.classList.add('winden-preview');
       } else {
-        setLastPreviewClass(null); // Clear lastPreviewClass when not in preview mode
+        // When leaving preview, remove the preview class
+        if (lastPreviewClass) {
+          activeElement.classList.remove(lastPreviewClass);
+        }
+        setLastPreviewClass(null);
       }
     }
   };
@@ -352,14 +354,23 @@ export const Autocomplete = ({
   const clearTempState = () => {
     setHoveredSuggestion(null);
     setIsPreviewMode(false);
-    setLastPreviewClass(null);
-    
-    // Clean up preview styles
-    const activeElement = document.querySelector('.editor-styles-wrapper .winden-preview');
-    if (activeElement) {
-      activeElement.classList.remove('winden-preview');
+
+    // Clean up preview styles - check in iframe for Gutenberg
+    const editorIframe = document.querySelector('iframe[name="editor-canvas"]') || document.querySelector('iframe.block-editor-iframe');
+    const iframeDocument = editorIframe ? editorIframe.contentDocument || editorIframe.contentWindow.document : null;
+
+    if (iframeDocument) {
+      const previewElement = iframeDocument.querySelector('.winden-preview');
+      if (previewElement) {
+        previewElement.classList.remove('winden-preview');
+        if (lastPreviewClass) {
+          previewElement.classList.remove(lastPreviewClass);
+        }
+      }
     }
-    
+
+    setLastPreviewClass(null);
+
     if (tempTags) {
       setTempTags(null);
       // Apply the final change when clicking a suggestion

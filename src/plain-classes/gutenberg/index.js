@@ -18,8 +18,6 @@ const plainClasses = createHigherOrderComponent((BlockEdit) => {
       return <BlockEdit {...props} />;
     }
 
-    const defaultClass = "plain-classes";
-
     const onChange = (value) => {
       props.setAttributes({
         className: value?.length ? [...value].join(' ') : '',
@@ -38,9 +36,10 @@ const plainClasses = createHigherOrderComponent((BlockEdit) => {
               <WindenAutocompleteWithScreens
                 onChange={onChange}
                 defaultTags={props.attributes?.className ? props.attributes.className.trim().split(' ').filter(c => c) : []}
-                isDark={false} />
+                isDark={false}
+                blockId={props.clientId} />
           </div>
-         
+
         </InspectorControls>
       </Fragment>
     );

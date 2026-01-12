@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { Autocomplete as WindenAutocomplete } from '../winauto-component/index.js';
 
-const WindenAutocompleteWithScreens = ({ defaultTags, onChange, isDark = true }) => {
+const WindenAutocompleteWithScreens = ({ defaultTags, onChange, isDark = true, blockId = null }) => {
   const [isScreenChecked, setIsScreenChecked] = useState(false);
   const [__tags, set__Tags] = useState(defaultTags);
   const [dragData, setDragData] = useState(null);
@@ -158,6 +158,10 @@ const WindenAutocompleteWithScreens = ({ defaultTags, onChange, isDark = true })
 
   useEffect(() => {
     const handleActiveElementClassesChange = (event) => {
+      // Only respond to events for this specific block (if blockId is provided)
+      if (blockId && event.detail.blockId && event.detail.blockId !== blockId) {
+        return;
+      }
       if (Array.isArray(event.detail.newClasses)) {
         set__Tags(event.detail.newClasses);
       }
@@ -167,7 +171,7 @@ const WindenAutocompleteWithScreens = ({ defaultTags, onChange, isDark = true })
     return () => {
       window.removeEventListener('activeElementClassesChange', handleActiveElementClassesChange);
     };
-  }, []);
+  }, [blockId]);
 
   return (
     <div id="winauto">
@@ -220,9 +224,9 @@ const WindenAutocompleteWithScreens = ({ defaultTags, onChange, isDark = true })
                   default: [...tags],
                 }).flat();
 
-                // Dispatch a custom event for preview changes
+                // Dispatch a custom event for preview changes (scoped to this block)
                 const event = new CustomEvent("activeElementClassesChange", {
-                  detail: { newClasses: _tags }
+                  detail: { newClasses: _tags, blockId }
                 });
                 window.dispatchEvent(event);
               }}
@@ -238,6 +242,7 @@ const WindenAutocompleteWithScreens = ({ defaultTags, onChange, isDark = true })
               onDragEnd={handleDragEnd}
               dragOverScreen={dragOverScreen}
               dragData={dragData}
+              blockId={blockId}
             />
             {screenOptions.map((key, idx) => (
               <div key={idx} style={{ marginTop: '10px' }}>
@@ -259,9 +264,9 @@ const WindenAutocompleteWithScreens = ({ defaultTags, onChange, isDark = true })
                       [key]: [...tags],
                     }).flat();
 
-                    // Dispatch a custom event for preview changes
+                    // Dispatch a custom event for preview changes (scoped to this block)
                     const event = new CustomEvent("activeElementClassesChange", {
-                      detail: { newClasses: _tags }
+                      detail: { newClasses: _tags, blockId }
                     });
                     window.dispatchEvent(event);
                   }}
@@ -277,6 +282,7 @@ const WindenAutocompleteWithScreens = ({ defaultTags, onChange, isDark = true })
                   onDragEnd={handleDragEnd}
                   dragOverScreen={dragOverScreen}
                   dragData={dragData}
+                  blockId={blockId}
                 />
               </div>
             ))}
@@ -291,9 +297,9 @@ const WindenAutocompleteWithScreens = ({ defaultTags, onChange, isDark = true })
             }}
             onPreviewChange={(tags) => {
               const _tags = [...tags];
-              // Dispatch a custom event for preview changes
+              // Dispatch a custom event for preview changes (scoped to this block)
               const event = new CustomEvent("activeElementClassesChange", {
-                detail: { newClasses: _tags }
+                detail: { newClasses: _tags, blockId }
               });
               window.dispatchEvent(event);
             }}
@@ -303,6 +309,7 @@ const WindenAutocompleteWithScreens = ({ defaultTags, onChange, isDark = true })
             isScreenChecked={isScreenChecked}
             screens={screenOptions}
             isDark={isDark}
+            blockId={blockId}
           />
         )
       }
