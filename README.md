@@ -28,8 +28,10 @@ The most powerful Tailwind CSS compiler for WordPress. Build beautiful, responsi
 
 - Full Tailwind CSS v4 support
 - Real-time compilation
+- Compile in browser
 - Works with any theme or page builder
 - Gutenberg integration
+- Compatible with pluings
 - Developer-friendly
 
 ## Integrations
