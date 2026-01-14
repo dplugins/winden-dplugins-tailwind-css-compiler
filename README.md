@@ -22,6 +22,15 @@ The most powerful Tailwind CSS compiler for WordPress. Build beautiful, responsi
 - Gutenberg integration
 - Developer-friendly
 
+## Integrations
+
+- Gutenberg
+- Oxygen Classic - Pro
+- Oxygen 6 - Pro
+- Bricks - Pro
+- Elementor - Pro
+- File Scanner - Pro
+
 ## Requirements
 
 - WordPress 6.0+
