@@ -160,7 +160,7 @@ ARCHITECTURE.md
 ```
 
 [docs-url]: https://docs.dplugins.com/winden/
-[logo-url]: windn-logo.svg
+[logo-url]: winden-logo.svg
 [version]: https://img.shields.io/github/v/tag/dplugins/winden?label=Version&color=0EA5E9
 [commit]: https://img.shields.io/github/last-commit/dplugins/winden?label=Last%20commit&color=0EA5E9
 [stars]: https://img.shields.io/github/stars/dplugins/winden?label=GitHub%20stars&color=0EA5E9
