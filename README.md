@@ -10,6 +10,10 @@
 
 The most powerful Tailwind CSS compiler for WordPress. Build beautiful, responsive websites with the full power of Tailwind CSS directly in your WordPress editor.
 
+[![][version]](https://github.com/dplugins/winden/releases/latest)
+[![][commit]](https://github.com/dplugins/winden)
+[![][stars]](https://github.com/dplugins/winden/)
+
 ### [Website →](https://dplugins.com/downloads/winden/)
 
 ### [Documentation →](https://docs.dplugins.com/winden/)
