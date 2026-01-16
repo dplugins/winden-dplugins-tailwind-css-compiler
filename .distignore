@@ -39,5 +39,6 @@ tests/
 *.log
 *.map
 .DS_Store
-**/*.DS_Store
+*/.DS_Store
+**/.DS_Store
 Thumbs.db
