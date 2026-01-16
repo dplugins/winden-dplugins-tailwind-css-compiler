@@ -47,8 +47,8 @@
         });
 
         // Helper: Trigger recompile with the compile callback
-        function triggerRecompile(postId) {
-            Core.triggerRecompile(postId, compile);
+        function triggerRecompile() {
+            Core.triggerRecompile(compile);
         }
 
         // Initialize based on editor type
@@ -88,8 +88,7 @@
                     const isAutosaving = select('core/editor').isAutosavingPost();
 
                     if (wasSaving && !isSaving && !isAutosaving) {
-                        const postId = select('core/editor').getCurrentPostId();
-                        triggerRecompile(postId);
+                        triggerRecompile();
                     }
 
                     wasSaving = isSaving;
@@ -115,8 +114,7 @@
                     }
 
                     apply(args) {
-                        const postId = elementor.config.document.id;
-                        triggerRecompile(postId);
+                        triggerRecompile();
                     }
                 }
 
@@ -134,7 +132,7 @@
                     if (now - lastSaveTime < 1000) return;
                     lastSaveTime = now;
 
-                    setTimeout(() => triggerRecompile(Core.getPostId()), 500);
+                    setTimeout(() => triggerRecompile(), 500);
                 }
             });
 
@@ -153,7 +151,7 @@
                                     if (now - lastSaveTime < 1000) return;
                                     lastSaveTime = now;
 
-                                    setTimeout(() => triggerRecompile(Core.getPostId()), 100);
+                                    setTimeout(() => triggerRecompile(), 100);
                                 }
                             }
                         });
@@ -177,7 +175,7 @@
                     const hasUnsavedChanges = oxygenUI && oxygenUI.classList.contains('oxygen-unsaved-changes');
 
                     if (!hasUnsavedChanges) {
-                        triggerRecompile(Core.getPostId());
+                        triggerRecompile();
                     }
                 }
             });
@@ -196,7 +194,7 @@
                                 const hasUnsaved = oxygenUI.classList.contains('oxygen-unsaved-changes');
 
                                 if (hadUnsaved && !hasUnsaved) {
-                                    triggerRecompile(Core.getPostId());
+                                    triggerRecompile();
                                 }
                             }
                         });
@@ -221,7 +219,7 @@
                     if (now - lastSaveTime < 1000) return;
                     lastSaveTime = now;
 
-                    setTimeout(() => triggerRecompile(Core.getPostId()), 500);
+                    setTimeout(() => triggerRecompile(), 500);
                 }
             });
 
@@ -249,7 +247,7 @@
                                     (state) => state.ui?.saveInProgress,
                                     (isSaving) => {
                                         if (wasSaving && !isSaving) {
-                                            triggerRecompile(Core.getPostId());
+                                            triggerRecompile();
                                         }
                                         wasSaving = isSaving;
                                     }
@@ -259,7 +257,7 @@
                                     () => store.state.ui?.saveInProgress,
                                     (isSaving) => {
                                         if (wasSaving && !isSaving) {
-                                            triggerRecompile(Core.getPostId());
+                                            triggerRecompile();
                                         }
                                         wasSaving = isSaving;
                                     }
@@ -302,14 +300,14 @@
                             if (store.watch) {
                                 store.watch(watchPath, (isSaving) => {
                                     if (wasSaving && !isSaving) {
-                                        triggerRecompile(Core.getPostId());
+                                        triggerRecompile();
                                     }
                                     wasSaving = isSaving;
                                 });
                             } else {
                                 app.$watch(watchPath, (isSaving) => {
                                     if (wasSaving && !isSaving) {
-                                        triggerRecompile(Core.getPostId());
+                                        triggerRecompile();
                                     }
                                     wasSaving = isSaving;
                                 });
@@ -326,10 +324,7 @@
 
         // Listen for Fancoolo post save events
         window.addEventListener('fancoolo:postSaved', function(event) {
-            const postId = event.detail?.postId;
-            if (postId) {
-                triggerRecompile(postId);
-            }
+            triggerRecompile();
         });
 
         // Start when ready

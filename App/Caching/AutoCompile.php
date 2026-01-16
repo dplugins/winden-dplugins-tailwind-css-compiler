@@ -107,8 +107,9 @@ class AutoCompile
 
         // Schedule the crawl to run asynchronously via WP Cron
         // This prevents blocking the save operation completely
-        if (!wp_next_scheduled('winden_async_crawl', [$post_id])) {
-            wp_schedule_single_event(time(), 'winden_async_crawl', [$post_id]);
+        // Force full crawl for Fancoolo saves to keep class list complete
+        if (!wp_next_scheduled('winden_async_crawl', [0])) {
+            wp_schedule_single_event(time(), 'winden_async_crawl', [0]);
         }
 
         // Spawn WP Cron immediately in background
@@ -128,6 +129,23 @@ class AutoCompile
                 // Fast path: Only crawl the single post and update the per-post index
                 // This is much faster than crawling all 10,000+ posts
                 $classes = ClassCrawler::crawlSinglePost($post_id);
+
+                // Merge with existing global class list to prevent shrinking output.css
+                $existing_classes = get_option('winden_crawled_classes', []);
+                if (!is_array($existing_classes)) {
+                    if (is_string($existing_classes)) {
+                        $unserialized = @unserialize($existing_classes);
+                        $existing_classes = is_array($unserialized) ? $unserialized : [$existing_classes];
+                    } else if (is_object($existing_classes)) {
+                        $existing_classes = (array) $existing_classes;
+                    } else {
+                        $existing_classes = [];
+                    }
+                }
+
+                if (!empty($existing_classes)) {
+                    $classes = array_values(array_unique(array_merge($existing_classes, $classes)));
+                }
             } else {
                 // Full crawl: Scan all posts (used for initial crawl or manual refresh)
                 $crawler = new ClassCrawler();
@@ -177,11 +195,9 @@ class AutoCompile
             return;
         }
 
-        $post_id = isset($_POST['post_id']) ? intval($_POST['post_id']) : 0;
-
-        // Run crawl SYNCHRONOUSLY so classes are fresh before compile
-        // This ensures winden_crawled_classes has the latest classes
-        $this->crawl_and_flag($post_id);
+        // Force full crawl for all builders to match Winden's full cache compilation
+        // This ensures consistent output across Gutenberg, Bricks, Oxygen, Elementor, Fancoolo, etc.
+        $this->crawl_and_flag(0);
 
         wp_send_json_success([
             'message' => 'Crawl completed, ready to compile',
@@ -245,6 +261,19 @@ class AutoCompile
         // Return classes and config to browser for compilation
         // Even with empty classes, we still need to compile (for @apply directives, custom components, etc.)
         $editor_content = get_option('winden_dplugins_editor', []);
+        $settings = SettingsOptions::getWindenOptions();
+
+        // Get JavaScript config from database, fallback to reading the file directly
+        $javascript_config = $editor_content['javascript'] ?? '';
+        if (empty($javascript_config)) {
+            // Fallback: Read from the saved tailwind.config.js file
+            $upload_dir = wp_upload_dir();
+            $config_file = $upload_dir['basedir'] . '/winden/tailwind.config.js';
+            if (file_exists($config_file)) {
+                // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- Reading local config file
+                $javascript_config = file_get_contents($config_file);
+            }
+        }
 
         // Wizzard data is stored inside winden_editor['wizzard']
         $wizzard_state = isset($editor_content['wizzard']) ? $editor_content['wizzard'] : null;
@@ -255,11 +284,29 @@ class AutoCompile
             $wizzard_config = $wizzard_state['configCode'];
         }
 
+        // ALWAYS read from input.css file as the source of truth
+        // input.css contains the combined styles + wizzard @theme config
+        // This ensures Gutenberg save matches Winden admin save
+        $upload_dir = wp_upload_dir();
+        $input_file = $upload_dir['basedir'] . '/winden/input.css';
+        $styles = '';
+        if (file_exists($input_file)) {
+            // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- Reading local input file
+            $styles = file_get_contents($input_file);
+            // input.css already contains styles + wizzard config combined
+            // Clear wizzard_config since it's already in styles
+            $wizzard_config = '';
+        } else {
+            // Fallback to database values if file doesn't exist
+            $styles = $editor_content['scss'] ?? '';
+        }
+
         wp_send_json_success([
             'classes' => $classes,
-            'config' => $editor_content['javascript'] ?? '',
-            'styles' => $editor_content['scss'] ?? '',
+            'config' => $javascript_config,
+            'styles' => $styles,
             'wizzardConfig' => $wizzard_config,
+            'css_preprocessor' => $settings['css_preprocessor'] ?? 'css',
             'message' => empty($classes)
                 ? 'No HTML classes found, compiling custom CSS only'
                 : 'Ready to compile ' . count($classes) . ' classes'

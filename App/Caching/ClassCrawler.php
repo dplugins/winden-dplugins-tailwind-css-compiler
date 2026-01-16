@@ -65,6 +65,20 @@ class ClassCrawler
         if (!is_array($post_classes_index)) {
             $post_classes_index = [];
         }
+        $had_index = !empty($post_classes_index);
+
+        // Fallback to existing global classes if the per-post index is empty
+        $existing_classes = get_option('winden_crawled_classes', []);
+        if (!is_array($existing_classes)) {
+            if (is_string($existing_classes)) {
+                $unserialized = @unserialize($existing_classes);
+                $existing_classes = is_array($unserialized) ? $unserialized : [$existing_classes];
+            } else if (is_object($existing_classes)) {
+                $existing_classes = (array) $existing_classes;
+            } else {
+                $existing_classes = [];
+            }
+        }
 
         // Get the old classes for this specific post (before the edit)
         $old_post_classes = $post_classes_index[$post_id] ?? [];
@@ -84,6 +98,11 @@ class ClassCrawler
             if (is_array($classes)) {
                 $all_classes = array_merge($all_classes, $classes);
             }
+        }
+
+        // If we had no index, keep the existing global class list to avoid shrinking output.css
+        if (!$had_index && !empty($existing_classes)) {
+            $all_classes = array_merge($existing_classes, $all_classes);
         }
 
         // Deduplicate and return

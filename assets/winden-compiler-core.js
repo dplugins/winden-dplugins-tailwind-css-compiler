@@ -71,19 +71,17 @@
      * @param {string|number|null} postId - Post ID to crawl
      * @param {Function} compileCallback - Function to call after successful crawl
      */
-    function triggerRecompile(postId, compileCallback) {
+    function triggerRecompile(compileCallback) {
         if (!window.windenAutoCompile) {
             return;
         }
 
-        // Always call winden_trigger_recompile to get fresh classes
-        // The PHP endpoint runs crawl synchronously before returning
+        // Always trigger full crawl for consistent output across all builders
         fetch(window.windenAutoCompile.ajaxUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
             body: new URLSearchParams({
                 action: 'winden_trigger_recompile',
-                post_id: postId || 0,
                 _nonce: window.windenAutoCompile.nonce
             })
         })
@@ -328,7 +326,7 @@
             try {
                 // Fetch classes and config
                 const data = await fetchCompileData();
-                let { classes, config, styles, wizzardConfig } = data;
+                let { classes, config, styles, wizzardConfig, css_preprocessor: cssPreprocessor } = data;
 
                 // Normalize classes
                 classes = normalizeClasses(classes);
@@ -340,7 +338,7 @@
                 await waitForCompiler();
 
                 // Compile CSS
-                const compiled = await window.tailwindify(classes, combinedStyles, config);
+                const compiled = await window.tailwindify(classes, combinedStyles, config, cssPreprocessor);
 
                 if (compiled.error) {
                     throw new Error(compiled.error);
