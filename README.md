@@ -91,47 +91,58 @@ npm run build            # Build all
 npm run build:admin      # Admin UI only
 npm run build:autocomplete   # Autocomplete only
 npm run build:compiler   # Compiler only
-
-# Distribution
-npm run plugin-zip       # Create winden.zip
 ```
 
 ### WP-CLI Distribution
 
 ```bash
-wp dist-archive . --plugin-dirname=winden
+wp dist-archive "wp-content/plugins/winden-dplugins-tailwind-css-compiler/"
 ```
 
 ### File Structure
 
 ```
-winden/
-├── winden.php                    # Plugin entry point
+winden-dplugins-tailwind-css-compiler/
+├── winden-dplugins-tailwind-css-compiler.php  # Plugin entry point
 │
 ├── App/                          # PHP backend (PSR-4: Winden\)
 │   ├── App.php                   # Main application class
 │   ├── Admin/                    # Admin area functionality
-│   │   ├── Settings/             # Settings management
+│   │   ├── Settings/             # Settings page management
+│   │   ├── Admin.php             # Admin initialization
+│   │   ├── GetContent.php        # Content retrieval
 │   │   ├── SaveContent.php       # Content persistence
-│   │   └── FileBrowser.php       # File tree API
-│   ├── Assets/                   # Asset loading
+│   │   ├── MigrationNotice.php   # Migration notices
+│   │   └── TopBar.php            # Admin top bar
+│   ├── Assets/                   # Asset loading & providers
+│   │   ├── Providers/            # FSE, Frontend providers
+│   │   ├── DequeueStyles.php     # Style dequeuing
+│   │   └── MonacoEditorProvider.php
+│   ├── Caching/                  # Class crawling & compilation
+│   │   ├── Crawlers/             # Builder-specific crawlers
+│   │   ├── AutoCompile.php       # Auto-compilation logic
+│   │   └── ClassCrawler.php      # CSS class extraction
 │   ├── Frontend/                 # Frontend functionality
-│   ├── License/                  # License management
-│   ├── PageBuilder/              # Page builder integrations
-│   └── Providers/                # Service providers
+│   ├── Helpers/                  # Utility classes
+│   │   ├── Builders.php          # Builder detection
+│   │   ├── BuildersIntegration.php
+│   │   ├── LoadAssets.php        # Asset loading helpers
+│   │   ├── Migration.php         # Migration utilities
+│   │   └── Sanitization.php      # Input sanitization
+│   └── Release/                  # Release management
 │
 ├── src/                          # Frontend source code
 │   ├── admin/                    # React admin UI (TypeScript)
 │   ├── plain-classes/            # Page builder autocomplete
-│   │   ├── bricks/               # Bricks Builder
-│   │   ├── oxygen/               # Oxygen Builder
 │   │   ├── gutenberg/            # Gutenberg/FSE
-│   │   └── elementor/            # Elementor
-│   └── compiler/                 # Tailwind v4 compiler
+│   │   ├── winauto-component/    # Autocomplete component
+│   │   └── winauto-styles/       # Autocomplete styles
+│   ├── compiler/                 # Tailwind v4 compiler
+│   └── scss-compiler/            # SCSS compilation
 │
-├── configs/                      # Build configuration
+├── configs/                      # Build configuration (esbuild)
 ├── build/                        # Build output (gitignored)
-├── assets/                       # Static assets
+├── assets/                       # Runtime JS assets
 ├── vendor/                       # Composer dependencies (gitignored)
 ├── node_modules/                 # NPM dependencies (gitignored)
 │
