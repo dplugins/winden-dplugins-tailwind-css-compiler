@@ -142,7 +142,7 @@ class FSE extends BaseProvider
 
         // If dev mode is enabled, inject compiler scripts into iframe
         if (!$dev_mode_disabled) {
-            // Add global variables
+            // Add global variables - all values escaped via wp_json_encode()
             $compiler_options = $this->get_compiler_options($settings);
             $globals_js = sprintf(
                 'window.uploadUrl = %s; window.ajaxurl = %s; window.tailwind_compiler_options = %s;',
@@ -151,6 +151,7 @@ class FSE extends BaseProvider
                 wp_json_encode($compiler_options)
             );
 
+            // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Values escaped via wp_json_encode above
             $editor_settings['__unstableResolvedAssets']['scripts'] .= sprintf(
                 '<script id="winden-globals-iframe">%s</script>',
                 $globals_js
@@ -201,12 +202,14 @@ class FSE extends BaseProvider
             }
 
             // Add autocomplete generation script
+            // Note: get_autocomplete_js() returns static hardcoded JS (no user input)
             $autocomplete_js = $this->get_autocomplete_js() . "
                 generateWindenAutocomplete();
                 setTimeout(generateWindenAutocomplete, 1000);
                 setTimeout(generateWindenAutocomplete, 3000);
             ";
 
+            // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Static hardcoded JS function from get_autocomplete_js()
             $editor_settings['__unstableResolvedAssets']['scripts'] .= sprintf(
                 '<script id="winden-autocomplete-iframe">%s</script>',
                 $autocomplete_js

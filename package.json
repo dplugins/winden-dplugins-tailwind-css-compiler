@@ -21,7 +21,8 @@
     "----": " ",
     "sync": "browser-sync start -p 'fancoolo.local/' --files '**/*.php' 'build/**/*.js' 'build/**/*.css'",
     "check-updates": "npm outdated",
-    "update": "npx npm-check-updates -u && npm install"
+    "update": "npx npm-check-updates -u && npm install",
+    "clean:ds": "find . -name '.DS_Store' -type f -delete"
   },
   "files": [
     "*"

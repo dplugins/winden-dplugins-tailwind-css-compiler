@@ -61,11 +61,11 @@ class Providers
             } else {
                 $this->loadFrontendWithProNotice('Bricks');
             }
-        } else if (Builders::isGutenbergEditorPage() || (function_exists('has_blocks') && has_blocks())) {
-            // Free: Gutenberg/FSE - always available
+        } else if (Builders::isGutenbergEditorPage()) {
+            // Free: Gutenberg/FSE editor - always available
             $this->app->executeProvider(\Winden\App\Assets\Providers\FSE::class);
         } else {
-            // Frontend - always available
+            // Frontend (includes pages with blocks) - always available
             $this->app->executeProvider(\Winden\App\Assets\Providers\Frontend::class);
         }
     }

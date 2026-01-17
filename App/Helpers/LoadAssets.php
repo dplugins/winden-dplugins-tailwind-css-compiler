@@ -73,8 +73,19 @@ class LoadAssets
         $javascript_content = isset($winden_editor['javascript']) ? $winden_editor['javascript'] : '';
         $wizzard_content = isset($winden_editor['wizzard']['configCode']) ? $winden_editor['wizzard']['configCode'] : '';
 
-        // Note: Content is already sanitized on save by Sanitization::sanitize_javascript/sanitize_css
-        // These are intentionally raw for code editor functionality (admins only can save)
+        /**
+         * Security note: This content is code (JavaScript/CSS) from admin-only code editor.
+         * - Only users with 'manage_options' capability can save this content (see SaveContent.php)
+         * - Content is sanitized on save via SaveContent.php (strips null bytes, validates format)
+         * - Content must remain executable code for Tailwind configuration
+         * - We sanitize for script context safety by stripping HTML tags
+         */
+
+        // Sanitize: Remove any HTML tags that could break out of script context
+        // wp_kses with empty allowed array strips all HTML tags while preserving code
+        $javascript_content = wp_kses($javascript_content, []);
+        $wizzard_content = wp_kses($wizzard_content, []);
+
         wp_enqueue_script('tailwindconfig', false, [], \WINDTACS_VERSION, true);
         wp_add_inline_script('tailwindconfig', $javascript_content);
 

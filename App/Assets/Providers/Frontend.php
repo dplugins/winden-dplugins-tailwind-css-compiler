@@ -11,18 +11,20 @@ class Frontend extends BaseProvider
     protected function setupHooks()
     {
         add_filter('script_loader_tag', [$this, 'modify_script_loader_tag'], 10, 3);
-        add_action('init', [$this, 'load_condition']);
         add_action('wp_footer', [$this, 'frontend_consts']);
+
+        // Register CSS loading hooks directly to avoid init timing issues
+        // This runs during after_setup_theme, which is before wp_enqueue_scripts
+        $this->registerCSSHooks();
     }
 
-    public function load_condition()
+    /**
+     * Register CSS loading hooks directly
+     * Separated from load_condition to avoid init hook timing issues
+     */
+    private function registerCSSHooks()
     {
         $settings = SettingsOptions::getWindenOptions();
-
-        // ------------------------------------------------------------------------
-        // Load Tailwind CSS Conditions vs CDN
-        // ------------------------------------------------------------------------
-
         $dev_mode_disabled = $settings['disable_dev_mode'] ?? false;
 
         // Always load compiled CSS (output.css)
@@ -41,7 +43,18 @@ class Frontend extends BaseProvider
             add_action('wp_enqueue_scripts', [$this, 'enqueue_broadcast_listener'], 10000001);
         }
 
+        // Initialize DequeueStyles
         new DequeueStyles();
+    }
+
+    /**
+     * Legacy method - kept for BaseProvider interface compatibility
+     * CSS loading is now handled directly in setupHooks() via registerCSSHooks()
+     */
+    public function load_condition()
+    {
+        // No longer used - CSS hooks are registered directly in setupHooks()
+        // This method is kept to satisfy the abstract method requirement in BaseProvider
     }
 
     public function frontend_consts()
