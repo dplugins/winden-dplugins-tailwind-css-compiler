@@ -49,7 +49,7 @@ class Admin
     {
         // Register a dummy script handle to attach inline scripts to
         // This follows WordPress best practices for inline script output
-        wp_register_script('winden-globals', false, [], WINDTACS_VERSION, true);
+        wp_register_script('winden-globals', false, [], \WINDTACS_VERSION, true);
         wp_enqueue_script('winden-globals');
 
         // Build the inline script content

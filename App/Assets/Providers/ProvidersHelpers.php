@@ -357,7 +357,7 @@ class ProvidersHelpers
         $ajaxurl = admin_url('admin-ajax.php');
 
         // Register a dummy script handle to attach inline scripts to
-        wp_register_script('winden-frontend-consts', false, [], WINDTACS_VERSION, true);
+        wp_register_script('winden-frontend-consts', false, [], \WINDTACS_VERSION, true);
         wp_enqueue_script('winden-frontend-consts');
 
         // Use wp_json_encode for proper JavaScript escaping
@@ -379,7 +379,7 @@ class ProvidersHelpers
     public static function tw_version_four_important()
     {
         // Register a dummy script handle to attach inline scripts to
-        wp_register_script('winden-tw-important', false, [], WINDTACS_VERSION, true);
+        wp_register_script('winden-tw-important', false, [], \WINDTACS_VERSION, true);
         wp_enqueue_script('winden-tw-important');
 
         $inline_script = "

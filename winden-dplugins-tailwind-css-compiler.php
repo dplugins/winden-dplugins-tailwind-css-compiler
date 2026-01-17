@@ -17,6 +17,11 @@
 
 if (!defined('ABSPATH')) exit; // Exit if accessed directly
 
+// Extract version from plugin header
+$plugin_data = get_file_data(__FILE__, ['Version' => 'Version']);
+
+// Plugin constants
+define('WINDTACS_VERSION', $plugin_data['Version']);
 define('WINDTACS_WEBSITE_URL', get_site_url());
 define('WINDTACS_UPLOADS_URL', wp_upload_dir());
 define('WINDTACS_PLUGIN_DIR', plugin_dir_path(__FILE__));

@@ -47,7 +47,7 @@ class MigrationNotice
         }
 
         // Register a dummy script handle to attach inline scripts to
-        wp_register_script('winden-migration-notice', false, [], WINDTACS_VERSION, true);
+        wp_register_script('winden-migration-notice', false, [], \WINDTACS_VERSION, true);
         wp_enqueue_script('winden-migration-notice');
 
         // Build the inline script with properly escaped values
