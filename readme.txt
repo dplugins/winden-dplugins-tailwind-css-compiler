@@ -87,7 +87,9 @@ Winden uses Tailwind CSS v4, the latest version with CSS-first configuration.
 
 = Can I use custom Tailwind plugins? =
 
-Yes, Winden supports Tailwind plugins including @tailwindcss/forms and @tailwindcss/typography.
+Yes, Winden supports Tailwind plugins including @tailwindcss/forms and @tailwindcss/typography which are bundled with the plugin.
+
+You can also use third-party Tailwind plugins via the `@plugin` directive. When you reference a plugin URL (e.g., `@plugin "https://esm.sh/daisyui@5"`), Winden fetches the plugin from the specified CDN at compile time. This is an optional feature - the core functionality works entirely offline with bundled plugins.
 
 = Does it work with caching plugins? =
 
@@ -96,6 +98,36 @@ Yes. In production mode, Winden outputs compiled CSS that works with any caching
 = Is it compatible with my theme? =
 
 Winden works with any WordPress theme. It adds Tailwind CSS utilities without conflicting with your theme's styles.
+
+== External Services ==
+
+Winden provides optional integration with external services for advanced plugin functionality. **Core features work entirely offline** - these services are only used when you explicitly configure them.
+
+= Optional: Third-Party Tailwind Plugins =
+
+When you use the `@plugin` directive with an external URL in your CSS configuration, Winden fetches the plugin module at compile time. This is an **opt-in feature** that requires you to explicitly add a plugin URL.
+
+**Example usage:**
+`@plugin "https://esm.sh/daisyui@5";`
+
+**Services that may be contacted:**
+
+* **esm.sh** (https://esm.sh) - ESM module CDN for JavaScript packages
+  * Used when: You add `@plugin "https://esm.sh/..."` to your configuration
+  * Data sent: HTTP request for the specified package
+  * Privacy policy: https://esm.sh (open source CDN)
+
+* **Other CDNs** - Any URL you specify in the `@plugin` directive
+  * Used when: You explicitly add a plugin URL to your configuration
+  * You control which services are contacted based on the URLs you configure
+
+**Important notes:**
+
+* The core Tailwind compilation works entirely offline with bundled plugins (@tailwindcss/forms, @tailwindcss/typography, @tailwindcss/container-queries)
+* No external requests are made unless you explicitly add a `@plugin` directive with a URL
+* Plugin fetching only occurs during development mode compilation
+* In production mode with dev mode disabled, no external requests are made
+* No user data, site data, or personal information is transmitted to these services
 
 == Screenshots ==
 

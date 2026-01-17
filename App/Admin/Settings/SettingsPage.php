@@ -161,7 +161,7 @@ class SettingsPage
 
         wp_enqueue_style(
             'winden-wp-editor',
-            '/wp-includes/css/dist/editor/style.css',
+            includes_url('css/dist/editor/style.css'),
             [],
             filemtime(ABSPATH . 'wp-includes/css/dist/editor/style.css')
         );

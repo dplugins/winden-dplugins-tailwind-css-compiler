@@ -48,6 +48,30 @@ The most powerful Tailwind CSS compiler for WordPress. Build beautiful, responsi
 - WordPress 6.0+
 - PHP 7.4+
 
+## External Services
+
+Winden provides optional integration with external services for loading third-party Tailwind plugins. **Core features work entirely offline** - external services are only used when explicitly configured.
+
+### Third-Party Tailwind Plugins
+
+When you use the `@plugin` directive with an external URL in your CSS configuration, Winden fetches the plugin module at compile time:
+
+```css
+@plugin "https://esm.sh/daisyui@5";
+```
+
+**Bundled plugins (no external requests):**
+- `@tailwindcss/forms`
+- `@tailwindcss/typography`
+- `@tailwindcss/container-queries`
+
+**External plugin loading:**
+- Only activated when user explicitly adds a `@plugin` directive with a URL
+- Supports any ESM-compatible CDN (esm.sh, unpkg, jsdelivr, etc.)
+- Plugin fetching only occurs during development mode compilation
+- In production mode with dev mode disabled, no external requests are made
+- No user data or site information is transmitted
+
 ## License
 
 GPL-2.0-or-later
