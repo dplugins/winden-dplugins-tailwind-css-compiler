@@ -90,11 +90,11 @@ class FSEColorPaletteProvider
         $colors = [];
 
         $utilityColors = [
-            ['name' => __('White', 'winden'), 'slug' => 'white', 'color' => '#ffffff'],
-            ['name' => __('Black', 'winden'), 'slug' => 'black', 'color' => '#000000'],
-            ['name' => __('Transparent', 'winden'), 'slug' => 'transparent', 'color' => 'transparent'],
-            ['name' => __('Current', 'winden'), 'slug' => 'current', 'color' => 'currentColor'],
-            ['name' => __('Inherit', 'winden'), 'slug' => 'inherit', 'color' => 'inherit'],
+            ['name' => __('White', 'winden-dplugins-tailwind-css-compiler'), 'slug' => 'white', 'color' => '#ffffff'],
+            ['name' => __('Black', 'winden-dplugins-tailwind-css-compiler'), 'slug' => 'black', 'color' => '#000000'],
+            ['name' => __('Transparent', 'winden-dplugins-tailwind-css-compiler'), 'slug' => 'transparent', 'color' => 'transparent'],
+            ['name' => __('Current', 'winden-dplugins-tailwind-css-compiler'), 'slug' => 'current', 'color' => 'currentColor'],
+            ['name' => __('Inherit', 'winden-dplugins-tailwind-css-compiler'), 'slug' => 'inherit', 'color' => 'inherit'],
         ];
 
         foreach ($utilityColors as $utility) {

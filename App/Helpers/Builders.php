@@ -23,7 +23,8 @@ class Builders
 
     public static function isElementorEditorPage()
     {
-        return (isset($_GET['post']) && isset($_GET['action']) && $_GET['action'] == 'elementor');
+        // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only check for editor detection
+        return (isset($_GET['post']) && isset($_GET['action']) && sanitize_text_field(wp_unslash($_GET['action'])) === 'elementor');
     }
 
     public static function isElementorPluginActivated()
@@ -39,10 +40,15 @@ class Builders
     {
         global $pagenow;
 
-        return (isset($_GET['post']) && isset($_GET['action']) && $_GET['action'] == 'edit')
-            || (isset($_GET['canvas']) && $_GET['canvas'] == 'edit')
-            || $pagenow == 'site-editor.php'
-            || $pagenow == 'post-new.php';  // NEW: Include post-new.php for new posts/pages
+        // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only check for editor detection
+        $is_edit_action = isset($_GET['post']) && isset($_GET['action']) && sanitize_text_field(wp_unslash($_GET['action'])) === 'edit';
+        // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only check for editor detection
+        $is_canvas_edit = isset($_GET['canvas']) && sanitize_text_field(wp_unslash($_GET['canvas'])) === 'edit';
+
+        return $is_edit_action
+            || $is_canvas_edit
+            || $pagenow === 'site-editor.php'
+            || $pagenow === 'post-new.php';  // NEW: Include post-new.php for new posts/pages
     }
 
     public static function isGutenbergEditor()
@@ -112,6 +118,7 @@ class Builders
         }
 
         // Fallback: Check for ?bricks parameter
+        // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only check for editor detection
         return isset($_GET['bricks']) && !empty($_GET['bricks']);
     }
 
@@ -132,6 +139,7 @@ class Builders
 
         // Fallback: Check URL parameters directly if Bricks function not available
         // Bricks iframe has ?bricks=run&brickspreview=true
+        // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only check for editor detection
         if (isset($_GET['bricks']) && isset($_GET['brickspreview'])) {
             return true;
         }
@@ -157,7 +165,8 @@ class Builders
 
     public static function isOxygenEditorPage()
     {
-        return isset($_GET['ct_builder']) && $_GET['ct_builder'] == true;
+        // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only check for editor detection
+        return isset($_GET['ct_builder']) && sanitize_text_field(wp_unslash($_GET['ct_builder']));
     }
 
     public static function isOxygenEditor()
@@ -182,36 +191,44 @@ class Builders
     public static function isOxygen6EditorPage()
     {
         // Check if we're in Oxygen6 builder context
-        $isOxygenBuilder = isset($_GET['oxygen']) && $_GET['oxygen'] === 'builder';
-        $isBreakdanceIframe = isset($_GET['breakdance_iframe']) && $_GET['breakdance_iframe'];
-        $isBrowseMode = isset($_GET['breakdance_browser']) && $_GET['breakdance_browser'];
-        
+        // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only check for editor detection
+        $isOxygenBuilder = isset($_GET['oxygen']) && sanitize_text_field(wp_unslash($_GET['oxygen'])) === 'builder';
+        // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only check for editor detection
+        $isBreakdanceIframe = isset($_GET['breakdance_iframe']) && sanitize_text_field(wp_unslash($_GET['breakdance_iframe']));
+        // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only check for editor detection
+        $isBrowseMode = isset($_GET['breakdance_browser']) && sanitize_text_field(wp_unslash($_GET['breakdance_browser']));
+
         return $isOxygenBuilder || $isBreakdanceIframe || $isBrowseMode;
     }
 
     public static function isOxygen6Editor()
     {
         // Check if we're in Oxygen6 builder context
-        $isOxygenBuilder = isset($_GET['oxygen']) && $_GET['oxygen'] === 'builder';
-        $isBreakdanceIframe = isset($_GET['breakdance_iframe']) && $_GET['breakdance_iframe'];
-        $isBrowseMode = isset($_GET['breakdance_browser']) && $_GET['breakdance_browser'];
-        
+        // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only check for editor detection
+        $isOxygenBuilder = isset($_GET['oxygen']) && sanitize_text_field(wp_unslash($_GET['oxygen'])) === 'builder';
+        // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only check for editor detection
+        $isBreakdanceIframe = isset($_GET['breakdance_iframe']) && sanitize_text_field(wp_unslash($_GET['breakdance_iframe']));
+        // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only check for editor detection
+        $isBrowseMode = isset($_GET['breakdance_browser']) && sanitize_text_field(wp_unslash($_GET['breakdance_browser']));
+
         return $isOxygenBuilder || $isBreakdanceIframe || $isBrowseMode;
     }
 
     public static function isOxygen6EditorFrame()
     {
         // Check for iframe contexts in Oxygen6
-        $isBreakdanceIframe = isset($_GET['breakdance_iframe']) && $_GET['breakdance_iframe'];
-        $isBrowseMode = isset($_GET['breakdance_browser']) && $_GET['breakdance_browser'];
-        
+        // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only check for editor detection
+        $isBreakdanceIframe = isset($_GET['breakdance_iframe']) && sanitize_text_field(wp_unslash($_GET['breakdance_iframe']));
+        // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only check for editor detection
+        $isBrowseMode = isset($_GET['breakdance_browser']) && sanitize_text_field(wp_unslash($_GET['breakdance_browser']));
+
         return $isBreakdanceIframe || $isBrowseMode;
     }
 
     public static function isOxygen6PluginActivated()
     {
         // Oxygen6 is based on Breakdance, so check for Breakdance functions
-        return function_exists('\Breakdance\Permissions\hasMinimumPermission') || 
+        return function_exists('\Breakdance\Permissions\hasMinimumPermission') ||
                (defined('BREAKDANCE_MODE') && BREAKDANCE_MODE === 'oxygen');
     }
 
@@ -231,7 +248,8 @@ class Builders
     public static function isFancooloEditorPage()
     {
         // Check if we're on Fancoolo's admin page
-        return isset($_GET['page']) && $_GET['page'] === 'fancoolo-app';
+        // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only check for admin page detection
+        return isset($_GET['page']) && sanitize_text_field(wp_unslash($_GET['page'])) === 'fancoolo-app';
     }
 
     public static function isFancooloPluginActivated()

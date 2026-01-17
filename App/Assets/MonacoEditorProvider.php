@@ -92,7 +92,7 @@ class MonacoEditorProvider
             'winden-cachejs',
             WINDTACS_PLUGIN_URL . 'build/compiler/tailwindcss-compiler.js',
             [],
-            null,
+            filemtime(WINDTACS_PLUGIN_DIR . 'build/compiler/tailwindcss-compiler.js'),
             true
         );
 
@@ -115,7 +115,7 @@ class MonacoEditorProvider
             'winden-compiler-options',
             false,
             ['winden-cachejs'],
-            null,
+            \WINDTACS_VERSION,
             true
         );
 

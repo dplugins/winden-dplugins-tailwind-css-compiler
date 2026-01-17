@@ -177,7 +177,7 @@ class ProvidersHelpers
 
         // Register script with empty string to allow inline content attachment
         // Using wp_register_script + wp_enqueue_script pattern for inline-only scripts
-        wp_register_script('winden-autocomplete', '', [$compiler_handle], null, true);
+        wp_register_script('winden-autocomplete', '', [$compiler_handle], \WINDTACS_VERSION, true);
         wp_enqueue_script('winden-autocomplete');
 
         // Use shared autocomplete JS function
@@ -220,7 +220,7 @@ class ProvidersHelpers
                 // Inline the CSS instead of loading as external file
                 $css_content = file_get_contents($css_file_path);
                 if ($css_content !== false) {
-                    wp_register_style('winden-compiled-css', false);
+                    wp_register_style('winden-compiled-css', false, [], \WINDTACS_VERSION);
                     wp_enqueue_style('winden-compiled-css');
                     wp_add_inline_style('winden-compiled-css', $css_content);
                 }
@@ -310,7 +310,7 @@ class ProvidersHelpers
 
         // Register script with empty string to allow inline content attachment
         // Using wp_register_script + wp_enqueue_script pattern for inline-only scripts
-        wp_register_script('tailwind-compiler-options', '', [$compiler_handle], null, true);
+        wp_register_script('tailwind-compiler-options', '', [$compiler_handle], \WINDTACS_VERSION, true);
         wp_enqueue_script('tailwind-compiler-options');
 
         $inline_tw_compiler_options = 'window.tailwind_compiler_options = ' . wp_json_encode($compiler_options);

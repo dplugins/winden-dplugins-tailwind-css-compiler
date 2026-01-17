@@ -37,7 +37,7 @@ class Migration
         // If version is different, run migration
         if (version_compare($stored_version, self::CURRENT_VERSION, '<')) {
             if (defined('WP_DEBUG') && WP_DEBUG) {
-                // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log -- Debug-only logging (only runs when WP_DEBUG is enabled)
+                // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- Debug-only logging (only runs when WP_DEBUG is enabled)
                 error_log('[Winden Migration] Migration needed: ' . $stored_version . ' < ' . self::CURRENT_VERSION);
             }
             $this->runMigration($stored_version);
@@ -53,7 +53,7 @@ class Migration
     private function runMigration($from_version)
     {
         if (defined('WP_DEBUG') && WP_DEBUG) {
-            // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log -- Debug-only logging (only runs when WP_DEBUG is enabled)
+            // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- Debug-only logging (only runs when WP_DEBUG is enabled)
             error_log('[Winden Migration] Upgrading from version ' . $from_version . ' to ' . self::CURRENT_VERSION);
         }
 
@@ -74,7 +74,7 @@ class Migration
         $debug = defined('WP_DEBUG') && WP_DEBUG;
 
         if ($debug) {
-            // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log -- Debug-only logging (only runs when WP_DEBUG is enabled)
+            // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- Debug-only logging (only runs when WP_DEBUG is enabled)
             error_log('[Winden Migration] Running option key migration for WordPress.org compliance');
         }
 
@@ -96,14 +96,14 @@ class Migration
                 update_option($new_key, $old_value);
                 delete_option($old_key);
                 if ($debug) {
-                    // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log -- Debug-only logging (only runs when WP_DEBUG is enabled)
+                    // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- Debug-only logging (only runs when WP_DEBUG is enabled)
                     error_log('[Winden Migration] ✅ Migrated option key: ' . $old_key . ' → ' . $new_key);
                 }
             }
         }
 
         if ($debug) {
-            // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log -- Debug-only logging (only runs when WP_DEBUG is enabled)
+            // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- Debug-only logging (only runs when WP_DEBUG is enabled)
             error_log('[Winden Migration] ✅ Option key migration completed');
         }
     }

@@ -293,7 +293,7 @@ class ClassCrawler
                 $scanned_classes = $scannerCrawler->classes($scan_path, $scan_file_formats);
                 $this->classes = array_merge($this->classes, $scanned_classes);
             } catch (\Exception $e) {
-                // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log -- Intentional production logging for error tracking
+                // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- Intentional production logging for error tracking
                 error_log('[Winden ClassCrawler] Exception in ScanCrawler: ' . $e->getMessage());
             }
         }

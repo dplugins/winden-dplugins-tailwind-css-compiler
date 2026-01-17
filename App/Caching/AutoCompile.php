@@ -169,7 +169,7 @@ class AutoCompile
             }
 
         } catch (\Exception $e) {
-            // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log -- Intentional production logging for error tracking
+            // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- Intentional production logging for error tracking
             error_log('[Winden AutoCompile] Error: ' . $e->getMessage());
         } finally {
             // Reset the flag
@@ -349,7 +349,8 @@ class AutoCompile
         $is_bricks = Builders::isBricksEditorPage();
         $is_oxygen = Builders::isOxygenEditorPage();
         $is_oxygen6 = Builders::isOxygen6EditorPage();
-        $is_elementor = isset($_GET['action']) && $_GET['action'] === 'elementor';
+        // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only check for Elementor editor detection, no data processing
+        $is_elementor = isset($_GET['action']) && sanitize_text_field(wp_unslash($_GET['action'])) === 'elementor';
         $is_fancoolo = Builders::isFancooloEditorPage();
         $is_builder = $is_bricks || $is_oxygen || $is_oxygen6 || $is_elementor || $is_fancoolo;
 

@@ -42,7 +42,10 @@ class LoadAssets
         if (in_array('inlinemodule', $scripts)) {
             wp_enqueue_script(
                 'inline-module-js',
-                WINDTACS_ASSETS_DIR . 'inline-module.js'
+                WINDTACS_ASSETS_DIR . 'inline-module.js',
+                [],
+                filemtime(WINDTACS_PLUGIN_DIR . 'assets/inline-module.js'),
+                true
             );
         }
         if (in_array('cachejs', $scripts)) {
@@ -72,10 +75,10 @@ class LoadAssets
 
         // Note: Content is already sanitized on save by Sanitization::sanitize_javascript/sanitize_css
         // These are intentionally raw for code editor functionality (admins only can save)
-        wp_enqueue_script('tailwindconfig', false);
+        wp_enqueue_script('tailwindconfig', false, [], \WINDTACS_VERSION, true);
         wp_add_inline_script('tailwindconfig', $javascript_content);
 
-        wp_enqueue_script('tailwindwizzard', false);
+        wp_enqueue_script('tailwindwizzard', false, [], \WINDTACS_VERSION, true);
         wp_add_inline_script('tailwindwizzard', $wizzard_content);
     }
 
@@ -92,7 +95,10 @@ class LoadAssets
 
         wp_enqueue_script(
             'winden-style',
-            false
+            false,
+            [],
+            \WINDTACS_VERSION,
+            true
         );
 
         $css_content = '';

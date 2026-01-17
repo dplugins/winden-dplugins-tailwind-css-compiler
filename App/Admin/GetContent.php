@@ -284,7 +284,7 @@ class GetContent
 
                     if ($is_old_postcss_error && !$is_scss_error) {
                         if (defined('WP_DEBUG') && WP_DEBUG) {
-                            // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log -- Debug-only logging for cache corruption auto-fix
+                            // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- Debug-only logging for cache corruption auto-fix
                             error_log('[Winden Auto-Fix] Detected OLD corrupted cache on fetch, clearing: ' . $message);
                         }
 

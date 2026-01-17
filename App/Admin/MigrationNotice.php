@@ -150,7 +150,7 @@ class MigrationNotice
         }
 
         // Enqueue the notice styles using wp_add_inline_style
-        wp_register_style('winden-migration-notice', false);
+        wp_register_style('winden-migration-notice', false, [], \WINDTACS_VERSION);
         wp_enqueue_style('winden-migration-notice');
         wp_add_inline_style('winden-migration-notice', '
             #wpbody-content #winden-v4-notice {

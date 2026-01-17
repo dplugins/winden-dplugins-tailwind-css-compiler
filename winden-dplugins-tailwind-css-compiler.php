@@ -17,11 +17,13 @@
 
 if (!defined('ABSPATH')) exit; // Exit if accessed directly
 
-// Extract version from plugin header
-$plugin_data = get_file_data(__FILE__, ['Version' => 'Version']);
+// Extract version and text domain from plugin header
+$windtacs_plugin_data = get_file_data(__FILE__, ['Version' => 'Version', 'TextDomain' => 'Text Domain']);
 
 // Plugin constants
-define('WINDTACS_VERSION', $plugin_data['Version']);
+define('WINDTACS_VERSION', $windtacs_plugin_data['Version']);
+define('WINDTACS_TEXT_DOMAIN', $windtacs_plugin_data['TextDomain']);
+unset($windtacs_plugin_data); // Clean up global variable
 define('WINDTACS_WEBSITE_URL', get_site_url());
 define('WINDTACS_UPLOADS_URL', wp_upload_dir());
 define('WINDTACS_PLUGIN_DIR', plugin_dir_path(__FILE__));

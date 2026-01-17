@@ -28,7 +28,7 @@ class TopBar
         }
 
         // Register a dummy style handle to attach inline styles to
-        wp_register_style('winden-topbar', false);
+        wp_register_style('winden-topbar', false, [], \WINDTACS_VERSION);
         wp_enqueue_style('winden-topbar');
         wp_add_inline_style('winden-topbar', '
             #wp-admin-bar-winden_dplugins_editor a {
