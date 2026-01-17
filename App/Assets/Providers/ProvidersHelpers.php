@@ -345,27 +345,44 @@ class ProvidersHelpers
         );
     }
 
+    /**
+     * Enqueue frontend constants as inline script
+     * WordPress.org requirement: Use wp_add_inline_script instead of echo
+     */
     public static function frontend_consts()
     {
-        $inIframe = wp_json_encode(Builders::isBricksEditorFrame() || Builders::isOxygenEditorFrame() || Builders::isOxygen6EditorFrame() || Builders::isElementorEditorPage());
+        $inIframe = Builders::isBricksEditorFrame() || Builders::isOxygenEditorFrame() || Builders::isOxygen6EditorFrame() || Builders::isElementorEditorPage();
         $uploadUrl = WINDTACS_UPLOADS_URL['baseurl'];
-        $apiVersion2 = wp_json_encode(Builders::has_api_version_2_block());
+        $apiVersion2 = Builders::has_api_version_2_block();
         $ajaxurl = admin_url('admin-ajax.php');
 
-        // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Values are safely escaped
-        echo "<script type='text/javascript'>
-            window.uploadUrl = '" . esc_js($uploadUrl) . "';
-            window.inIframe = " . esc_js($inIframe) . ";
-            window.apiVersion2 = " . esc_js($apiVersion2) . ";
-            window.ajaxurl = '" . esc_js($ajaxurl) . "';
-        </script>";
+        // Register a dummy script handle to attach inline scripts to
+        wp_register_script('winden-frontend-consts', false, [], WINDTACS_VERSION, true);
+        wp_enqueue_script('winden-frontend-consts');
+
+        // Use wp_json_encode for proper JavaScript escaping
+        $inline_script = sprintf(
+            'window.uploadUrl = %s; window.inIframe = %s; window.apiVersion2 = %s; window.ajaxurl = %s;',
+            wp_json_encode($uploadUrl),
+            wp_json_encode($inIframe),
+            wp_json_encode($apiVersion2),
+            wp_json_encode($ajaxurl)
+        );
+
+        wp_add_inline_script('winden-frontend-consts', $inline_script);
     }
 
+    /**
+     * Apply !important to compiled styles for Tailwind v4
+     * WordPress.org requirement: Use wp_add_inline_script instead of echo
+     */
     public static function tw_version_four_important()
     {
-        // Always v4 now - apply !important to compiled styles
-        echo "
-        <script>
+        // Register a dummy script handle to attach inline scripts to
+        wp_register_script('winden-tw-important', false, [], WINDTACS_VERSION, true);
+        wp_enqueue_script('winden-tw-important');
+
+        $inline_script = "
             document.addEventListener('DOMContentLoaded', function () {
                 const styles = document.querySelector('#compiled-styles-tailwind');
 
@@ -397,8 +414,9 @@ class ProvidersHelpers
                     });
                 }
             });
-        </script>
         ";
+
+        wp_add_inline_script('winden-tw-important', $inline_script);
 
         return 'v4';
     }

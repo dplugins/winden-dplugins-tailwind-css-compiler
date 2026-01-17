@@ -166,7 +166,10 @@ class SettingsPage
             filemtime(ABSPATH . 'wp-includes/css/dist/editor/style.css')
         );
 
-        echo '<style>#wpbody-content .notice { display: none !important; }</style>';
+        // Use wp_add_inline_style to hide WordPress notifications
+        // WordPress.org requirement: Use wp_add_inline_style instead of echo
+        wp_add_inline_style('winden-admin-style', '#wpbody-content .notice { display: none !important; }');
+
         // Settings page HTML
         // Note: SCSS compilation is handled by the bundled Dart Sass (loaded automatically by the compiler)
         echo '<div class="wrap">';

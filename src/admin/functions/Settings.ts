@@ -1,4 +1,5 @@
 import type { WindenSettings, WordPressAjaxResponse } from '@/types/api.d';
+import { buildAjaxUrl } from '@/utils/ajaxUrl';
 
 /**
  * Fetch settings from WordPress
@@ -13,7 +14,7 @@ export const fetchSettings = async (
   callback: ((settings: WindenSettings) => void) | null = null
 ): Promise<WindenSettings | void> => {
   try {
-    const response = await fetch(`${window.ajaxUrl || window.websiteUrl + '/wp-admin/admin-ajax.php'}?action=winden_get_settings`);
+    const response = await fetch(buildAjaxUrl('winden_get_settings'));
     const result: WordPressAjaxResponse<WindenSettings> = await response.json();
     if (result.success) {
       if (json) {
@@ -38,7 +39,7 @@ export const fetchSettings = async (
  */
 export const saveSettings = async (newSettings: WindenSettings): Promise<void> => {
   try {
-    const response = await fetch(`${window.ajaxUrl || window.websiteUrl + '/wp-admin/admin-ajax.php'}?action=winden_save_settings`, {
+    const response = await fetch(buildAjaxUrl('winden_save_settings'), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

@@ -119,12 +119,15 @@ class WordPressLoader
                 return $search_path;
             }
 
-            // Check for composer.json with our package name
+            // Check for composer.json with our package name (supports both old and new package names)
             $composer_file = $search_path . '/composer.json';
             if (file_exists($composer_file)) {
                 $composer = json_decode(file_get_contents($composer_file), true);
-                if (isset($composer['name']) && strpos($composer['name'], 'winden-dplugins-tailwind-css-compiler') !== false) {
-                    return $search_path;
+                if (isset($composer['name'])) {
+                    // Check for new package name (WordPress.org version)
+                    if (strpos($composer['name'], 'winden') !== false) {
+                        return $search_path;
+                    }
                 }
             }
 

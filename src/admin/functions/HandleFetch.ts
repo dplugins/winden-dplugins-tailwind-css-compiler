@@ -1,6 +1,7 @@
 import { DEFAULT_CSS_CONTENT_V4, DEFAULT_CSS_CONTENT, DEFAULT_JS_CONTENT } from '../const/contentDefaults';
 import { fetchSettings } from '@functions/Settings';
 import type { WizzardState } from '@/types/wizzard';
+import { buildAjaxUrl } from '@/utils/ajaxUrl';
 
 declare global {
   interface Window {
@@ -47,7 +48,7 @@ export const fetchContent = async (
 
   try {
     // Fetch all content from database
-    const dbResponse = await fetch(`${window.ajaxUrl || window.websiteUrl + '/wp-admin/admin-ajax.php'}?action=winden_get_content`);
+    const dbResponse = await fetch(buildAjaxUrl('winden_get_content'));
     const dbData = await dbResponse.json();
 
     if (dbData.success) {
@@ -123,7 +124,7 @@ export const fetchContent = async (
  */
 export const fetchWizzardState = async (): Promise<WizzardState | []> => {
   try {
-    const response = await fetch(`${window.ajaxUrl || window.websiteUrl + '/wp-admin/admin-ajax.php'}?action=winden_get_wizzard_state`);
+    const response = await fetch(buildAjaxUrl('winden_get_wizzard_state'));
     const data = await response.json();
 
     if (data.success) {

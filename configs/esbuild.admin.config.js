@@ -5,7 +5,7 @@ const tailwindcss = require('@tailwindcss/postcss');
 const { copy } = require('esbuild-plugin-copy');
 const path = require('path');
 const fs = require('fs');
-const { svgPlugin, aliasPlugin, monacoPlugin, wordpressExternalsPlugin } = require('./esbuild.plugins');
+const { svgPlugin, aliasPlugin, monacoPlugin, wordpressExternalsPlugin, monacoCdnRemoverPlugin } = require('./esbuild.plugins');
 
 // Build configuration for admin UI
 const buildOptions = {
@@ -39,6 +39,7 @@ const buildOptions = {
     aliasPlugin,
     svgPlugin,
     monacoPlugin,
+    monacoCdnRemoverPlugin, // Remove CDN URLs for WordPress.org compliance
     sassPlugin({
       loadPaths: ['./src'],
       async transform(source, resolveDir, filePath) {

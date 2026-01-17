@@ -37,51 +37,63 @@ class Admin
 {
     public function __construct()
     {
-        // Combine into a single action to avoid duplicate logging
-        add_action('admin_footer', [$this, 'render_footer_scripts']);
+        // Use wp_enqueue_scripts for proper script registration
+        add_action('admin_enqueue_scripts', [$this, 'enqueue_inline_scripts']);
     }
 
-    function render_footer_scripts()
+    /**
+     * Enqueue inline scripts using WordPress API
+     * WordPress.org requirement: Use wp_add_inline_script instead of echo
+     */
+    public function enqueue_inline_scripts()
     {
-        $this->themesOrPluginsData();
-        $this->pluginUrl();
+        // Register a dummy script handle to attach inline scripts to
+        // This follows WordPress best practices for inline script output
+        wp_register_script('winden-globals', false, [], WINDTACS_VERSION, true);
+        wp_enqueue_script('winden-globals');
+
+        // Build the inline script content
+        $inline_script = $this->get_themes_data_script() . "\n" . $this->get_plugin_url_script();
+
+        wp_add_inline_script('winden-globals', $inline_script);
     }
 
-    function themesOrPluginsData()
+    /**
+     * Get theme/builder integration data as JavaScript
+     * @return string JavaScript code setting window globals
+     */
+    private function get_themes_data_script()
     {
         $bricksData = wp_json_encode(Builders::isBricksThemeActivated() ? BuildersIntegration::bricks() : []);
         $oxygenData = wp_json_encode(Builders::isOxygenPluginActivated() ? BuildersIntegration::oxygen() : []);
         $fseData = wp_json_encode(BuildersIntegration::fse());
         $fontHeroData = wp_json_encode(Builders::isFontHeroPluginActivated() ? BuildersIntegration::fontHero() : []);
 
-        // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- JSON data is safely encoded
-        echo "<script type='text/javascript'>
-            window.bricksThemeData = '" . esc_js($bricksData) . "';
-            window.oxygenThemeData = '" . esc_js($oxygenData) . "';
-            window.fseThemeData = '" . esc_js($fseData) . "';
-            window.fontHeroData = '" . esc_js($fontHeroData) . "';
-        </script>";
+        // Using wp_json_encode ensures proper escaping for JavaScript context
+        return sprintf(
+            'window.bricksThemeData = %s; window.oxygenThemeData = %s; window.fseThemeData = %s; window.fontHeroData = %s;',
+            $bricksData,
+            $oxygenData,
+            $fseData,
+            $fontHeroData
+        );
     }
 
-    function pluginUrl()
+    /**
+     * Get plugin URLs and configuration as JavaScript
+     * @return string JavaScript code setting window globals
+     */
+    private function get_plugin_url_script()
     {
-        $websiteUrl = WINDTACS_WEBSITE_URL;
-        $url = WINDTACS_PLUGIN_URL;
-        $uploadUrl = WINDTACS_UPLOADS_URL['baseurl'];
-        $ajaxUrl = admin_url('admin-ajax.php');
-        $nonce = wp_create_nonce('winden_nonce');
-        $inIframe = wp_json_encode(Builders::isBricksEditorFrame() || Builders::isOxygenEditorFrame() || Builders::isElementorEditorPage());
-        $apiVersion2 = wp_json_encode(Builders::has_api_version_2_block());
-
-        // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- URLs and nonces are safely escaped
-        echo "<script type='text/javascript'>
-            window.pluginUrl = '" . esc_js($url) . "';
-            window.uploadUrl = '" . esc_js($uploadUrl) . "';
-            window.websiteUrl = '" . esc_js($websiteUrl) . "';
-            window.ajaxUrl = '" . esc_js($ajaxUrl) . "';
-            window.nonce = '" . esc_js($nonce) . "';
-            window.inIframe = " . esc_js($inIframe) . ";
-            window.apiVersion2 = " . esc_js($apiVersion2) . ";
-        </script>";
+        return sprintf(
+            'window.pluginUrl = %s; window.uploadUrl = %s; window.websiteUrl = %s; window.ajaxUrl = %s; window.nonce = %s; window.inIframe = %s; window.apiVersion2 = %s;',
+            wp_json_encode(WINDTACS_PLUGIN_URL),
+            wp_json_encode(WINDTACS_UPLOADS_URL['baseurl']),
+            wp_json_encode(WINDTACS_WEBSITE_URL),
+            wp_json_encode(admin_url('admin-ajax.php')),
+            wp_json_encode(wp_create_nonce('winden_nonce')),
+            wp_json_encode(Builders::isBricksEditorFrame() || Builders::isOxygenEditorFrame() || Builders::isElementorEditorPage()),
+            wp_json_encode(Builders::has_api_version_2_block())
+        );
     }
 }

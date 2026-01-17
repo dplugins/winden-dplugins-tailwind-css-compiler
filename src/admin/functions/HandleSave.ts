@@ -2,6 +2,7 @@ import { DEFAULT_CSS_CONTENT, DEFAULT_CSS_CONTENT_V4, DEFAULT_JS_CONTENT } from 
 import { fetchSettings } from '@functions/Settings';
 import type { WizzardState } from '@/types/wizzard';
 import { windenBroadcast } from '@/utils/broadcastChannel';
+import { buildAjaxUrl } from '@/utils/ajaxUrl';
 
 declare global {
   interface Window {
@@ -122,7 +123,7 @@ export const handleSave = async (
     const dbSaveStartTime = performance.now();
     // console.log('[SAVE] Sending data to database...');
 
-    const response = await fetch(`${window.ajaxUrl || window.websiteUrl + '/wp-admin/admin-ajax.php'}?action=winden_save_content`, {
+    const response = await fetch(buildAjaxUrl('winden_save_content'), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -183,7 +184,7 @@ export const handleWizzardStateUpdate = async (
 
     const jsonData = JSON.stringify({ ...data, '_nonce': window.nonce });
 
-    const response = await fetch(`${window.ajaxUrl || window.websiteUrl + '/wp-admin/admin-ajax.php'}?action=winden_update_wizzard_state`, {
+    const response = await fetch(buildAjaxUrl('winden_update_wizzard_state'), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

@@ -5,6 +5,55 @@ globalThis.process.versions.node ??= "18.0.0";
 // Dart Sass requires process.cwd() to be a function
 globalThis.process.cwd ??= () => "/";
 
+/**
+ * Get the WordPress AJAX URL from available sources
+ *
+ * WordPress.org requirement: Never hardcode /wp-admin/admin-ajax.php
+ * The URL must be provided via wp_localize_script in PHP using admin_url('admin-ajax.php')
+ *
+ * @returns {string|null} The AJAX URL or null if not available
+ */
+function getWindenAjaxUrl() {
+  // Check all possible sources where PHP might have set the AJAX URL
+  if (window.windenData?.ajaxUrl) {
+    return window.windenData.ajaxUrl;
+  }
+  if (window.windenAutoCompile?.ajaxUrl) {
+    return window.windenAutoCompile.ajaxUrl;
+  }
+  if (window.ajaxUrl) {
+    return window.ajaxUrl;
+  }
+  if (window.ajaxurl) {
+    // WordPress admin pages set this globally
+    return window.ajaxurl;
+  }
+
+  // Try parent window (for iframes) with cross-origin protection
+  if (window.parent !== window) {
+    try {
+      if (window.parent.windenAutoCompile?.ajaxUrl) {
+        return window.parent.windenAutoCompile.ajaxUrl;
+      }
+      if (window.parent.windenData?.ajaxUrl) {
+        return window.parent.windenData.ajaxUrl;
+      }
+      if (window.parent.ajaxUrl) {
+        return window.parent.ajaxUrl;
+      }
+      if (window.parent.ajaxurl) {
+        return window.parent.ajaxurl;
+      }
+    } catch (e) {
+      // Cross-origin access blocked - this is expected for cross-origin iframes
+      console.debug('[winden] Cross-origin parent access blocked');
+    }
+  }
+
+  // No AJAX URL found - return null (caller must handle this case)
+  return null;
+}
+
 const tailwindcss = require("tailwindcss");
 const postcss = require("postcss");
 import * as Immutable from "immutable";
@@ -1317,37 +1366,17 @@ async function autoExtractBreakpoints() {
             await new Promise(resolve => setTimeout(resolve, 500));
           }
 
-          // Use proper AJAX URL that works with subdirectory WordPress installations
-          // Try multiple sources, with intelligent fallback for iframes
-          let ajaxUrl;
-
-          if (window.windenData?.ajaxUrl) {
-            ajaxUrl = window.windenData.ajaxUrl;
-          } else if (window.windenAutoCompile?.ajaxUrl) {
-            ajaxUrl = window.windenAutoCompile.ajaxUrl;
-          } else if (window.parent !== window) {
-            // In iframe: try to get from parent window (with cross-origin protection)
-            try {
-              if (window.parent.windenAutoCompile?.ajaxUrl) {
-                ajaxUrl = window.parent.windenAutoCompile.ajaxUrl;
-              }
-            } catch (e) {
-              // Cross-origin access blocked - ignore and fall through to fallback
-              console.debug('[winden] Cross-origin parent access blocked, using fallback URL construction');
-            }
-          }
+          // Get AJAX URL from PHP-provided sources (WordPress.org requirement: no hardcoded URLs)
+          const ajaxUrl = getWindenAjaxUrl();
 
           if (!ajaxUrl) {
-            // Fallback: construct from current location
-            // Extract WordPress base path from current URL
-            const currentPath = window.location.pathname;
-            const wpAdminIndex = currentPath.indexOf('/wp-admin/');
-            const basePath = wpAdminIndex > 0 ? currentPath.substring(0, wpAdminIndex) : '';
-            ajaxUrl = window.ajaxUrl || (window.location.origin + basePath + '/wp-admin/admin-ajax.php');
+            // AJAX URL not available - this means wp_localize_script wasn't called properly
+            console.warn('[winden] autoExtractBreakpoints: AJAX URL not available, skipping backend fetch');
+            break;
           }
 
-          ajaxUrl += '?action=winden_get_content';
-          const response = await fetch(ajaxUrl);
+          const fetchUrl = ajaxUrl + '?action=winden_get_content';
+          const response = await fetch(fetchUrl);
 
           if (!response.ok) {
             throw new Error(`HTTP ${response.status} ${response.statusText}`);
@@ -1378,26 +1407,11 @@ async function autoExtractBreakpoints() {
 
       // Log error if all retries failed
       if (lastError && !wizardContent) {
-        // Construct same URL logic for error reporting
-        let ajaxUrl;
-        if (window.windenData?.ajaxUrl) {
-          ajaxUrl = window.windenData.ajaxUrl;
-        } else if (window.windenAutoCompile?.ajaxUrl) {
-          ajaxUrl = window.windenAutoCompile.ajaxUrl;
-        } else if (window.parent !== window && window.parent.windenAutoCompile?.ajaxUrl) {
-          ajaxUrl = window.parent.windenAutoCompile.ajaxUrl;
-        } else {
-          const currentPath = window.location.pathname;
-          const wpAdminIndex = currentPath.indexOf('/wp-admin/');
-          const basePath = wpAdminIndex > 0 ? currentPath.substring(0, wpAdminIndex) : '';
-          ajaxUrl = window.ajaxUrl || (window.location.origin + basePath + '/wp-admin/admin-ajax.php');
-        }
-        ajaxUrl += '?action=winden_get_content';
-
+        const ajaxUrl = getWindenAjaxUrl();
         console.error('[winden] autoExtractBreakpoints: Failed to fetch breakpoints after retry', {
           error: lastError.message,
           attempts: maxRetries + 1,
-          url: ajaxUrl
+          url: ajaxUrl ? ajaxUrl + '?action=winden_get_content' : 'AJAX URL not configured'
         });
       }
     }

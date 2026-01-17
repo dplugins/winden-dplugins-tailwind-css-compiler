@@ -1,5 +1,6 @@
 import type { WizzardState } from '@/types/wizzard';
 import type { CacheStatus, CacheError, CachePayload, WordPressAjaxResponse } from '@/types/api.d';
+import { buildAjaxUrl } from '@/utils/ajaxUrl';
 
 /**
  * Input classes can come in various formats from different sources
@@ -16,7 +17,7 @@ export const fetchClasses = async (
   handleFetchedClasses: (classes: string[]) => void
 ): Promise<void> => {
   try {
-    const response = await fetch(`${window.ajaxUrl || window.websiteUrl + '/wp-admin/admin-ajax.php'}?action=winden_get_classes`);
+    const response = await fetch(buildAjaxUrl('winden_get_classes'));
     const data: WordPressAjaxResponse<{ classes: string[] }> = await response.json();
 
     if (data.success) {
@@ -176,7 +177,7 @@ export const handleFetchedClasses = async (
     }
 
     try {
-      const response = await fetch(`${window.ajaxUrl || window.websiteUrl + '/wp-admin/admin-ajax.php'}?action=winden_save_cache`, {
+      const response = await fetch(buildAjaxUrl('winden_save_cache'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

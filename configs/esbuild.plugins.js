@@ -158,9 +158,35 @@ const wordpressExternalsPlugin = {
   },
 };
 
+// Custom plugin to remove Monaco CDN URL from @monaco-editor/loader
+// WordPress.org requirement: No external CDN resources
+// The CDN URL is never used because we call loader.config({ monaco }) with bundled Monaco
+const monacoCdnRemoverPlugin = {
+  name: 'monaco-cdn-remover',
+  setup(build) {
+    build.onLoad({ filter: /@monaco-editor[/\\]loader/ }, async (args) => {
+      const fs = require('fs');
+      let contents = await fs.promises.readFile(args.path, 'utf8');
+
+      // Replace CDN URL with empty string - the URL is never used anyway
+      // because we configure the loader with bundled Monaco in App.tsx
+      contents = contents.replace(
+        /https:\/\/cdn\.jsdelivr\.net\/npm\/monaco-editor@[^/]+\/min\/vs/g,
+        './monaco-local'
+      );
+
+      return {
+        contents,
+        loader: 'js',
+      };
+    });
+  },
+};
+
 module.exports = {
   svgPlugin,
   aliasPlugin,
   monacoPlugin,
   wordpressExternalsPlugin,
+  monacoCdnRemoverPlugin,
 };

@@ -78,22 +78,32 @@
     // If not available, try backend
     if (!wizardContent) {
       try {
-        // Get AJAX URL (handle various scenarios)
-        let ajaxUrl;
-        if (window.windenData?.ajaxUrl) {
-          ajaxUrl = window.windenData.ajaxUrl;
-        } else if (window.windenAutoCompile?.ajaxUrl) {
-          ajaxUrl = window.windenAutoCompile.ajaxUrl;
-        } else {
-          // Fallback: construct from current location
-          const currentPath = window.location.pathname;
-          const wpAdminIndex = currentPath.indexOf('/wp-admin/');
-          const basePath = wpAdminIndex > 0 ? currentPath.substring(0, wpAdminIndex) : '';
-          ajaxUrl = window.location.origin + basePath + '/wp-admin/admin-ajax.php';
+        // Get AJAX URL from PHP-provided sources (WordPress.org requirement: no hardcoded URLs)
+        // URL is set via wp_localize_script in PHP using admin_url('admin-ajax.php')
+        let ajaxUrl = window.windenData?.ajaxUrl
+          || window.windenAutoCompile?.ajaxUrl
+          || window.ajaxUrl
+          || window.ajaxurl;
+
+        // Try parent window for iframes
+        if (!ajaxUrl && window.parent !== window) {
+          try {
+            ajaxUrl = window.parent.windenAutoCompile?.ajaxUrl
+              || window.parent.windenData?.ajaxUrl
+              || window.parent.ajaxUrl
+              || window.parent.ajaxurl;
+          } catch (e) {
+            // Cross-origin access blocked - expected for cross-origin iframes
+          }
         }
 
-        ajaxUrl += '?action=winden_get_content';
-        const response = await fetch(ajaxUrl);
+        if (!ajaxUrl) {
+          // AJAX URL not available - skip backend fetch, will use fallback breakpoints
+          return { wizardContent, windenStylesContent };
+        }
+
+        const fetchUrl = ajaxUrl + '?action=winden_get_content';
+        const response = await fetch(fetchUrl);
 
         if (response.ok) {
           const data = await response.json();

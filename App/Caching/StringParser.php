@@ -8,13 +8,20 @@ trait StringParser
     {
         $classes = [];
 
-		// HTML attributes: class="..."
-		$classes = array_merge($classes, $this->parseClasses($string, '/(?:class=["\'])([^"\']+)["\']/s'));
-		// JSON or JSX-like props inside strings: "className":"..."
-		$classes = array_merge($classes, $this->parseClasses($string, '/(?:["\']className["\']\s*:\s*["\'])([^"\']+)["\']/s'));
-		// PHP arrays: ['class' => '...'] and wildcard variants
-		// Matches: 'class', 'menu_class', 'item_classes', 'class_name', 'classes_array', etc.
-		$classes = array_merge($classes, $this->parseClasses($string, '/(?:["\'](?:[\w]+_)?class(?:es)?(?:_[\w]+)?["\']\s*=>\s*["\'])([^"\']+)["\']/s'));
+        // Strip PHP tags to handle class attributes with embedded PHP
+        $stringWithoutPhp = preg_replace('/<\?php.*?\?>/s', ' ', $string);
+
+        // HTML attributes: class="..."
+        $classes = array_merge($classes, $this->parseClasses($stringWithoutPhp, '/(?:class=["\'])([^"\']+)["\']/s'));
+
+        // Also parse original string
+        $classes = array_merge($classes, $this->parseClasses($string, '/(?:class=["\'])([^"\']+)["\']/s'));
+
+        // JSON className props
+        $classes = array_merge($classes, $this->parseClasses($string, '/(?:["\']className["\']\s*:\s*["\'])([^"\']+)["\']/s'));
+
+        // PHP arrays with class keys
+        $classes = array_merge($classes, $this->parseClasses($string, '/(?:["\'](?:[\w]+_)?class(?:es)?(?:_[\w]+)?["\']\s*=>\s*["\'])([^"\']+)["\']/s'));
 
         return array_unique($classes);
     }
@@ -28,7 +35,10 @@ trait StringParser
             foreach ($matches[1] as $classAttribute) {
                 $classNames = preg_split('/\s+/', $classAttribute);
                 foreach ($classNames as $className) {
-                    $classes[] = html_entity_decode(trim($className));
+                    $trimmed = html_entity_decode(trim($className));
+                    if ($trimmed && !preg_match('/^(<\?|echo|esc_|implode|sprintf|\$|->|=>)/', $trimmed)) {
+                        $classes[] = $trimmed;
+                    }
                 }
             }
         }

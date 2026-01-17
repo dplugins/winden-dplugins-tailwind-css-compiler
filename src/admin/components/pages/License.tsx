@@ -1,11 +1,10 @@
 import { useState } from 'react';
 import { Input } from '@el/Input';
 import { Button } from '@el/Button';
+import { buildAjaxUrl } from '@/utils/ajaxUrl';
 
 declare global {
   interface Window {
-    websiteUrl?: string;
-    ajaxUrl?: string;
     nonce?: string;
   }
 }
@@ -30,7 +29,7 @@ const License: React.FC<LicenseProps> = ({ setLicenseState }) => {
     if (licenseKey?.length) {
       setProcessing(true);
       setError(null);
-      const response = await fetch(`${window.ajaxUrl || window.websiteUrl + '/wp-admin/admin-ajax.php'}?action=update_license`, {
+      const response = await fetch(buildAjaxUrl('update_license'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -7,21 +7,52 @@ class GetContent
 {
     public function __construct()
     {
-        // Logged-in user endpoints
+        // Logged-in user endpoints (require authentication)
         add_action('wp_ajax_winden_get_content', [$this, 'get_winden_content_callback']);
         add_action('wp_ajax_winden_get_cache', [$this, 'get_winden_cache']);
         add_action('wp_ajax_winden_get_wizzard_state', [$this, 'get_winden_wizzard_state']);
         add_action('wp_ajax_winden_get_crawled_classes', [$this, 'get_crawled_classes']);
 
-        // Public endpoints (logged-out users)
-        add_action('wp_ajax_nopriv_winden_get_content', [$this, 'get_winden_content_callback']);
-        add_action('wp_ajax_nopriv_winden_get_cache', [$this, 'get_winden_cache']);
-        add_action('wp_ajax_nopriv_winden_get_wizzard_state', [$this, 'get_winden_wizzard_state']);
-        add_action('wp_ajax_nopriv_winden_get_crawled_classes', [$this, 'get_crawled_classes']);
+        // Public endpoints for frontend compilation (nopriv)
+        // These only return compiled CSS and basic config needed for Tailwind to work
+        // Sensitive data like full editor content is NOT exposed to nopriv
+        add_action('wp_ajax_nopriv_winden_get_cache', [$this, 'get_winden_cache_public']);
+        add_action('wp_ajax_nopriv_winden_get_wizzard_state', [$this, 'get_winden_wizzard_state_public']);
     }
 
+    /**
+     * Security check helper - verifies user has edit capability
+     *
+     * @param bool $check_nonce Whether to check nonce (optional for GET requests)
+     * @return bool|void Returns true if authorized, sends error and dies if not
+     */
+    private function check_authorization($check_nonce = false)
+    {
+        // Check user capability - must be able to edit posts at minimum
+        if (!current_user_can('edit_posts')) {
+            wp_send_json_error(['message' => 'Unauthorized: insufficient permissions']);
+            wp_die();
+        }
+
+        // Optional nonce check for requests that include it
+        if ($check_nonce) {
+            // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Nonce verification only
+            $nonce = isset($_REQUEST['_nonce']) ? wp_unslash($_REQUEST['_nonce']) : '';
+            if (!wp_verify_nonce($nonce, 'winden_nonce')) {
+                wp_send_json_error(['message' => 'Unauthorized: invalid nonce']);
+                wp_die();
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Get Winden content - requires logged-in user with edit capability
+     */
     public function get_winden_content_callback()
     {
+        $this->check_authorization();
         $config = get_option('winden_dplugins_editor');
 
         // Check if data is available and is an array in old format
@@ -201,7 +232,28 @@ class GetContent
         wp_send_json_success(['classes' => $classes]);
     }
 
+    /**
+     * Get Winden cache - requires logged-in user with edit capability
+     */
     public function get_winden_cache()
+    {
+        $this->check_authorization();
+        $this->return_cache_data();
+    }
+
+    /**
+     * Get Winden cache - public endpoint (no auth required)
+     * Returns only compiled CSS status, not full config
+     */
+    public function get_winden_cache_public()
+    {
+        $this->return_cache_data();
+    }
+
+    /**
+     * Internal helper to return cache data
+     */
+    private function return_cache_data()
     {
         $cache = get_option('winden_dplugins_cache');
 
@@ -268,7 +320,28 @@ class GetContent
         wp_die();
     }
 
+    /**
+     * Get Winden wizzard state - requires logged-in user with edit capability
+     */
     public function get_winden_wizzard_state()
+    {
+        $this->check_authorization();
+        $this->return_wizzard_state();
+    }
+
+    /**
+     * Get Winden wizzard state - public endpoint (no auth required)
+     * Needed for frontend Tailwind compilation in page builder iframes
+     */
+    public function get_winden_wizzard_state_public()
+    {
+        $this->return_wizzard_state();
+    }
+
+    /**
+     * Internal helper to return wizzard state
+     */
+    private function return_wizzard_state()
     {
         $wizzard_state = get_option('winden_dplugins_wizzard_state');
 
