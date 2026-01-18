@@ -27,7 +27,6 @@ CLAUDE.md
 COMPILER-IMPROVEMENTS.md
 DEV-README.md
 FEATURE-SUGGESTIONS.md
-README.md
 
 # Source files (build output is in /build)
 node_modules/
