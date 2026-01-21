@@ -20,12 +20,12 @@ class GutenbergCrawler
         $classes = [];
 
         foreach ($this->posts as $post) {
-            // Extract classes directly from raw post_content without rendering
-            // This is MUCH faster than do_blocks()/do_shortcode() which execute PHP code
-            // and can be slow when plugins like EDD-SL add heavy filters
+            // Fast path: Extract classes from raw post_content (no PHP execution)
+            // This catches class="..." attributes in HTML and shortcodes
             $postClasses = $this->parseString($post->post_content);
 
-            // Also parse blocks to get className attributes
+            // Parse blocks to get className attributes from block attrs
+            // This is fast - just JSON parsing, no rendering
             $blocks = parse_blocks($post->post_content);
             $blocksClasses = $this->extractClassesFromBlocks($blocks);
 
@@ -43,7 +43,13 @@ class GutenbergCrawler
             // Check if the block has attr classname
             if (!empty($block['attrs']['className'])) {
                 // Extract classes from the attrs classname
-                $attr_classes = preg_split('/\s+/', $block['attrs']['className']);
+                $classValue = $block['attrs']['className'];
+                // Decode JSON Unicode escapes (e.g., \u0026 -> &, \u003e -> >)
+                // This handles classes that might still contain Unicode escapes from raw block storage
+                $classValue = preg_replace_callback('/\\\\u([0-9a-fA-F]{4})/', function($match) {
+                    return mb_convert_encoding(pack('H*', $match[1]), 'UTF-8', 'UTF-16BE');
+                }, $classValue);
+                $attr_classes = preg_split('/\s+/', $classValue);
                 $classes = array_merge($classes, $attr_classes);
             }
 

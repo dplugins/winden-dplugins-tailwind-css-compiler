@@ -5,6 +5,12 @@
  * Implements caching, debouncing, and performance monitoring
  */
 
+// Prevent double initialization if script is loaded multiple times
+if (window.__windenWatcherInitialized) {
+    // Already initialized, skip
+} else {
+window.__windenWatcherInitialized = true;
+
 // Configuration for the MutationObserver to watch for class changes
 const observerConfig = {
     attributes: true,
@@ -115,16 +121,19 @@ const debouncedCompile = (delay = 150) => {
 };
 
 /**
- * Simple hash function for cache keys
+ * FNV-1a hash function for cache keys (better collision resistance than simple hash)
  */
-const simpleHash = (str) => {
-    let hash = 0;
+const fnvHash = (str) => {
+    const FNV_OFFSET = 2166136261;
+    const FNV_PRIME = 16777619;
+    let hash = FNV_OFFSET;
+
     for (let i = 0; i < str.length; i++) {
-        const char = str.charCodeAt(i);
-        hash = ((hash << 5) - hash) + char;
-        hash = hash & hash; // Convert to 32-bit integer
+        hash ^= str.charCodeAt(i);
+        hash = Math.imul(hash, FNV_PRIME);
     }
-    return hash.toString();
+
+    return (hash >>> 0).toString(36);
 };
 
 /**
@@ -360,14 +369,19 @@ const compileClasses = async (compileOptions = {}) => {
         // Always compile when force option is set (e.g., from broadcast listener hot reload)
         if (options.force) {
             shouldCompile = true;
-        } else if (window?.inIframe ? JSON.parse(window.inIframe) : true) {
-            if (window?.apiVersion2 ? JSON.parse(window.apiVersion2) : false) {
-                shouldCompile = true;
-            } else {
-                shouldCompile = window.self !== window.top;
-            }
         } else {
-            shouldCompile = true;
+            // Check if we're in an iframe context that requires special handling
+            const inIframe = window?.inIframe ? JSON.parse(window.inIframe) : false;
+            const apiVersion2 = window?.apiVersion2 ? JSON.parse(window.apiVersion2) : false;
+            const isActuallyInIframe = window.self !== window.top;
+
+            if (inIframe) {
+                // For iframe-aware contexts (like Bricks), only compile inside iframe OR with API v2
+                shouldCompile = isActuallyInIframe || apiVersion2;
+            } else {
+                // For non-iframe contexts (like Fancoolo admin, Gutenberg), always compile
+                shouldCompile = true;
+            }
         }
 
         // Check for uploadUrl in current window first, then parent (for iframe scenarios)
@@ -415,8 +429,8 @@ const compileClasses = async (compileOptions = {}) => {
             }
 
             // Check cache before compilation
-            const configHash = simpleHash(getConfigFileString);
-            const styleHash = simpleHash(getStyleFileString);
+            const configHash = fnvHash(getConfigFileString);
+            const styleHash = fnvHash(getStyleFileString);
             const classesKey = Array.from(classes).sort().join('|');
             const cacheKey = `${configHash}-${styleHash}-${classesKey}`;
 
@@ -554,3 +568,5 @@ window.getWindenPerformanceStats = () => {
         debouncedCompile(0);
     }
 })();
+
+} // End of double-initialization guard

@@ -39,7 +39,7 @@ class Frontend extends BaseProvider
         if (!$dev_mode_disabled) {
             add_action('wp_enqueue_scripts', [$this, 'load_tailwind_cdn'], 10000000);
 
-            // Load broadcast listener for real-time updates from admin
+            // Load broadcast listener for real-time updates + CSS cache busting
             add_action('wp_enqueue_scripts', [$this, 'enqueue_broadcast_listener'], 10000001);
         }
 
@@ -67,7 +67,7 @@ class Frontend extends BaseProvider
         return 'gutenberg';
     }
 
-    // Enqueue broadcast listener for real-time updates
+    // Enqueue broadcast listener for real-time updates + CSS cache busting
     public function enqueue_broadcast_listener()
     {
         wp_enqueue_script(

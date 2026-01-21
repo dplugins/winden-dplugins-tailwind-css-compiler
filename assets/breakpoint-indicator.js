@@ -635,13 +635,6 @@
     init();
   }
 
-  // Cleanup on page unload
-  window.addEventListener('beforeunload', function () {
-    if (resizeTimer) {
-      clearTimeout(resizeTimer);
-    }
-  });
-
   // Expose API for debugging/advanced use
   window.windenBreakpointIndicator = {
     getCurrentBreakpoint,

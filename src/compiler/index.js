@@ -303,12 +303,16 @@ async function initializeDartSass() {
 
     const sassUrl = getPluginUrl() + 'build/scss-compiler/sass.dart.min.js';
 
-    // Check if already loaded
-    const sassAlreadyLoaded = Array.from(document.getElementsByTagName('script'))
-      .some(script => script.src === sassUrl);
+    // Check if ANY sass.dart.min.js is already loaded (from Winden, Fancoolo, or other plugins)
+    // This prevents the "Identifier '_cliPkgExports' has already been declared" error
+    const anySassLoaded = Array.from(document.getElementsByTagName('script'))
+      .some(script => script.src && script.src.includes('sass.dart.min.js'));
 
-    // If already loaded and available, use it
-    if (sassAlreadyLoaded && globalThis._cliPkgExports && globalThis._cliPkgExports.length > 0) {
+    // Also check if the global _cliPkgExports exists (meaning Dart Sass was already initialized)
+    const sassGlobalExists = globalThis._cliPkgExports && globalThis._cliPkgExports.length > 0;
+
+    // If any Dart Sass is already loaded and available, use it
+    if ((anySassLoaded || sassGlobalExists) && globalThis._cliPkgExports && globalThis._cliPkgExports.length > 0) {
       try {
         const _cliPkgLibrary = globalThis._cliPkgExports.pop();
         if (globalThis._cliPkgExports.length === 0) delete globalThis._cliPkgExports;
@@ -390,7 +394,8 @@ async function initializeDartSass() {
       reject(new Error('Failed to load Dart Sass'));
     };
 
-    if (!sassAlreadyLoaded) {
+    // Only load if no Dart Sass script has been loaded yet
+    if (!anySassLoaded) {
       document.head.appendChild(script);
     }
   });

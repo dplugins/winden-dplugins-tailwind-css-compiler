@@ -36,6 +36,11 @@ trait StringParser
                 $classNames = preg_split('/\s+/', $classAttribute);
                 foreach ($classNames as $className) {
                     $trimmed = html_entity_decode(trim($className));
+                    // Decode JSON Unicode escapes (e.g., \u0026 -> &, \u003e -> >)
+                    // This handles classes like [\u0026\u003eimg]:w-full from raw block JSON
+                    $trimmed = preg_replace_callback('/\\\\u([0-9a-fA-F]{4})/', function($match) {
+                        return mb_convert_encoding(pack('H*', $match[1]), 'UTF-8', 'UTF-16BE');
+                    }, $trimmed);
                     if ($trimmed && !preg_match('/^(<\?|echo|esc_|implode|sprintf|\$|->|=>)/', $trimmed)) {
                         $classes[] = $trimmed;
                     }

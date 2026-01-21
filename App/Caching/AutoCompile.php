@@ -3,6 +3,7 @@ if ( ! defined( 'ABSPATH' ) ) exit; // Exit if accessed directly
 
 use Winden\App\Helpers\SettingsOptions;
 use Winden\App\Helpers\Builders;
+use Winden\App\Assets\Providers\ProvidersHelpers;
 
 /**
  * AutoCompile - Automatically crawl classes and flag for recompilation when posts are saved
@@ -395,6 +396,29 @@ class AutoCompile
             filemtime(WINDTACS_PLUGIN_DIR . 'assets/css-injector.js'),
             true
         );
+
+        // Add global variables needed by tailwindcss-watcher.js
+        $compiler_options = ProvidersHelpers::get_compiler_options('');
+        $inline_config = sprintf(
+            'window.uploadUrl = %s; window.ajaxurl = %s; window.tailwind_compiler_options = %s;',
+            wp_json_encode(WINDTACS_UPLOADS_URL['baseurl']),
+            wp_json_encode(admin_url('admin-ajax.php')),
+            wp_json_encode($compiler_options)
+        );
+        wp_add_inline_script('winden-compiler-module', $inline_config, 'after');
+
+        // Load the Tailwind watcher ONLY for non-Fancoolo contexts
+        // Fancoolo has its own preview iframe where the watcher should run,
+        // not in the main admin page (which would break the WP admin UI)
+        if (!$is_fancoolo) {
+            wp_enqueue_script(
+                'winden-tailwind-watcher',
+                WINDTACS_PLUGIN_URL . 'assets/tailwindcss-watcher.js',
+                ['winden-compiler-module'],
+                filemtime(WINDTACS_PLUGIN_DIR . 'assets/tailwindcss-watcher.js'),
+                true
+            );
+        }
 
         // Enqueue compiler core module (shared logic for compile-trigger and post-save-compile)
         wp_enqueue_script(

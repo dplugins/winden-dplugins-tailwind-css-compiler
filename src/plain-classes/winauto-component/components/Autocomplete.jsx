@@ -435,7 +435,7 @@ export const Autocomplete = ({
 
   return (
     <div
-      className={`relative w-100 max-w-[100%] ${isDragTarget ? 'drag-target' : ''}`}
+      className={`relative w-full max-w-[100%] ${isDragTarget ? 'drag-target' : ''}`}
       onKeyDown={(e) => {
         // Only stop propagation for keys that autocomplete handles
         // Allow builder shortcuts like Ctrl+S, Ctrl+Z, etc. to bubble up

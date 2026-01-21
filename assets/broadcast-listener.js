@@ -4,6 +4,8 @@
  * Listens for updates from the Winden admin panel and applies changes in real-time
  * Works on: Frontend, page builders, other admin tabs
  *
+ * Also includes CSS cache-busting on page load for hot-reload support.
+ *
  * This file is vanilla JavaScript (no React/TypeScript) for maximum compatibility
  */
 
@@ -14,6 +16,32 @@
   const DEBUG = false; // Set to true to enable detailed logging
   const DEBOUNCE_DELAY = 500;
   const NOTIFICATION_DURATION = 2000;
+  const CSS_LINK_ID = 'winden-compiled-css-css';
+
+  // CSS Cache Buster - runs once on page load
+  (function bustCSSCache() {
+    let updated = false;
+
+    function updateCSSLink() {
+      if (updated) return;
+      const link = document.getElementById(CSS_LINK_ID);
+      if (!link) return;
+      const href = link.getAttribute('href');
+      if (!href) return;
+      link.setAttribute('href', href.split('?')[0] + '?t=' + Date.now());
+      updated = true;
+    }
+
+    updateCSSLink();
+
+    if (!updated) {
+      const observer = new MutationObserver(() => {
+        updateCSSLink();
+        if (updated) observer.disconnect();
+      });
+      observer.observe(document.head, { childList: true });
+    }
+  })();
 
   // Check BroadcastChannel support
   if (typeof BroadcastChannel === 'undefined') {
@@ -137,6 +165,8 @@
     // The watcher runs inside the iframe and sets window.compile there
     if (!compiled) {
       const iframeSelectors = [
+        'iframe[id*="fancoolo"]',
+        'iframe[class*="fancoolo"]',
         'iframe[src*="breakdance_iframe"]',
         'iframe[src*="oxygen"]',
         'iframe.breakdance-iframe',
@@ -296,8 +326,10 @@
       // Ignore cross-origin access issues
     }
 
-    // Also apply to iframes (for Oxygen6, Bricks, etc.)
+    // Also apply to iframes (for Fancoolo, Oxygen6, Bricks, etc.)
     const iframeSelectors = [
+      'iframe[id*="fancoolo"]',
+      'iframe[class*="fancoolo"]',
       'iframe[src*="breakdance_iframe"]',
       'iframe[src*="oxygen"]',
       'iframe.breakdance-iframe',

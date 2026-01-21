@@ -1,7 +1,7 @@
 /**
  * Winden Compiler Core
  *
- * Shared compilation logic used by both compile-trigger.js and post-save-compile.js
+ * Shared compilation logic used by compile-trigger.js and other scripts
  * This module provides:
  * - Editor type detection
  * - Post ID extraction

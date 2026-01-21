@@ -122,6 +122,15 @@ class MonacoEditorProvider
         $inline_options = 'window.tailwind_compiler_options = ' . wp_json_encode($compiler_options) . ';';
         wp_add_inline_script('winden-compiler-options', $inline_options);
 
+        // Add uploadUrl and ajaxurl needed by tailwindcss-watcher.js
+        $upload_dir = wp_upload_dir();
+        $inline_urls = sprintf(
+            'window.uploadUrl = %s; window.ajaxurl = %s;',
+            wp_json_encode($upload_dir['baseurl']),
+            wp_json_encode(admin_url('admin-ajax.php'))
+        );
+        wp_add_inline_script('winden-compiler-options', $inline_urls);
+
         // Note: SCSS compilation is handled by the bundled Dart Sass in build/scss-compiler/sass.dart.min.js
         // which is loaded automatically by the Tailwind compiler when needed
 

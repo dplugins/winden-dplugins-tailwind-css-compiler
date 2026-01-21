@@ -5,25 +5,37 @@
  * Reusable utility for hot-reloading CSS across all page builders
  *
  * Purpose: Pure CSS injection logic with builder-specific iframe handling
- * Dependencies: None
+ * Dependencies: None (uses WindenCompilerCore if available)
  */
 
 (function() {
     'use strict';
 
-    // Detect builder types from URL
-    const isGutenberg = window.location.href.includes('post.php') ||
-                       window.location.href.includes('post-new.php') ||
-                       window.location.href.includes('site-editor.php');
+    /**
+     * Detect builder types from URL
+     * Uses WindenCompilerCore if available, otherwise falls back to local detection
+     */
+    function getEditorFlags() {
+        // Use WindenCompilerCore if available (loaded after this script)
+        if (window.WindenCompilerCore) {
+            return window.WindenCompilerCore.detectEditorType();
+        }
 
-    const isOxygenMainBuilder = window.location.href.includes('ct_builder=true') &&
-                                !window.location.href.includes('oxygen_iframe=true');
-
-    const isFancoolo = window.location.href.includes('page=fancoolo-app');
-
-    // Bricks main builder (not the iframe) - has ?bricks= but NOT ?brickspreview=
-    const isBricksMainBuilder = window.location.href.includes('bricks=') &&
-                                !window.location.href.includes('brickspreview=');
+        // Fallback: local detection (for when this script runs before WindenCompilerCore)
+        const href = window.location.href;
+        return {
+            isGutenberg: href.includes('post.php') ||
+                         href.includes('post-new.php') ||
+                         href.includes('site-editor.php'),
+            isOxygen: href.includes('ct_builder=true'),
+            isOxygenMainBuilder: href.includes('ct_builder=true') &&
+                                 !href.includes('oxygen_iframe=true'),
+            isFancoolo: href.includes('page=fancoolo-app'),
+            isBricks: href.includes('bricks='),
+            isBricksMainBuilder: href.includes('bricks=') &&
+                                 !href.includes('brickspreview=')
+        };
+    }
 
     /**
      * Inject CSS into a document
@@ -41,30 +53,39 @@
     }
 
     /**
+     * Safely inject CSS into an iframe
+     * @param {HTMLIFrameElement} iframe - The iframe element
+     * @param {string} css - The CSS content to inject
+     */
+    function injectIntoIframe(iframe, css) {
+        if (iframe && iframe.contentDocument) {
+            try {
+                injectCSS(iframe.contentDocument, css);
+            } catch (e) {
+                // Silent fail - cross-origin restrictions
+            }
+        }
+    }
+
+    /**
      * Hot-reload compiled CSS in the page and all relevant iframes
      * @param {string} css - The compiled CSS to inject
      */
     function reloadCompiledCSS(css) {
+        const editors = getEditorFlags();
+
         // Skip injection entirely on Fancoolo admin page
         // Fancoolo has its own preview iframe where CSS should be injected
-        if (isFancoolo) {
-            // For Fancoolo, only inject into the preview iframe, not the admin UI
+        if (editors.isFancoolo) {
             const fancooloIframe = document.querySelector('iframe[id*="fancoolo"], iframe[class*="fancoolo"]');
-            if (fancooloIframe && fancooloIframe.contentDocument) {
-                try {
-                    injectCSS(fancooloIframe.contentDocument, css);
-                } catch (e) {
-                    // Silent fail - cross-origin restrictions
-                }
-            }
+            injectIntoIframe(fancooloIframe, css);
             return; // Don't inject anywhere else for Fancoolo
         }
 
         // For page builders, ONLY inject into iframe, NOT into main editor page
         // This prevents Winden styles from affecting the builder UI
-        const shouldSkipMainDocument = isOxygenMainBuilder || isGutenberg || isBricksMainBuilder;
+        const shouldSkipMainDocument = editors.isOxygenMainBuilder || editors.isGutenberg || editors.isBricksMainBuilder;
 
-        // Skip injection in builder main windows - only inject into their iframes
         if (!shouldSkipMainDocument) {
             injectCSS(document, css);
         }
@@ -72,37 +93,16 @@
         // If in parent window, also inject in builder-specific iframes
         if (window === window.parent) {
             // Bricks iframe
-            const bricksIframe = document.getElementById('bricks-builder-iframe');
-            if (bricksIframe && bricksIframe.contentDocument) {
-                try {
-                    injectCSS(bricksIframe.contentDocument, css);
-                } catch (e) {
-                    // Silent fail - cross-origin restrictions
-                }
-            }
+            injectIntoIframe(document.getElementById('bricks-builder-iframe'), css);
 
             // Oxygen iframe (if we're in Oxygen main builder)
-            if (isOxygenMainBuilder) {
-                const oxygenIframe = document.querySelector('iframe[src*="oxygen_iframe"]');
-                if (oxygenIframe && oxygenIframe.contentDocument) {
-                    try {
-                        injectCSS(oxygenIframe.contentDocument, css);
-                    } catch (e) {
-                        // Silent fail - cross-origin restrictions
-                    }
-                }
+            if (editors.isOxygenMainBuilder) {
+                injectIntoIframe(document.querySelector('iframe[src*="oxygen_iframe"]'), css);
             }
 
             // Gutenberg iframe (WordPress 5.9+)
-            if (isGutenberg) {
-                const gutenbergIframe = document.querySelector('iframe[name="editor-canvas"]');
-                if (gutenbergIframe && gutenbergIframe.contentDocument) {
-                    try {
-                        injectCSS(gutenbergIframe.contentDocument, css);
-                    } catch (e) {
-                        // Silent fail - cross-origin restrictions
-                    }
-                }
+            if (editors.isGutenberg) {
+                injectIntoIframe(document.querySelector('iframe[name="editor-canvas"]'), css);
             }
         }
     }
