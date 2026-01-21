@@ -20,12 +20,15 @@ class GutenbergCrawler
         $classes = [];
 
         foreach ($this->posts as $post) {
-            // Fast path: Extract classes from raw post_content (no PHP execution)
-            // This catches class="..." attributes in HTML and shortcodes
-            $postClasses = $this->parseString($post->post_content);
+            // Render blocks to get the full HTML output with all classes
+            // This is necessary because Gutenberg stores blocks as JSON comments
+            // and the actual CSS classes only appear in the rendered HTML
+            $content = do_blocks($post->post_content);
+            $content = do_shortcode($content);
+            $postClasses = $this->parseString($content);
 
-            // Parse blocks to get className attributes from block attrs
-            // This is fast - just JSON parsing, no rendering
+            // Also parse blocks to get className attributes from block attrs
+            // This catches classes that might not appear in rendered HTML
             $blocks = parse_blocks($post->post_content);
             $blocksClasses = $this->extractClassesFromBlocks($blocks);
 
