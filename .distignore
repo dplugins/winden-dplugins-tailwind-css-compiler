@@ -37,7 +37,7 @@ tests/
 # Misc
 *.log
 *.map
-.DS_Store
-*/.DS_Store
-**/.DS_Store
 Thumbs.db
+
+# macOS
+.DS_Store
