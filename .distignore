@@ -16,6 +16,17 @@
 .phpcs.xml
 phpcs.xml
 phpcs.xml.dist
+package.json
+package-lock.json
+composer.json
+composer.lock
+tsconfig.json
+configs/
+
+# Source files (build output is in /build)
+src/
+node_modules/
+tests/
 
 # Documentation (internal)
 Docs/
@@ -27,12 +38,7 @@ CLAUDE.md
 COMPILER-IMPROVEMENTS.md
 DEV-README.md
 FEATURE-SUGGESTIONS.md
-
-# Source files (build output is in /build)
-node_modules/
-tests/
-
-
+README.md
 
 # Misc
 *.log
