@@ -63,13 +63,21 @@ export interface CachePayload {
  * Winden plugin settings
  */
 export interface WindenSettings {
-  // Autocomplete settings
+  // Autocomplete settings (Plain Classes)
   autocomplete_gutenberg?: boolean;
   autocomplete_bricks?: boolean;
   autocomplete_bricks2?: boolean;
   autocomplete_oxygen?: boolean;
   autocomplete_oxygen6?: boolean;
   autocomplete_elementor?: boolean;
+
+  // Winden Classes autocomplete
+  winden_classes_gutenberg?: boolean;
+  winden_classes_bricks?: boolean;
+  winden_classes_oxygen?: boolean;
+
+  // Autocomplete mode (which tab is selected in settings)
+  autocomplete_mode?: 'plain-classes' | 'winden-classes';
 
   // File scanning settings
   scan_path?: string[];

@@ -32,3 +32,9 @@
     background-color: var(--winauto-bg--hover);
   }
 }
+
+.winauto-textarea--suggestions.winauto-suggestions--keyboard {
+  .winauto-textarea--suggestions-item:hover {
+    background-color: transparent;
+  }
+}

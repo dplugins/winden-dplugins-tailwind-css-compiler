@@ -26,16 +26,27 @@ class FSE extends BaseProvider
 
         // Load autocomplete if enabled
         // Priority 999 ensures Winden loads AFTER other plugins' editors (like Monaco)
-        if ($settings['autocomplete_gutenberg'] ?? false) {
+        $windenClassesEnabled = $settings['winden_classes_gutenberg'] ?? false;
+
+        // Plain Classes - only if Winden Classes is NOT enabled
+        if (($settings['autocomplete_gutenberg'] ?? false) && !$windenClassesEnabled) {
             add_action('enqueue_block_editor_assets', [$this, 'plain_classes_autocomplete'], 999);
+        }
+
+        // Winden Classes
+        if ($windenClassesEnabled) {
+            add_action('enqueue_block_editor_assets', [$this, 'enqueue_winden_classes_autocomplete'], 999);
         }
     }
 
     /**
-     * Enqueue block editor assets
+     * Enqueue block editor assets for the PARENT page only
      *
-     * CSS is injected into iframe via inject_iframe_styles() method
-     * This method only loads compiler/watcher scripts for the parent page
+     * IMPORTANT: This method loads scripts in the WordPress admin shell (parent page).
+     * - Compiler: Loaded here for post-save compilation functionality
+     * - Watcher: NOT loaded here - it's injected into iframe via inject_iframe_styles()
+     *            Loading watcher in parent would style the WordPress admin UI with user's Tailwind CSS
+     * - Broadcast listener: Loaded for real-time sync across tabs
      */
     public function enqueue_block_editor_assets()
     {
@@ -48,10 +59,11 @@ class FSE extends BaseProvider
         // If dev mode is enabled, load compiler and watcher scripts
         if (!$dev_mode_disabled) {
             // Load the compiler
+            // Use consistent handle 'winden-compiler-module' to match AutoCompile.php and ProvidersHelpers.php
             $compiler_path = WINDTACS_PLUGIN_DIR . 'build/compiler/tailwindcss-compiler.js';
             if (file_exists($compiler_path)) {
                 wp_enqueue_script(
-                    'winden-tailwind-compiler',
+                    'winden-compiler-module',
                     WINDTACS_PLUGIN_URL . 'build/compiler/tailwindcss-compiler.js',
                     array(),
                     filemtime($compiler_path),
@@ -66,20 +78,12 @@ class FSE extends BaseProvider
                     wp_json_encode(admin_url('admin-ajax.php')),
                     wp_json_encode($compiler_options)
                 );
-                wp_add_inline_script('winden-tailwind-compiler', $config_js, 'before');
+                wp_add_inline_script('winden-compiler-module', $config_js, 'before');
             }
 
-            // Load the watcher script
-            $watcher_path = WINDTACS_PLUGIN_DIR . 'assets/tailwindcss-watcher.js';
-            if (file_exists($watcher_path)) {
-                wp_enqueue_script(
-                    'winden-tailwind-watcher',
-                    WINDTACS_ASSETS_DIR . 'tailwindcss-watcher.js',
-                    array('winden-tailwind-compiler'),
-                    filemtime($watcher_path),
-                    true
-                );
-            }
+            // NOTE: Watcher script is NOT loaded in parent page
+            // It's injected into the iframe via inject_iframe_styles() to avoid styling the admin UI
+            // The watcher applies live Tailwind styles, which should only affect the content iframe
 
             // Load broadcast listener for real-time updates
             $broadcast_path = WINDTACS_PLUGIN_DIR . 'assets/broadcast-listener.js';
@@ -233,12 +237,102 @@ class FSE extends BaseProvider
         }
         ";
 
-        wp_add_inline_script('winden-tailwind-compiler', $autocomplete_js);
+        wp_add_inline_script('winden-compiler-module', $autocomplete_js);
     }
 
     protected function getAutocompleteFolder()
     {
         return 'gutenberg';
+    }
+
+    /**
+     * Enqueue Winden Classes autocomplete for Gutenberg
+     * Adds autocomplete to the native "Additional CSS class(es)" field
+     */
+    public function enqueue_winden_classes_autocomplete()
+    {
+        // First, load the autocomplete library
+        $autocomplete_js = WINDTACS_PLUGIN_DIR . 'build/tailwind-autocomplete/core/index.js';
+        $autocomplete_css = WINDTACS_PLUGIN_DIR . 'build/tailwind-autocomplete/core/index.css';
+
+        if (file_exists($autocomplete_js)) {
+            wp_enqueue_script(
+                'winden-tailwind-autocomplete',
+                WINDTACS_PLUGIN_URL . 'build/tailwind-autocomplete/core/index.js',
+                [],
+                filemtime($autocomplete_js),
+                true
+            );
+        }
+
+        if (file_exists($autocomplete_css)) {
+            wp_enqueue_style(
+                'winden-tailwind-autocomplete',
+                WINDTACS_PLUGIN_URL . 'build/tailwind-autocomplete/core/index.css',
+                [],
+                filemtime($autocomplete_css)
+            );
+        }
+
+        // Then load the Gutenberg integration
+        $js_path = WINDTACS_PLUGIN_DIR . 'build/tailwind-autocomplete/gutenberg/index.js';
+        $css_path = WINDTACS_PLUGIN_DIR . 'build/tailwind-autocomplete/gutenberg/index.css';
+        $asset_file_path = WINDTACS_PLUGIN_DIR . 'build/tailwind-autocomplete/gutenberg/index.asset.php';
+
+        if (!file_exists($js_path)) {
+            return;
+        }
+
+        // Load dependencies and version from asset file
+        $asset = file_exists($asset_file_path) ? include($asset_file_path) : [];
+        $version = $asset['version'] ?? filemtime($js_path);
+        $dependencies = $asset['dependencies'] ?? [];
+
+        // Add autocomplete library as dependency
+        $dependencies[] = 'winden-tailwind-autocomplete';
+
+        wp_enqueue_script(
+            'winden-classes-gutenberg',
+            WINDTACS_PLUGIN_URL . 'build/tailwind-autocomplete/gutenberg/index.js',
+            $dependencies,
+            $version,
+            true
+        );
+
+        // Load CSS if exists
+        if (file_exists($css_path)) {
+            wp_enqueue_style(
+                'winden-classes-gutenberg',
+                WINDTACS_PLUGIN_URL . 'build/tailwind-autocomplete/gutenberg/index.css',
+                [],
+                filemtime($css_path)
+            );
+        }
+
+        // Pass breakpoints to script
+        $wizzard_state = get_option('winden_dplugins_wizzard_state');
+        $breakpoints = ['sm', 'md', 'lg', 'xl', '2xl'];
+
+        if ($wizzard_state && !empty($wizzard_state['breakpointsActive']) && !empty($wizzard_state['breakpoints'])) {
+            $customBreakpoints = [];
+            foreach ($wizzard_state['breakpoints'] as $bp) {
+                if (!empty($bp['name'])) {
+                    $customBreakpoints[] = $bp['name'];
+                }
+            }
+            if (!empty($wizzard_state['extendBreakpoints'])) {
+                $breakpoints = array_merge($breakpoints, $customBreakpoints);
+            } elseif (!empty($customBreakpoints)) {
+                $breakpoints = $customBreakpoints;
+            }
+        }
+
+        wp_localize_script('winden-classes-gutenberg', 'windenGutenbergClasses', [
+            'breakpoints' => $breakpoints,
+            'splitMode' => get_option('winden_split_mode', false),
+            'nonce' => wp_create_nonce('winden_nonce'),
+            'ajaxUrl' => admin_url('admin-ajax.php'),
+        ]);
     }
 
     public function frontend_consts()

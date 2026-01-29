@@ -1,3 +1,5 @@
+import '@/types/global.d.ts';
+
 /**
  * Decode HTML entities in a string
  * @param str - String with HTML entities
@@ -44,19 +46,19 @@ const safeParse = (data: string | any, key: string): Record<string, any> => {
 /**
  * Dynamic font families from Full Site Editing (FSE) theme
  */
-export const dynamicFontFamilyFSE = safeParse((window as any)?.fseThemeData, 'fontFamilies');
+export const dynamicFontFamilyFSE = safeParse(window.fseThemeData, 'fontFamilies');
 
 /**
  * Dynamic font families from Bricks builder theme
  */
-export const dynamicFontFamilyBricks = safeParse((window as any)?.bricksThemeData, 'fontFamilies');
+export const dynamicFontFamilyBricks = safeParse(window.bricksThemeData, 'fontFamilies');
 
 /**
  * Dynamic font families from Oxygen builder theme
  */
-export const dynamicFontFamilyOxygen = safeParse((window as any)?.oxygenThemeData, 'fontFamilies');
+export const dynamicFontFamilyOxygen = safeParse(window.oxygenThemeData, 'fontFamilies');
 
 /**
  * Dynamic font families from Font Hero plugin
  */
-export const dynamicFontHero = safeParse((window as any)?.fontHeroData, '');
+export const dynamicFontHero = safeParse(window.fontHeroData, '');

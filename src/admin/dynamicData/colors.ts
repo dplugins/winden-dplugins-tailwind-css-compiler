@@ -1,3 +1,5 @@
+import '@/types/global.d.ts';
+
 /**
  * Decode HTML entities in a string
  * @param str - String with HTML entities
@@ -44,19 +46,19 @@ const safeParse = (data: string | any, key: string): Record<string, any> => {
 /**
  * Dynamic colors from Full Site Editing (FSE) theme
  */
-export const dynamicColorsFSE = safeParse((window as any)?.fseThemeData, 'colors');
+export const dynamicColorsFSE = safeParse(window.fseThemeData, 'colors');
 
 /**
  * Dynamic color groups from FSE theme
  */
-export const dynamicColorGroupsFSE = safeParse((window as any)?.fseThemeData, 'colorGroups');
+export const dynamicColorGroupsFSE = safeParse(window.fseThemeData, 'colorGroups');
 
 /**
  * Dynamic colors from Bricks builder theme
  */
-export const dynamicColorsBricks = safeParse((window as any)?.bricksThemeData, 'colors');
+export const dynamicColorsBricks = safeParse(window.bricksThemeData, 'colors');
 
 /**
  * Dynamic colors from Oxygen builder theme
  */
-export const dynamicColorsOxygen = safeParse((window as any)?.oxygenThemeData, 'colors');
+export const dynamicColorsOxygen = safeParse(window.oxygenThemeData, 'colors');

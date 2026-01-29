@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import '@/types/global.d.ts';
 import { TreeView } from '../TreeView';
 import { Button } from '@el/Button';
 import { SwitchWithLabel } from '@el/SwitchWithLabel';
@@ -66,7 +67,7 @@ export const FilesScanTab: React.FC<FilesScanTabProps> = ({ settings, handleChan
   };
 
   // Use WordPress AJAX endpoint
-  const apiEndpoint = `${(window as any).ajaxUrl || ''}?action=winden_browse_files&_nonce=${(window as any).nonce || ''}`;
+  const apiEndpoint = `${window.ajaxUrl || ''}?action=winden_browse_files&_nonce=${window.nonce || ''}`;
 
   return (
     <div className="space-y-6">

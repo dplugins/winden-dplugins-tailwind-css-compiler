@@ -35,6 +35,8 @@ let compileTimeout = null;
 let isCompiling = false;
 let pendingCompilation = false;
 let pendingCompilationOptions = null;
+let isFirstCompile = true; // Skip CSS injection on first compile (output.css already has styles)
+let disableCSSInjection = false; // Completely disable CSS injection in certain contexts (e.g., Oxygen)
 
 
 // Cache for compiled CSS results
@@ -245,6 +247,8 @@ const handleMutations = async (mutations) => {
 const observer = new MutationObserver(handleMutations);
 observer.observe(document.documentElement, observerConfig);
 
+// No delay needed - we skip CSS injection on first compile using isFirstCompile flag
+
 /**
  * Fetches content of Tailwind config and style files
  */
@@ -279,24 +283,63 @@ const fetchEditorContent = async (file = 'tailwind.config.js') => {
 };
 
 /**
- * Apply !important to CSS declarations (for Tailwind v4)
+ * Check if we're inside Oxygen iframe
+ */
+const isOxygenIframe = () => {
+    return window.location.href.includes('oxygen_iframe=true');
+};
+
+/**
+ * Check if we're in Oxygen builder (main window or iframe)
+ */
+const isOxygenBuilder = () => {
+    return window.location.href.includes('ct_builder=true');
+};
+
+// Note: We rely on the 1.5s delay (isPageLoaded) to prevent style creation on page load
+// After the delay, class changes will trigger real-time CSS injection
+// This provides real-time preview while avoiding duplicate styles on initial load
+
+/**
+ * Apply !important to CSS declarations in @layer utilities ONLY
+ * Only applies when inside Oxygen iframe (to override Oxygen's inline styles)
+ * Skips CSS custom properties (--var) as !important doesn't work on them
+ *
+ * IMPORTANT: We only apply !important to utilities layer because:
+ * - When !important is on ALL layers, cascade order is REVERSED
+ * - base layer's "margin: 0 !important" would override utilities' "margin: X !important"
+ * - By only adding !important to utilities, they properly override Oxygen's inline styles
  */
 const applyImportantFn = (text) => {
-    const lines = text.split('\n');
-    const result = [];
-
-    for (let i = 0; i < lines.length; i++) {
-        const line = lines[i];
-        // Check if line starts with @ (CSS directives - don't modify)
-        if (line.charAt(0) === '@' || line.trim().charAt(0) === '@') {
-            result.push(line);
-        } else {
-            // Only replace semicolons that are not already followed by !important
-            result.push(line.replace(/;(?!\s*!important)/g, ' !important;'));
-        }
+    // Only apply !important in Oxygen iframe
+    if (!isOxygenIframe()) {
+        return text;
     }
 
-    return result.join('\n');
+    if (!text) return text;
+
+    // Find @layer utilities block and only apply !important within it
+    return text.replace(
+        /@layer\s+utilities\s*\{([\s\S]*?)\}(?=\s*(?:@layer|$))/g,
+        (layerMatch, layerContent) => {
+            // Apply !important to declarations within utilities layer
+            const modifiedContent = layerContent.replace(
+                /([^{}@;]+?):\s*([^;{}!]+?)(\s*;)/g,
+                (match, prop, value, semi) => {
+                    // Skip if already has !important
+                    if (value.includes('!important')) {
+                        return match;
+                    }
+                    // Skip CSS custom properties (--variable-name)
+                    if (prop.trim().startsWith('--')) {
+                        return match;
+                    }
+                    return `${prop}: ${value.trim()} !important${semi}`;
+                }
+            );
+            return `@layer utilities {${modifiedContent}}`;
+        }
+    );
 };
 
 /**
@@ -393,8 +436,9 @@ const compileClasses = async (compileOptions = {}) => {
                 return;
             }
 
-            // Get or create style element
-            const compiledStylesNode = getOrCreateStyleElement('compiled-styles-tailwind');
+            // Skip CSS injection on first compile (output.css already has styles)
+            // After first compile, enable real-time CSS injection for class changes
+            const compiledStylesNode = (!isFirstCompile && !disableCSSInjection) ? getOrCreateStyleElement('winden-watcher-css') : null;
 
             // Fetch latest config and style files
             const getConfigFileString = await fetchEditorContent();
@@ -470,15 +514,15 @@ const compileClasses = async (compileOptions = {}) => {
             if ('error' in tw) {
                 console.error('[Winden Watcher] Compilation error:', tw.error);
             } else {
-                // Apply compiled CSS
-                if (tw?.css?.length) {
-                    let applyImportant = false;
-                    if (compilerOptions?.tailwind_version === 'v4') {
-                        applyImportant = compilerOptions?.important?.length ? true : false;
-                    }
-
-                    const finalCss = applyImportant ? applyImportantFn(tw.css) : tw.css;
+                // Skip CSS injection on first compile, inject on subsequent class changes
+                if (!isFirstCompile && compiledStylesNode) {
+                    const finalCss = applyImportantFn(tw.css);
                     compiledStylesNode.textContent = finalCss;
+                }
+
+                // Mark first compile as done - next class change will inject CSS
+                if (isFirstCompile) {
+                    isFirstCompile = false;
                 }
 
                 // Set up autocomplete data

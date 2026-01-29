@@ -5,6 +5,9 @@ use DateTime;
 use DateTimeZone;
 use Winden\App\Helpers\SettingsOptions;
 use Winden\App\Helpers\Sanitization;
+use Winden\App\Helpers\AjaxHelper;
+use Winden\App\Helpers\CacheValidator;
+use Winden\App\Helpers\FileWriter;
 
 class SaveContent
 {
@@ -20,20 +23,13 @@ class SaveContent
 
     public function save_winden_content()
     {
-        // Get the JSON data from the request
-        $data = json_decode(file_get_contents('php://input'), true);
-
-        // Validate JSON structure
-        if (!is_array($data)) {
-            wp_send_json_error('Invalid JSON data received.');
+        // Validate request (JSON input, capability, nonce)
+        $request = AjaxHelper::validateRequest('edit_posts');
+        if (!$request['success']) {
+            AjaxHelper::sendError($request['error']);
             return;
         }
-
-        // Check for the necessary permissions and nonce verification if required
-        if (!current_user_can('edit_posts') || !wp_verify_nonce(sanitize_text_field(wp_unslash($data['_nonce'] ?? '')), 'winden_nonce')) {
-            wp_send_json_error('You are not allowed to perform this action.');
-            return;
-        }
+        $data = $request['data'];
 
         if (isset($data['javascript']) && isset($data['scss']) && isset($data['wizzard'])) {
             // Decode and validate the Base64 content
@@ -112,16 +108,17 @@ class SaveContent
             $filtered_style_tab_path = \apply_filters('winden_scss_file_path', $default_style_tab_path);
             $filtered_input_path = \apply_filters('winden_input_file_path', $default_input_path);
 
-            // Copy to filtered locations if different and valid
-            if ($filtered_config_path !== $default_config_path && wp_is_writable(dirname($filtered_config_path))) {
+            // Copy to filtered locations if different, valid path, and writable
+            // Path validation prevents directory traversal attacks
+            if ($filtered_config_path !== $default_config_path && FileWriter::isPathAllowed($filtered_config_path) && wp_is_writable(dirname($filtered_config_path))) {
                 \wp_mkdir_p(dirname($filtered_config_path));
                 file_put_contents($filtered_config_path, $javascript);
             }
-            if ($filtered_style_tab_path !== $default_style_tab_path && wp_is_writable(dirname($filtered_style_tab_path))) {
+            if ($filtered_style_tab_path !== $default_style_tab_path && FileWriter::isPathAllowed($filtered_style_tab_path) && wp_is_writable(dirname($filtered_style_tab_path))) {
                 \wp_mkdir_p(dirname($filtered_style_tab_path));
                 file_put_contents($filtered_style_tab_path, $scss);
             }
-            if ($filtered_input_path !== $default_input_path && wp_is_writable(dirname($filtered_input_path))) {
+            if ($filtered_input_path !== $default_input_path && FileWriter::isPathAllowed($filtered_input_path) && wp_is_writable(dirname($filtered_input_path))) {
                 \wp_mkdir_p(dirname($filtered_input_path));
                 file_put_contents($filtered_input_path, $input_content);
             }
@@ -145,53 +142,16 @@ class SaveContent
             return;
         }
 
-        // Check for the necessary permissions and nonce verification if required
+        // Check for the necessary permissions and nonce verification
         if (!current_user_can('edit_posts') || !wp_verify_nonce(sanitize_text_field(wp_unslash($data['_nonce'] ?? '')), 'winden_nonce')) {
             wp_send_json_error('You are not allowed to perform this action.');
             return;
         }
 
         // AUTO-FIX: Clear OLD PostCSS corrupted cache from plugin migration
-        // Do NOT clear legitimate SCSS compilation errors (those should be saved and shown)
         $existing_cache = get_option('winden_dplugins_cache');
-        if ($existing_cache && isset($existing_cache['errors'])) {
-            $errors = is_string($existing_cache['errors']) ? json_decode($existing_cache['errors'], true) : $existing_cache['errors'];
-
-            if (is_array($errors)) {
-                foreach ($errors as $error) {
-                    $message = isset($error['message']) ? $error['message'] : '';
-
-                    // Only auto-fix OLD PostCSS errors from plugin migration
-                    $is_old_postcss_error = (
-                        stripos($message, 'postcss') !== false ||
-                        (stripos($message, 'Missed semicolon') !== false) ||
-                        (stripos($message, 'Unexpected }') !== false && stripos($message, 'scss') === false)
-                    );
-
-                    // Skip SCSS compilation errors - these are legitimate and should be saved
-                    $is_scss_error = (
-                        stripos($message, 'SCSS compilation failed') !== false ||
-                        stripos($message, 'expected selector') !== false ||
-                        stripos($message, 'Dart Sass') !== false
-                    );
-
-                    if ($is_old_postcss_error && !$is_scss_error) {
-                        if (defined('WP_DEBUG') && WP_DEBUG) {
-                            // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- Debug-only logging for cache corruption auto-fix
-                            error_log('[Winden Auto-Fix] Clearing OLD corrupted cache before saving: ' . $message);
-                        }
-                        delete_option('winden_dplugins_cache');
-
-                        // Delete output.css file if it exists
-                        $upload_dir_temp = wp_upload_dir();
-                        $output_file = $upload_dir_temp['basedir'] . '/winden/output.css';
-                        if (file_exists($output_file)) {
-                            wp_delete_file($output_file);
-                        }
-                        break;
-                    }
-                }
-            }
+        if ($existing_cache) {
+            CacheValidator::validateAndFix($existing_cache, 'save');
         }
 
         $datetime = new DateTime();
@@ -227,6 +187,9 @@ class SaveContent
                 \wp_mkdir_p(dirname($filtered_path));
                 file_put_contents($filtered_path, $sanitized_styles);
             }
+
+            // Invalidate filemtime cache so users see updated CSS immediately
+            \Winden\App\Helpers\LoadAssets::invalidateCompiledCssCache();
 
             if ($result === false) {
                 // Update the option in the database
@@ -290,20 +253,13 @@ class SaveContent
 
     public function update_winden_wizzard_state()
     {
-        // Get the JSON data from the request
-        $data = json_decode(file_get_contents('php://input'), true);
-
-        // Validate JSON structure
-        if (!is_array($data)) {
-            wp_send_json_error('Invalid JSON data received.');
+        // Validate request (JSON input, capability, nonce)
+        $request = AjaxHelper::validateRequest('edit_posts');
+        if (!$request['success']) {
+            AjaxHelper::sendError($request['error']);
             return;
         }
-
-        // Check for the necessary permissions and nonce verification if required
-        if (!current_user_can('edit_posts') || !wp_verify_nonce(sanitize_text_field(wp_unslash($data['_nonce'] ?? '')), 'winden_nonce')) {
-            wp_send_json_error('You are not allowed to perform this action.');
-            return;
-        }
+        $data = $request['data'];
 
         if (isset($data['wizzard'])) {
             // Decode base64
@@ -332,12 +288,10 @@ class SaveContent
 
     public function clear_winden_cache()
     {
-        // Get the JSON data from the request
-        $data = json_decode(file_get_contents('php://input'), true);
-
-        // Check for the necessary permissions and nonce verification if required
-        if (!current_user_can('manage_options') || !wp_verify_nonce(sanitize_text_field(wp_unslash($data['_nonce'] ?? '')), 'winden_nonce')) {
-            wp_send_json_error('You are not allowed to perform this action.');
+        // Validate request (JSON input, capability, nonce) - requires manage_options
+        $request = AjaxHelper::validateRequest('manage_options');
+        if (!$request['success']) {
+            AjaxHelper::sendError($request['error']);
             return;
         }
 

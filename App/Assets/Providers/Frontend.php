@@ -27,20 +27,21 @@ class Frontend extends BaseProvider
         $settings = SettingsOptions::getWindenOptions();
         $dev_mode_disabled = $settings['disable_dev_mode'] ?? false;
 
-        // Always load compiled CSS (output.css)
-        // Check if Oxygen is active to use the appropriate hook
-        if (class_exists('Oxygen_VSB_Dynamic_Shortcodes')) {
-            add_action('wp_head', [$this, 'enqueue_compiled_css_oxygen'], 9999999);
-        } else {
-            add_action('wp_enqueue_scripts', [$this, 'enqueue_compiled_css'], 9999999);
-        }
-
         // Load compiler and dev tools only if dev mode is NOT disabled
+        // IMPORTANT: Compiler must load BEFORE CSS to prevent Flash of Unstyled Content (FOUC)
         if (!$dev_mode_disabled) {
-            add_action('wp_enqueue_scripts', [$this, 'load_tailwind_cdn'], 10000000);
+            add_action('wp_enqueue_scripts', [$this, 'load_tailwind_cdn'], 9999998);
 
             // Load broadcast listener for real-time updates + CSS cache busting
-            add_action('wp_enqueue_scripts', [$this, 'enqueue_broadcast_listener'], 10000001);
+            add_action('wp_enqueue_scripts', [$this, 'enqueue_broadcast_listener'], 9999999);
+        }
+
+        // Always load compiled CSS (output.css) - loads AFTER compiler
+        // Check if Oxygen is active to use the appropriate hook
+        if (class_exists('Oxygen_VSB_Dynamic_Shortcodes')) {
+            add_action('wp_head', [$this, 'enqueue_compiled_css_oxygen'], 10000000);
+        } else {
+            add_action('wp_enqueue_scripts', [$this, 'enqueue_compiled_css'], 10000000);
         }
 
         // Initialize DequeueStyles

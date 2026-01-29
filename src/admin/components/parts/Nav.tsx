@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useContext, useCallback } from "react";
+import '@/types/global.d.ts';
 import { Button } from "@el/Button";
 import {
   Dialog,
@@ -20,8 +21,10 @@ import {
 } from "../../functions/ClassFetcher";
 import { fetchCacheStatus } from "../../functions/CacheStatus";
 import { fetchSettings, saveSettings } from "@functions/Settings";
-import type { WizzardState } from "@/types/wizzard";
-import { enhanceErrorMessages, formatEnhancedError } from "@functions/ErrorMapper";
+import { enhanceErrorMessages } from "@functions/ErrorMapper";
+import { handleSave } from "../../functions/HandleSave";
+import { useEditorContext, type Settings } from "@/contexts/EditorContext";
+import { WizzardContext } from "@hooks/wizzardContext";
 
 interface CacheStatus {
   status: "completed" | "failed" | null;
@@ -30,100 +33,57 @@ interface CacheStatus {
   auto_fixed?: boolean;
 }
 
-interface Settings {
-  autocomplete_gutenberg?: boolean;
-  autocomplete_bricks?: boolean;
-  autocomplete_oxygen?: boolean;
-  autocomplete_oxygen6?: boolean;
-  autocomplete_elementor?: boolean;
-  dequeue_styles_gutenberg?: boolean;
-  dequeue_styles_bricks?: boolean;
-  dequeue_styles_oxygen?: boolean;
-  register_wizzard_data_in_fse?: boolean;
-  disable_dev_mode?: boolean;
-  inline_compiled_css?: boolean;
-  css_preprocessor?: "css" | "scss";
-  folded_sidebar?: boolean;
-  scan_file_formats?: string[];
-  scan_path?: string | string[];
-}
-
-interface NavProps {
-  /** Function to save content */
-  onSave: () => Promise<void>;
-  /** Reference to JS content */
-  jsContentRef: React.MutableRefObject<string>;
-  /** Reference to SCSS content */
-  scssContentRef: React.MutableRefObject<string>;
-  /** Current JS content */
-  jsContent: string;
-  /** Current SCSS content */
-  scssContent: string;
-  /** Dark mode state */
-  darkMode: boolean;
-  /** Function to toggle dark mode */
-  setDarkMode: React.Dispatch<React.SetStateAction<boolean>>;
-  /** Reference to wizzard content */
-  wizzardContentRef: React.MutableRefObject<WizzardState | null>;
-  /** Current wizzard content */
-  wizzardContent: WizzardState | null;
-  /** Function to update license state */
-  setLicenseState: React.Dispatch<React.SetStateAction<boolean>>;
-  /** Application settings */
-  settings: Settings;
-  /** Function to update settings */
-  setSettings: React.Dispatch<React.SetStateAction<Settings>>;
-  /** Loading state */
-  isDataLoading: boolean;
-  /** Whether pro folder exists */
-  isProVersion: boolean;
-}
-
 /**
  * Navigation component with save, cache status, and settings
  * Handles dark mode, license management, and plugin configuration
+ * Now uses EditorContext for shared state instead of props drilling
  */
-const Nav: React.FC<NavProps> = ({
-  onSave,
-  jsContentRef,
-  scssContentRef,
-  jsContent,
-  scssContent,
-  darkMode,
-  setDarkMode,
-  wizzardContentRef,
-  wizzardContent,
-  setLicenseState,
-  settings,
-  setSettings,
-  isDataLoading,
-  isProVersion,
-}) => {
+const Nav: React.FC = () => {
+  // Get shared state from EditorContext
+  const {
+    jsContent,
+    scssContent,
+    jsContentRef,
+    scssContentRef,
+    wizzardContentRef,
+    settings,
+    setSettings,
+    darkMode,
+    setDarkMode,
+    setLicenseState,
+    isDataLoading,
+    isProVersion,
+  } = useEditorContext();
+
+  // Get wizzard content from WizzardContext
+  const { localWizzardState } = useContext(WizzardContext)!;
+
   const [isOpen, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [scriptLoaded, setScriptLoaded] = useState(false);
   const [cacheInProgress, setCacheInProgress] = useState(false);
   const [cacheStatus, setCacheStatus] = useState<CacheStatus | null>(null);
   const [isSettingsOpen, setSettingsOpen] = useState(false);
-  const [fileFormats, setFileFormats] = useState<string[]>([]);
   const [licenseProcessing, setLicenseProcessing] = useState(false);
   const [licenseError, setLicenseError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchSettings(setSettings, false, (_settings) => {
+    const controller = new AbortController();
+
+    fetchSettings(setSettings, false, () => {
       if (!document.getElementById("compile-in-browser")) {
         const script = document.createElement("script");
         script.id = "compile-in-browser";
         const randomString = Math.random().toString(36).substring(2, 15);
         // Tailwind CSS compiler
-        script.src = `${(window as any).pluginUrl}build/compiler/tailwindcss-compiler.js?v=${randomString}`;
+        script.src = `${window.pluginUrl}build/compiler/tailwindcss-compiler.js?v=${randomString}`;
         script.async = true;
         script.onload = () => setScriptLoaded(true);
         document.body.appendChild(script);
       } else {
         setScriptLoaded(true);
       }
-    });
+    }, controller.signal);
 
     // Check for dark mode preference in local storage
     const isDarkMode = localStorage.getItem("darkMode") === "true";
@@ -133,7 +93,7 @@ const Nav: React.FC<NavProps> = ({
     }
 
     // Fetch cache status and check if auto-fix cleared corrupted cache
-    fetchCacheStatus(setCacheStatus)
+    fetchCacheStatus(setCacheStatus, controller.signal)
       .then((statusData) => {
         if (statusData?.auto_fixed) {
           // Auto-fix cleared corrupted cache, trigger recompilation
@@ -141,16 +101,24 @@ const Nav: React.FC<NavProps> = ({
         }
       })
       .catch((error) => {
-        console.error('[Nav] Auto-fix check failed:', error);
+        if (error?.name !== 'AbortError') {
+          console.error('[Nav] Auto-fix check failed:', error);
+        }
       });
+
+    return () => controller.abort();
   }, [setDarkMode, setSettings]);
 
   // Refetch cache status when the page becomes visible again
   useEffect(() => {
+    let currentController: AbortController | null = null;
+
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
-        // Refetch cache status when user comes back to the page
-        fetchCacheStatus(setCacheStatus);
+        // Abort any pending request before starting a new one
+        currentController?.abort();
+        currentController = new AbortController();
+        fetchCacheStatus(setCacheStatus, currentController.signal);
       }
     };
 
@@ -158,11 +126,15 @@ const Nav: React.FC<NavProps> = ({
 
     // Also listen for window focus as a fallback
     const handleFocus = () => {
-      fetchCacheStatus(setCacheStatus);
+      // Abort any pending request before starting a new one
+      currentController?.abort();
+      currentController = new AbortController();
+      fetchCacheStatus(setCacheStatus, currentController.signal);
     };
     window.addEventListener('focus', handleFocus);
 
     return () => {
+      currentController?.abort();
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('focus', handleFocus);
     };
@@ -183,16 +155,19 @@ const Nav: React.FC<NavProps> = ({
     }
   }, [scriptLoaded]);
 
-  const openModal = () => {
+  const openModal = useCallback(() => {
     if (cacheStatus?.status && !cacheInProgress) {
       setOpen(true);
     }
-  };
-  const closeModal = () => setOpen(false);
+  }, [cacheStatus?.status, cacheInProgress]);
 
-  const handleSaveAndFetchClasses = async (newSettings: Settings | null = null) => {
+  const onSave = useCallback(async () => {
+    await handleSave(jsContentRef, scssContentRef, wizzardContentRef, settings);
+  }, [jsContentRef, scssContentRef, wizzardContentRef, settings]);
+
+  const handleSaveAndFetchClasses = useCallback(async () => {
     setLoading(true);
-    await onSave();
+    await handleSave(jsContentRef, scssContentRef, wizzardContentRef, settings);
     setLoading(false);
     // Always use v4
     fetchClasses(setCacheInProgress, (classes) =>
@@ -205,12 +180,12 @@ const Nav: React.FC<NavProps> = ({
         fetchCacheStatus,
         setCacheStatus,
         wizzardContentRef,
-        wizzardContent,
+        localWizzardState,
         settings?.css_preprocessor || "css",
         "v4"
       )
     );
-  };
+  }, [jsContentRef, scssContentRef, wizzardContentRef, settings, scriptLoaded, scssContent, jsContent, localWizzardState]);
 
   useSaveShortcut(
     handleSaveAndFetchClasses,
@@ -220,7 +195,7 @@ const Nav: React.FC<NavProps> = ({
     isDataLoading
   );
 
-  const toggleDarkMode = () => {
+  const toggleDarkMode = useCallback(() => {
     const newDarkMode = !darkMode;
     setDarkMode(newDarkMode);
     if (newDarkMode) {
@@ -229,23 +204,24 @@ const Nav: React.FC<NavProps> = ({
       document.documentElement.classList.remove("dark");
     }
     localStorage.setItem("darkMode", String(newDarkMode));
-  };
+  }, [darkMode, setDarkMode]);
 
-  const toggleSettingsModal = () => setSettingsOpen(!isSettingsOpen);
+  const toggleSettingsModal = useCallback(() => setSettingsOpen(prev => !prev), []);
 
-  const handleChange = (settingName: keyof Settings) => (value: any) => {
-    const newSettings = { ...settings, [settingName]: value };
-    setSettings(newSettings);
-    saveSettings(newSettings);
+  const handleChange = useCallback((settingName: keyof Settings) => (value: any) => {
+    // Use functional update to avoid stale closure when multiple settings change at once
+    setSettings(prev => {
+      const newSettings = { ...prev, [settingName]: value };
+      saveSettings(newSettings);
+      return newSettings;
+    });
+  }, [setSettings]);
 
-    // Note: tailwind_version is always v4 now, no config refresh needed
-  };
-
-  async function dectivateLicense() {
+  async function deactivateLicense() {
     setLicenseProcessing(true);
     setLicenseError(null);
     const response = await fetch(
-      `${(window as any).ajaxUrl}?action=update_license`,
+      `${window.ajaxUrl}?action=update_license`,
       {
         method: "POST",
         headers: {
@@ -253,7 +229,7 @@ const Nav: React.FC<NavProps> = ({
         },
         body: JSON.stringify({
           action: "deactivate",
-          _nonce: (window as any).nonce,
+          _nonce: window.nonce,
         }),
       }
     );
@@ -262,7 +238,7 @@ const Nav: React.FC<NavProps> = ({
     if (result.success) {
       setLicenseState(false);
     } else {
-      console.error("Error dectivating license:", result.data);
+      console.error("Error deactivating license:", result.data);
       setLicenseError(result.data);
     }
     setLicenseProcessing(false);
@@ -324,7 +300,7 @@ const Nav: React.FC<NavProps> = ({
             </DialogDescription>
           </DialogHeader>
           {cacheStatus?.status === "completed" ? (
-            <a href={`${(window as any).uploadUrl}/winden/output.css?t=${Date.now()}`} target="_blank">
+            <a href={`${window.uploadUrl}/winden/output.css?t=${Date.now()}`} target="_blank">
               View cache ↗
             </a>
           ) : null}
@@ -392,7 +368,7 @@ const Nav: React.FC<NavProps> = ({
         onSettingChange={handleChange}
         licenseProcessing={licenseProcessing}
         licenseError={licenseError}
-        onDeactivateLicense={dectivateLicense}
+        onDeactivateLicense={deactivateLicense}
         isProVersion={isProVersion}
       />
     </>

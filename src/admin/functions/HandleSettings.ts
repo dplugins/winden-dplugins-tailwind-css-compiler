@@ -1,3 +1,5 @@
+import '@/types/global.d.ts';
+
 /**
  * Handle saving settings with state update
  * @param newSettings - New settings to save
@@ -8,12 +10,12 @@ export const handleSaveSettings = async (
   setSettings: (settings: Record<string, any>) => void
 ): Promise<void> => {
   setSettings(newSettings); // Update local state
-  const response = await fetch(`${(window as any).ajaxUrl}?action=winden_save_settings`, {
+  const response = await fetch(`${window.ajaxUrl}?action=winden_save_settings`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ ...newSettings, '_nonce': (window as any).nonce }),
+    body: JSON.stringify({ ...newSettings, '_nonce': window.nonce }),
   });
   const data = await response.json();
   if (data.success) {

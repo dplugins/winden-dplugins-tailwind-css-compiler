@@ -1,9 +1,7 @@
 const esbuild = require('esbuild');
-const { sassPlugin } = require('esbuild-sass-plugin');
-const postcss = require('postcss');
-const tailwindcss = require('@tailwindcss/postcss');
 const fs = require('fs');
 const path = require('path');
+const { createSassPlugin } = require('./esbuild.plugins');
 
 // Track dependencies globally per build
 const dependencyTrackers = new Map();
@@ -68,16 +66,8 @@ const createWordPressExternalsPlugin = (trackerId) => ({
   },
 });
 
-// Shared Sass plugin
-const sharedSassPlugin = sassPlugin({
-  loadPaths: ['./src'],
-  async transform(source, resolveDir, filePath) {
-    const { css } = await postcss([tailwindcss()]).process(source, {
-      from: filePath,
-    });
-    return css;
-  },
-});
+// Shared Sass plugin from centralized config
+const sharedSassPlugin = createSassPlugin(['./src']);
 
 // Base options shared by all builds
 const createBuildOptions = (entryPoint, useBundledReact = false, trackerId = '', outputDir = 'build/') => {
@@ -91,6 +81,9 @@ const createBuildOptions = (entryPoint, useBundledReact = false, trackerId = '',
     outfile = entryPoint.replace('./src/', './build/');
   }
 
+  // Ensure .ts files output as .js
+  outfile = outfile.replace(/\.ts$/, '.js');
+
   return {
     entryPoints: [entryPoint],
     bundle: true,
@@ -101,6 +94,8 @@ const createBuildOptions = (entryPoint, useBundledReact = false, trackerId = '',
     loader: {
       '.js': 'jsx',
       '.jsx': 'jsx',
+      '.ts': 'ts',
+      '.tsx': 'tsx',
       '.css': 'css',
       '.scss': 'css',
     },
@@ -121,11 +116,17 @@ const createBuildOptions = (entryPoint, useBundledReact = false, trackerId = '',
 const freeIntegrations = [
   { path: './src/plain-classes/gutenberg/index.js', bundleReact: false },
   { path: './src/plain-classes/winauto-component/index.js', bundleReact: false },
+  // Tailwind Autocomplete - core library and builder integrations
+  { path: './src/tailwind-autocomplete/core/index.ts', bundleReact: true },  // Standalone autocomplete library
+  { path: './src/tailwind-autocomplete/core/ui.ts', bundleReact: false },    // Reusable classes UI component
+  { path: './src/tailwind-autocomplete/gutenberg/index.js', bundleReact: false },
+  { path: './src/tailwind-autocomplete/oxygen/index.js', bundleReact: false },
 ];
 
 // Pro integrations (require license) - only include if pro folder exists
 const proIntegrations = [
   { path: './pro/src/plain-classes/bricks/index.js', bundleReact: false },
+  { path: './pro/src/plain-classes/bricks-winden/index.js', bundleReact: true }, // Winden Classes for Bricks
   { path: './pro/src/plain-classes/elementor/index.js', bundleReact: false },
   { path: './pro/src/plain-classes/oxygen/index.js', bundleReact: false },
   { path: './pro/src/plain-classes/oxygen6/index.js', bundleReact: false },
@@ -157,13 +158,14 @@ function generateAssetFile(outputPath, dependencies = []) {
   fs.writeFileSync(assetFile, assetContent);
 }
 
-// Build all integrations
+// Build all integrations in parallel
 async function build() {
   try {
     console.log('🔨 Building autocomplete scripts...');
-    console.log(`   Building ${integrations.length} integrations separately...\n`);
+    console.log(`   Building ${integrations.length} integrations in parallel...\n`);
 
-    for (const integration of integrations) {
+    // Build all integrations concurrently
+    const buildPromises = integrations.map(async (integration) => {
       const name = path.basename(path.dirname(integration.path));
       const strategy = integration.bundleReact ? 'React bundled' : 'WordPress externals';
       const trackerId = `build-${name}`;
@@ -182,7 +184,11 @@ async function build() {
           generateAssetFile(outputFile, deps);
         }
       }
-    }
+
+      return { name, success: true };
+    });
+
+    await Promise.all(buildPromises);
 
     console.log('\n✅ Autocomplete build completed successfully');
   } catch (error) {

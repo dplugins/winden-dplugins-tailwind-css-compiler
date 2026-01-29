@@ -3,6 +3,7 @@ if ( ! defined( 'ABSPATH' ) ) exit; // Exit if accessed directly
 
 use Winden\App\Helpers\Sanitization;
 use Winden\App\Helpers\SettingsOptions;
+use Winden\App\Helpers\AjaxHelper;
 
 class SettingsSaveGet
 {
@@ -14,6 +15,12 @@ class SettingsSaveGet
         'autocomplete_oxygen',
         'autocomplete_oxygen6',
         'autocomplete_elementor',
+
+        'winden_classes_gutenberg',
+        'winden_classes_bricks',
+        'winden_classes_oxygen',
+
+        'autocomplete_mode',
 
         'dequeue_styles_gutenberg',
         'dequeue_styles_bricks',
@@ -46,20 +53,13 @@ class SettingsSaveGet
 
     public function save_winden_settings()
     {
-        // Get the JSON data from the request
-        $data = json_decode(file_get_contents('php://input'), true);
-
-        // Validate JSON structure
-        if (!is_array($data)) {
-            wp_send_json_error('Invalid JSON data received.');
+        // Validate request (JSON input, capability, nonce)
+        $request = AjaxHelper::validateRequest('manage_options');
+        if (!$request['success']) {
+            AjaxHelper::sendError($request['error']);
             return;
         }
-
-        // Check for the necessary permissions and nonce verification if required
-        if (!current_user_can('manage_options') || !wp_verify_nonce(sanitize_text_field(wp_unslash($data['_nonce'] ?? '')), 'winden_nonce')) {
-            wp_send_json_error('You are not allowed to perform this action.');
-            return;
-        }
+        $data = $request['data'];
 
         // Filter the data to only include keys that are in the $keys array
         $filtered_data = array_intersect_key($data, array_flip($this->keys));

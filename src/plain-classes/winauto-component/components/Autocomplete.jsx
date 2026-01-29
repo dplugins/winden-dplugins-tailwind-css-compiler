@@ -50,6 +50,7 @@ export const Autocomplete = ({
   const [tempTags, setTempTags] = useState(null);
   const [isPreviewMode, setIsPreviewMode] = useState(false);
   const [lastPreviewClass, setLastPreviewClass] = useState(null);
+  const [isKeyboardNavigation, setIsKeyboardNavigation] = useState(false);
 
   const getMatchingScreenKey = (str = autocompleteKey) => {
     const matchedKey = screens.find((key) => str.startsWith(`${key}:`));
@@ -313,6 +314,9 @@ export const Autocomplete = ({
 
   // Handle suggestion hover for preview
   const handleSuggestionHover = (suggestion) => {
+    if (isKeyboardNavigation) {
+      return;
+    }
     setHoveredSuggestion(suggestion);
     
     let tempTagsToApply = null;
@@ -339,6 +343,9 @@ export const Autocomplete = ({
   };
 
   const handleSuggestionLeave = () => {
+    if (isKeyboardNavigation) {
+      return;
+    }
     setHoveredSuggestion(null);
     
     // Restore original tags when leaving hover
@@ -433,6 +440,22 @@ export const Autocomplete = ({
     applyPreviewStyles
   });
 
+  const handleKeyDownWithMode = (e) => {
+    if (showSuggestions && (e.key === "ArrowDown" || e.key === "ArrowUp")) {
+      if (!isKeyboardNavigation) {
+        setIsKeyboardNavigation(true);
+      }
+      if (hoveredSuggestion) {
+        setHoveredSuggestion(null);
+      }
+      if (tempTags) {
+        setTempTags(null);
+        setIsPreviewMode(false);
+      }
+    }
+    handleKeyDown(e);
+  };
+
   return (
     <div
       className={`relative w-full max-w-[100%] ${isDragTarget ? 'drag-target' : ''}`}
@@ -483,7 +506,7 @@ export const Autocomplete = ({
                   autocompleteKey={autocompleteKey}
                   onRemove={removeTag}
                   onInput={handleInput}
-                  onKeyDown={handleKeyDown}
+                  onKeyDown={handleKeyDownWithMode}
                   onFocus={() => setFocusedTagIndex(-1)}
                   onBlur={() => setFocusedTagIndex(-1)}
                   isDark={isDark}
@@ -510,8 +533,8 @@ export const Autocomplete = ({
                 onEdit={handleTagClick}
                 autocompleteKey={autocompleteKey}
                 onRemove={removeTag}
-                onInput={handleInput}
-                onKeyDown={handleKeyDown}
+                  onInput={handleInput}
+                  onKeyDown={handleKeyDownWithMode}
                 onFocus={() => setFocusedTagIndex(-1)}
                 onBlur={() => setFocusedTagIndex(-1)}
                 isDark={isDark}
@@ -541,7 +564,7 @@ export const Autocomplete = ({
               if (autocompleteKeys.includes(e.key) || e.key === ' ' || e.key === ',') {
                 e.stopPropagation();
               }
-              handleKeyDown(e);
+              handleKeyDownWithMode(e);
             }}
             role="textbox"
             aria-label="Search for Tailwind classes"
@@ -564,6 +587,12 @@ export const Autocomplete = ({
             inputValue={inputValue}
             onSuggestionHover={handleSuggestionHover}
             onSuggestionLeave={handleSuggestionLeave}
+            onListMouseMove={() => {
+              if (isKeyboardNavigation) {
+                setIsKeyboardNavigation(false);
+              }
+            }}
+            isKeyboardNavigation={isKeyboardNavigation}
           />
         </div>
       )}

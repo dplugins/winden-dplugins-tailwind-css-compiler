@@ -3,14 +3,27 @@ if ( ! defined( 'ABSPATH' ) ) exit; // Exit if accessed directly
 
 use Winden\App\Helpers\SettingsOptions;
 use Winden\App\Helpers\Builders;
-use Winden\App\Assets\Providers\ProvidersHelpers;
+use Winden\App\Helpers\DataConverter;
 
 /**
  * AutoCompile - Automatically crawl classes and flag for recompilation when posts are saved
  *
- * This class hooks into WordPress save_post action and crawls Tailwind classes.
- * Since Winden's compiler only runs in page builder editors, this sets a flag
- * that will trigger recompilation the next time an admin visits a builder.
+ * ARCHITECTURE NOTE:
+ * This class handles ONLY the compile-on-save functionality:
+ * - Post save hooks (crawling classes)
+ * - AJAX endpoints for compilation
+ * - The compile-trigger.js script that listens for saves
+ *
+ * Script loading for compiler/watcher is handled by individual providers:
+ * - FSE.php → Gutenberg (parent + iframe)
+ * - Bricks.php → Bricks builder
+ * - Oxygen.php → Oxygen builder
+ * - etc.
+ *
+ * This separation ensures:
+ * - Clear ownership of script loading per builder
+ * - No duplicate script loading
+ * - Easier maintenance and debugging
  */
 class AutoCompile
 {
@@ -33,10 +46,11 @@ class AutoCompile
         add_action('wp_ajax_winden_get_compile_status', [$this, 'ajax_get_compile_status']);
         add_action('wp_ajax_winden_clear_recompile_flag', [$this, 'ajax_clear_recompile_flag']);
 
-        // Load auto-compile script in all post editor contexts (Gutenberg, Bricks, Oxygen, Elementor)
-        add_action('enqueue_block_editor_assets', [$this, 'enqueue_auto_compile_script']); // Gutenberg
-        add_action('admin_enqueue_scripts', [$this, 'enqueue_auto_compile_script']); // Classic editor & other builders
-        add_action('wp_enqueue_scripts', [$this, 'enqueue_auto_compile_script'], 99999999); // Frontend builders (Bricks 2)
+        // Load compile-trigger script (listens for saves and triggers compilation)
+        // NOTE: Compiler/watcher scripts are loaded by individual providers (FSE, Bricks, etc.)
+        add_action('enqueue_block_editor_assets', [$this, 'enqueue_compile_trigger']); // Gutenberg
+        add_action('admin_enqueue_scripts', [$this, 'enqueue_compile_trigger']); // Admin builders
+        add_action('wp_enqueue_scripts', [$this, 'enqueue_compile_trigger'], 99999999); // Frontend builders
     }
 
     /**
@@ -132,17 +146,7 @@ class AutoCompile
                 $classes = ClassCrawler::crawlSinglePost($post_id);
 
                 // Merge with existing global class list to prevent shrinking output.css
-                $existing_classes = get_option('winden_crawled_classes', []);
-                if (!is_array($existing_classes)) {
-                    if (is_string($existing_classes)) {
-                        $unserialized = @unserialize($existing_classes);
-                        $existing_classes = is_array($unserialized) ? $unserialized : [$existing_classes];
-                    } else if (is_object($existing_classes)) {
-                        $existing_classes = (array) $existing_classes;
-                    } else {
-                        $existing_classes = [];
-                    }
-                }
+                $existing_classes = DataConverter::getOptionAsArray('winden_crawled_classes');
 
                 if (!empty($existing_classes)) {
                     $classes = array_values(array_unique(array_merge($existing_classes, $classes)));
@@ -236,28 +240,9 @@ class AutoCompile
             return;
         }
 
-        // Get crawled classes
-        $classes = get_option('winden_crawled_classes', []);
-
-        // Ensure classes is always an array
-        if (!is_array($classes)) {
-            if (is_string($classes)) {
-                // Try to unserialize if it's a serialized string
-                $unserialized = @unserialize($classes);
-                $classes = is_array($unserialized) ? $unserialized : [$classes];
-            } else if (is_object($classes)) {
-                $classes = (array) $classes;
-            } else {
-                $classes = [];
-            }
-        }
-
-        // Ensure we have unique values, re-index, and filter to only strings
-        $classes = array_values(array_unique($classes));
-        $classes = array_filter($classes, function($class) {
-            return is_string($class) && !empty(trim($class));
-        });
-        $classes = array_values($classes); // Re-index after filter
+        // Get crawled classes with safe unserialization and normalization
+        $classes = DataConverter::getOptionAsArray('winden_crawled_classes');
+        $classes = DataConverter::normalizeClasses($classes);
 
         // Return classes and config to browser for compilation
         // Even with empty classes, we still need to compile (for @apply directives, custom components, etc.)
@@ -333,60 +318,51 @@ class AutoCompile
     }
 
     /**
-     * Enqueue auto-compile script in all editor contexts
+     * Enqueue compile-trigger script in editor contexts
+     *
+     * This method ONLY loads the compile-trigger.js and its dependencies.
+     * The compiler and watcher scripts are loaded by individual providers:
+     * - FSE.php for Gutenberg
+     * - Bricks.php for Bricks
+     * - etc.
+     *
+     * @param string|null $hook The current admin page hook (from admin_enqueue_scripts)
      */
-    public function enqueue_auto_compile_script($hook = null)
+    public function enqueue_compile_trigger($hook = null)
     {
         // Check if dev mode is disabled
         $settings = SettingsOptions::getWindenOptions();
         $dev_mode_disabled = $settings['disable_dev_mode'] ?? false;
 
-        // Don't load compiler scripts if dev mode is disabled
         if ($dev_mode_disabled) {
             return;
         }
 
-        // Check if we're in a page builder using the Builders helper
+        // Detect editor context using Builders helper
         $is_bricks = Builders::isBricksEditorPage();
         $is_oxygen = Builders::isOxygenEditorPage();
         $is_oxygen6 = Builders::isOxygen6EditorPage();
-        // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only check for Elementor editor detection, no data processing
-        $is_elementor = isset($_GET['action']) && sanitize_text_field(wp_unslash($_GET['action'])) === 'elementor';
+        $is_elementor = Builders::isElementorEditorPage();
         $is_fancoolo = Builders::isFancooloEditorPage();
+        $is_gutenberg = Builders::isGutenbergEditor() || Builders::isGutenbergEditorContext();
         $is_builder = $is_bricks || $is_oxygen || $is_oxygen6 || $is_elementor || $is_fancoolo;
+        $is_valid_context = $is_builder || $is_gutenberg || $is_fancoolo;
 
         // Don't load on frontend unless it's a builder editor
         if (!is_admin() && !$is_builder) {
             return;
         }
 
-        // Only load on post edit screens OR in page builders OR Fancoolo admin page
-        if ($hook && !in_array($hook, ['post.php', 'post-new.php', 'toplevel_page_fancoolo-app']) && !$is_builder) {
+        // For admin_enqueue_scripts, only load in valid editor contexts
+        $is_admin_enqueue_scripts = !empty($hook);
+        if ($is_admin_enqueue_scripts && !$is_valid_context && $hook !== 'toplevel_page_fancoolo-app') {
             return;
         }
 
-        // Load the browser-based Tailwind compiler
-        wp_enqueue_script(
-            'winden-compiler-module',
-            WINDTACS_PLUGIN_URL . 'build/compiler/tailwindcss-compiler.js',
-            [],
-            filemtime(WINDTACS_PLUGIN_DIR . 'build/compiler/tailwindcss-compiler.js'),
-            true
-        );
-
-        // Protect other AMD loaders (e.g., Monaco) from being used by the compiler bundle
-        wp_add_inline_script(
-            'winden-compiler-module',
-            "window.__winden_prev_process=typeof window.process==='undefined'?null:window.process;window.__winden_amd_require=(typeof require==='function'&&require.toUrl)?require:null;window.__winden_amd_define=(typeof define==='function'&&define.amd)?define:null;if(window.__winden_prev_process!==null){window.process=undefined;}if(window.__winden_amd_require){window.require=undefined;}if(window.__winden_amd_define){window.define=undefined;}",
-            'before'
-        );
-
-        // Restore any previously registered AMD loader after the compiler is loaded
-        wp_add_inline_script(
-            'winden-compiler-module',
-            "if(window.__winden_amd_define){window.define=window.__winden_amd_define;delete window.__winden_amd_define;}if(window.__winden_amd_require){window.require=window.__winden_amd_require;delete window.__winden_amd_require;}if(window.__winden_prev_process!==null){window.process=window.__winden_prev_process;if(typeof window.process==='object'&&typeof window.process.env==='undefined'){window.process.env={};}}else if(typeof window.process==='object'){if(typeof window.process.env==='undefined'){window.process.env={};}}else{delete window.process;}delete window.__winden_prev_process;",
-            'after'
-        );
+        // For Gutenberg, only load from enqueue_block_editor_assets hook
+        if ($is_gutenberg && $is_admin_enqueue_scripts) {
+            return;
+        }
 
         // Enqueue CSS injector (no dependencies - pure injection logic)
         wp_enqueue_script(
@@ -397,30 +373,8 @@ class AutoCompile
             true
         );
 
-        // Add global variables needed by tailwindcss-watcher.js
-        $compiler_options = ProvidersHelpers::get_compiler_options('');
-        $inline_config = sprintf(
-            'window.uploadUrl = %s; window.ajaxurl = %s; window.tailwind_compiler_options = %s;',
-            wp_json_encode(WINDTACS_UPLOADS_URL['baseurl']),
-            wp_json_encode(admin_url('admin-ajax.php')),
-            wp_json_encode($compiler_options)
-        );
-        wp_add_inline_script('winden-compiler-module', $inline_config, 'after');
-
-        // Load the Tailwind watcher ONLY for non-Fancoolo contexts
-        // Fancoolo has its own preview iframe where the watcher should run,
-        // not in the main admin page (which would break the WP admin UI)
-        if (!$is_fancoolo) {
-            wp_enqueue_script(
-                'winden-tailwind-watcher',
-                WINDTACS_PLUGIN_URL . 'assets/tailwindcss-watcher.js',
-                ['winden-compiler-module'],
-                filemtime(WINDTACS_PLUGIN_DIR . 'assets/tailwindcss-watcher.js'),
-                true
-            );
-        }
-
-        // Enqueue compiler core module (shared logic for compile-trigger and post-save-compile)
+        // Enqueue compiler core module (shared logic for compile-trigger)
+        // NOTE: This depends on 'winden-compiler-module' which is loaded by providers
         wp_enqueue_script(
             'winden-compiler-core',
             WINDTACS_PLUGIN_URL . 'assets/winden-compiler-core.js',
@@ -429,10 +383,10 @@ class AutoCompile
             true
         );
 
-        // Enqueue compile trigger script that listens for post save
+        // Build dependencies for compile-trigger
         $dependencies = ['winden-compiler-core', 'winden-css-injector', 'jquery'];
 
-        // Add Gutenberg dependencies if available
+        // Add Gutenberg dependencies if in block editor
         if (function_exists('get_current_screen')) {
             $screen = get_current_screen();
             if ($screen && $screen->is_block_editor()) {
@@ -441,6 +395,7 @@ class AutoCompile
             }
         }
 
+        // Enqueue compile trigger script that listens for post save
         wp_enqueue_script(
             'winden-compile-trigger',
             WINDTACS_PLUGIN_URL . 'assets/compile-trigger.js',
@@ -449,6 +404,7 @@ class AutoCompile
             true
         );
 
+        // Localize script with compile status and AJAX config
         wp_localize_script('winden-compile-trigger', 'windenAutoCompile', [
             'needsCompile' => get_option('winden_needs_recompile', false),
             'clearCache' => get_option('winden_dplugins_clear_cache_flag', false),

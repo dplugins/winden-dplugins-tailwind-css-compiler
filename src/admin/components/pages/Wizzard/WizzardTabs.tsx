@@ -5,7 +5,7 @@
  * Tabs are dynamically shown/hidden based on feature activation flags.
  */
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import * as Tabs from "@radix-ui/react-tabs";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@el/Tooltip";
 
@@ -91,12 +91,20 @@ export function generateTabConfig(state: WizzardState | null): TabConfig[] {
  * @param props - Component props
  * @returns Rendered tab navigation
  */
-export const WizzardTabs: React.FC<WizzardTabsProps> = ({
+export const WizzardTabs: React.FC<WizzardTabsProps> = React.memo(({
   wizzardState,
   activeTab,
   onTabChange,
 }) => {
-  const tabConfig = generateTabConfig(wizzardState);
+  // Memoize tab config to avoid recreating on every render
+  const tabConfig = useMemo(() => generateTabConfig(wizzardState), [
+    wizzardState?.colorsActive,
+    wizzardState?.fontSizesActive,
+    wizzardState?.fontFamilyActive,
+    wizzardState?.spacesActive,
+    wizzardState?.borderRadiusActive,
+    wizzardState?.breakpointsActive,
+  ]);
 
   return (
     <Tabs.List className="mb-4 flex flex-col gap-2 rounded-sm">
@@ -123,6 +131,9 @@ export const WizzardTabs: React.FC<WizzardTabsProps> = ({
       })}
     </Tabs.List>
   );
-};
+});
+
+// Display name for React DevTools
+WizzardTabs.displayName = 'WizzardTabs';
 
 export default WizzardTabs;

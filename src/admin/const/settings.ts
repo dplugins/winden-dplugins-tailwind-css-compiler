@@ -8,6 +8,12 @@ export const initialSettings = {
   autocomplete_oxygen: false,
   autocomplete_oxygen6: false,
   autocomplete_elementor: false,
+  // Winden Classes autocomplete
+  winden_classes_gutenberg: false,
+  winden_classes_bricks: false,
+  winden_classes_oxygen: false,
+  // Autocomplete mode (which tab is selected)
+  autocomplete_mode: 'plain-classes' as 'plain-classes' | 'winden-classes',
   dequeue_styles_gutenberg: false,
   dequeue_styles_bricks: false,
   dequeue_styles_oxygen: false,

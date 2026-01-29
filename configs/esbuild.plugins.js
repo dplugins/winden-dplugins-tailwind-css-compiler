@@ -1,5 +1,26 @@
 const path = require('path');
 const fs = require('fs');
+const { sassPlugin } = require('esbuild-sass-plugin');
+const postcss = require('postcss');
+const tailwindcss = require('@tailwindcss/postcss');
+
+/**
+ * Create a Sass plugin with PostCSS/Tailwind processing
+ * Shared between admin and autocomplete builds
+ *
+ * @param {string[]} loadPaths - Array of paths to resolve imports from
+ * @returns {object} esbuild Sass plugin
+ */
+const createSassPlugin = (loadPaths = ['./src']) =>
+  sassPlugin({
+    loadPaths,
+    async transform(source, resolveDir, filePath) {
+      const { css } = await postcss([tailwindcss()]).process(source, {
+        from: filePath,
+      });
+      return css;
+    },
+  });
 
 // Custom plugin to handle SVG imports as React components
 const svgPlugin = {
@@ -184,6 +205,7 @@ const monacoCdnRemoverPlugin = {
 };
 
 module.exports = {
+  createSassPlugin,
   svgPlugin,
   aliasPlugin,
   monacoPlugin,

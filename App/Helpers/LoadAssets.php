@@ -10,6 +10,42 @@ class LoadAssets
     private static $inlineScriptsLoaded = false;
     private static $inlineCSSLoaded = false;
 
+    /**
+     * Get cached filemtime() result to avoid I/O on every page load
+     *
+     * @param string $file_path Absolute path to the file
+     * @param string $cache_key Unique key for this file's cache
+     * @return int|false File modification time or false if file doesn't exist
+     */
+    private static function getCachedFilemtime($file_path, $cache_key)
+    {
+        // Check transient cache first
+        $cached_mtime = get_transient($cache_key);
+        if ($cached_mtime !== false) {
+            return (int) $cached_mtime;
+        }
+
+        // File doesn't exist
+        if (!file_exists($file_path)) {
+            return false;
+        }
+
+        // Get fresh filemtime and cache for 1 hour
+        $mtime = filemtime($file_path);
+        set_transient($cache_key, $mtime, HOUR_IN_SECONDS);
+
+        return $mtime;
+    }
+
+    /**
+     * Invalidate filemtime cache for compiled CSS (called after compilation)
+     * This ensures users see updated CSS immediately after saving
+     */
+    public static function invalidateCompiledCssCache()
+    {
+        delete_transient('winden_compiled_css_mtime');
+    }
+
     // ------------------------------------------------------------------------
     // Modify Script Loader Tag to add type="inline-module"
     // ------------------------------------------------------------------------
@@ -40,17 +76,20 @@ class LoadAssets
         self::$cdnScriptsLoaded = true;
 
         if (in_array('inlinemodule', $scripts)) {
+            $inline_module_path = WINDTACS_PLUGIN_DIR . 'assets/inline-module.js';
+            $inline_module_version = self::getCachedFilemtime($inline_module_path, 'winden_inline_module_mtime') ?: \WINDTACS_VERSION;
+
             wp_enqueue_script(
                 'inline-module-js',
                 WINDTACS_ASSETS_DIR . 'inline-module.js',
                 [],
-                filemtime(WINDTACS_PLUGIN_DIR . 'assets/inline-module.js'),
+                $inline_module_version,
                 true
             );
         }
         if (in_array('cachejs', $scripts)) {
             $compiler_path = WINDTACS_PLUGIN_DIR . 'build/compiler/tailwindcss-compiler.js';
-            $compiler_version = file_exists($compiler_path) ? filemtime($compiler_path) : \WINDTACS_VERSION;
+            $compiler_version = self::getCachedFilemtime($compiler_path, 'winden_compiler_mtime') ?: \WINDTACS_VERSION;
 
             wp_enqueue_script(
                 'cachejs',
@@ -150,8 +189,9 @@ class LoadAssets
         $css_file_path = $upload_dir['basedir'] . '/winden/output.css';
         $css_file_url = $upload_dir['baseurl'] . '/winden/output.css';
 
-        if (file_exists($css_file_path)) {
-            wp_enqueue_style('winden-compiled-css', $css_file_url, array(), filemtime($css_file_path));
+        $css_version = self::getCachedFilemtime($css_file_path, 'winden_compiled_css_mtime');
+        if ($css_version !== false) {
+            wp_enqueue_style('winden-compiled-css', $css_file_url, array(), $css_version);
 
             self::reorder_styles_queue();
         }

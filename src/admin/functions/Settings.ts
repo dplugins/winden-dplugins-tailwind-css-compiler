@@ -6,15 +6,17 @@ import { buildAjaxUrl } from '@/utils/ajaxUrl';
  * @param setSettings - State setter function
  * @param json - Whether to return data directly instead of calling setSettings
  * @param callback - Optional callback with settings data
+ * @param signal - Optional AbortSignal for cancellation
  * @returns Settings data if json=true, otherwise void
  */
 export const fetchSettings = async (
   setSettings: (settings: WindenSettings) => void,
   json: boolean = false,
-  callback: ((settings: WindenSettings) => void) | null = null
+  callback: ((settings: WindenSettings) => void) | null = null,
+  signal?: AbortSignal
 ): Promise<WindenSettings | void> => {
   try {
-    const response = await fetch(buildAjaxUrl('winden_get_settings'));
+    const response = await fetch(buildAjaxUrl('winden_get_settings'), { signal });
     const result: WordPressAjaxResponse<WindenSettings> = await response.json();
     if (result.success) {
       if (json) {
@@ -29,6 +31,10 @@ export const fetchSettings = async (
       console.error('Error fetching settings:', result.data);
     }
   } catch (error) {
+    // Silently ignore AbortError (expected on component unmount)
+    if (error instanceof Error && error.name === 'AbortError') {
+      return;
+    }
     console.error('Error fetching settings:', error);
   }
 };

@@ -1,3 +1,5 @@
+import '@/types/global.d.ts';
+
 /**
  * Decode HTML entities in a string
  * @param str - String with HTML entities
@@ -44,14 +46,14 @@ const safeParse = (data: string | any, key: string): Record<string, any> => {
 /**
  * Dynamic border radius from Full Site Editing (FSE) theme
  */
-export const dynamicBorderRadiusFSE = safeParse((window as any)?.fseThemeData, 'borderRadius');
+export const dynamicBorderRadiusFSE = safeParse(window.fseThemeData, 'borderRadius');
 
 /**
  * Dynamic border radius from Bricks builder theme
  */
-export const dynamicBorderRadiusBricks = safeParse((window as any)?.bricksThemeData, 'borderRadius');
+export const dynamicBorderRadiusBricks = safeParse(window.bricksThemeData, 'borderRadius');
 
 /**
  * Dynamic border radius from Oxygen builder theme
  */
-export const dynamicBorderRadiusOxygen = safeParse((window as any)?.oxygenThemeData, 'borderRadius');
+export const dynamicBorderRadiusOxygen = safeParse(window.oxygenThemeData, 'borderRadius');

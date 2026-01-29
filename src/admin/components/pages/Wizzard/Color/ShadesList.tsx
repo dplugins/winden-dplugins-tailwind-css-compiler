@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, memo } from "react";
 import tinycolor from "tinycolor2";
 import InputWithResetButton from "@el/InputWithResetButton";
 import { Checkbox } from "@el/Checkbox";
@@ -35,7 +35,7 @@ interface ShadesListProps {
  * @param shadesList - Array of shade objects
  * @param updateColorEntry - Callback to update color entry
  */
-const ShadesList: React.FC<ShadesListProps> = ({ entry, shadesList, updateColorEntry }) => {
+const ShadesList: React.FC<ShadesListProps> = memo(({ entry, shadesList, updateColorEntry }) => {
   // Add null checking to prevent map error
   const safeShadesList = shadesList || [];
 
@@ -105,10 +105,6 @@ const ShadesList: React.FC<ShadesListProps> = ({ entry, shadesList, updateColorE
     const newInputValues = safeShadesList.map(shade => getColorDisplayString(shade.hex, colorFormat));
     setInputValues(newInputValues);
   }, [entry.colorFormat, safeShadesList]);
-
-  // Debug effect to track localHexValues changes
-  useEffect(() => {
-  }, [inputValues]);
 
   /**
    * Handle input change for shade name
@@ -437,6 +433,9 @@ const ShadesList: React.FC<ShadesListProps> = ({ entry, shadesList, updateColorE
       })}
     </div>
   );
-};
+});
+
+// Display name for React DevTools
+ShadesList.displayName = 'ShadesList';
 
 export default ShadesList;

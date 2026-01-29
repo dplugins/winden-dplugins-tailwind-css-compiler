@@ -1,11 +1,8 @@
 const esbuild = require('esbuild');
-const { sassPlugin } = require('esbuild-sass-plugin');
-const postcss = require('postcss');
-const tailwindcss = require('@tailwindcss/postcss');
 const { copy } = require('esbuild-plugin-copy');
 const path = require('path');
 const fs = require('fs');
-const { svgPlugin, aliasPlugin, monacoPlugin, wordpressExternalsPlugin, monacoCdnRemoverPlugin } = require('./esbuild.plugins');
+const { createSassPlugin, svgPlugin, aliasPlugin, monacoPlugin, wordpressExternalsPlugin, monacoCdnRemoverPlugin } = require('./esbuild.plugins');
 
 // Build configuration for admin UI
 const buildOptions = {
@@ -40,15 +37,7 @@ const buildOptions = {
     svgPlugin,
     monacoPlugin,
     monacoCdnRemoverPlugin, // Remove CDN URLs for WordPress.org compliance
-    sassPlugin({
-      loadPaths: ['./src'],
-      async transform(source, resolveDir, filePath) {
-        const { css } = await postcss([tailwindcss()]).process(source, {
-          from: filePath,
-        });
-        return css;
-      },
-    }),
+    createSassPlugin(['./src']),
     copy({
       resolveFrom: 'cwd',
       assets: [

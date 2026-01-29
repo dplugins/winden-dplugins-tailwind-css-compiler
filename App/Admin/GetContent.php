@@ -2,6 +2,7 @@
 if ( ! defined( 'ABSPATH' ) ) exit; // Exit if accessed directly
 
 use Winden\App\Helpers\Sanitization;
+use Winden\App\Helpers\CacheValidator;
 
 class GetContent
 {
@@ -258,57 +259,15 @@ class GetContent
         $cache = get_option('winden_dplugins_cache');
 
         // AUTO-FIX: If cache contains OLD PostCSS syntax errors from plugin migration, clear it
-        // Do NOT clear legitimate SCSS compilation errors (those should be shown to user)
-        if ($cache && isset($cache['errors'])) {
-            $errors = is_string($cache['errors']) ? json_decode($cache['errors'], true) : $cache['errors'];
-
-            if (is_array($errors)) {
-                foreach ($errors as $error) {
-                    $message = isset($error['message']) ? $error['message'] : '';
-
-                    // Only auto-fix OLD PostCSS errors from plugin migration
-                    // Check for PostCSS-specific error messages that indicate corrupted cache
-                    // Do NOT auto-fix SCSS compilation errors (expected selector, etc.)
-                    $is_old_postcss_error = (
-                        stripos($message, 'postcss') !== false ||
-                        (stripos($message, 'Missed semicolon') !== false) ||
-                        (stripos($message, 'Unexpected }') !== false && stripos($message, 'scss') === false)
-                    );
-
-                    // Skip SCSS compilation errors - these are legitimate and should be shown
-                    $is_scss_error = (
-                        stripos($message, 'SCSS compilation failed') !== false ||
-                        stripos($message, 'expected selector') !== false ||
-                        stripos($message, 'Dart Sass') !== false
-                    );
-
-                    if ($is_old_postcss_error && !$is_scss_error) {
-                        if (defined('WP_DEBUG') && WP_DEBUG) {
-                            // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- Debug-only logging for cache corruption auto-fix
-                            error_log('[Winden Auto-Fix] Detected OLD corrupted cache on fetch, clearing: ' . $message);
-                        }
-
-                        // Clear corrupted cache
-                        delete_option('winden_dplugins_cache');
-
-                        // Delete output.css file if it exists
-                        $upload_dir = wp_upload_dir();
-                        $output_file = $upload_dir['basedir'] . '/winden/output.css';
-                        if (file_exists($output_file)) {
-                            wp_delete_file($output_file);
-                        }
-
-                        // Return success with null status to indicate cache was cleared
-                        // Frontend will see no valid cache and trigger fresh compilation
-                        wp_send_json_success([
-                            'status' => null,
-                            'auto_fixed' => true,
-                            'message' => 'Corrupted cache was automatically cleared'
-                        ]);
-                        wp_die();
-                    }
-                }
-            }
+        if (CacheValidator::validateAndFix($cache, 'fetch')) {
+            // Return success with null status to indicate cache was cleared
+            // Frontend will see no valid cache and trigger fresh compilation
+            wp_send_json_success([
+                'status' => null,
+                'auto_fixed' => true,
+                'message' => 'Corrupted cache was automatically cleared'
+            ]);
+            wp_die();
         }
 
         if ($cache) {

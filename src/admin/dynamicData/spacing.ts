@@ -1,3 +1,5 @@
+import '@/types/global.d.ts';
+
 /**
  * Decode HTML entities in a string
  * @param str - String with HTML entities
@@ -44,14 +46,14 @@ const safeParse = (data: string | any, key: string): Record<string, any> => {
 /**
  * Dynamic spacing from Full Site Editing (FSE) theme
  */
-export const dynamicSpacingFSE = safeParse((window as any)?.fseThemeData, 'spacing');
+export const dynamicSpacingFSE = safeParse(window.fseThemeData, 'spacing');
 
 /**
  * Dynamic spacing from Bricks builder theme
  */
-export const dynamicSpacingBricks = safeParse((window as any)?.bricksThemeData, 'spacing');
+export const dynamicSpacingBricks = safeParse(window.bricksThemeData, 'spacing');
 
 /**
  * Dynamic spacing from Oxygen builder theme
  */
-export const dynamicSpacingOxygen = safeParse((window as any)?.oxygenThemeData, 'spacing');
+export const dynamicSpacingOxygen = safeParse(window.oxygenThemeData, 'spacing');

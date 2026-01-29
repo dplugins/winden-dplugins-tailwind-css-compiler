@@ -4,6 +4,7 @@
 
 import { mapErrorToTab, extractLineNumber, type TabLineMapping } from '@/types/errorMapping';
 import type { StyleTab } from '@/types/styleTabs';
+import '@/types/global.d.ts';
 
 export interface EnhancedError {
     title?: string;
@@ -50,15 +51,18 @@ function searchErrorInTabs(errorMessage: string, tabs: StyleTab[]): EnhancedErro
 export function enhanceErrorMessages(
     errors: Array<{ title?: string; message?: string }>
 ): EnhancedError[] {
-    // Get tabs and line map from window
-    const windenData = (window as any).windenStyleTabs;
+    // Get tabs from window
+    const windenData = window.windenStyleTabs;
 
-    if (!windenData || !windenData.tabs || !windenData.lineMap) {
+    if (!windenData || !('tabs' in windenData) || !windenData.tabs) {
         // If no tab data available, return original errors
         return errors;
     }
 
-    const { tabs, lineMap }: { tabs: StyleTab[]; lineMap: TabLineMapping[] } = windenData;
+    const tabs = windenData.tabs;
+    // Build line map from tabs
+    const { buildLineMap } = require('@/types/errorMapping');
+    const lineMap: TabLineMapping[] = buildLineMap(tabs);
 
     return errors.map(error => {
         const message = error.message || '';

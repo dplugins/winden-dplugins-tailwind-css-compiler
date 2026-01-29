@@ -513,27 +513,54 @@ async function preprocessSCSS(scss, preprocessor = 'css') {
       return ''; // Remove completely
     });
 
-    // 2. Extract @import "tailwindcss..." directives (Dart Sass can't resolve these in browser)
+    // 2. Extract @theme blocks (Tailwind v4 syntax, Dart Sass doesn't understand @theme)
+    const themeBlocks = [];
+    let themeMatch;
+    const themeRegex = /@theme\s*\{/g;
+    // Find all @theme blocks with proper brace matching
+    while ((themeMatch = themeRegex.exec(scssWithPlaceholders)) !== null) {
+      const startIndex = themeMatch.index;
+      let braceCount = 1;
+      let endIndex = startIndex + themeMatch[0].length;
+      while (braceCount > 0 && endIndex < scssWithPlaceholders.length) {
+        if (scssWithPlaceholders[endIndex] === '{') braceCount++;
+        if (scssWithPlaceholders[endIndex] === '}') braceCount--;
+        endIndex++;
+      }
+      themeBlocks.push({
+        content: scssWithPlaceholders.slice(startIndex, endIndex),
+        start: startIndex,
+        end: endIndex
+      });
+    }
+    // Remove @theme blocks from end to start to preserve indices
+    for (let i = themeBlocks.length - 1; i >= 0; i--) {
+      const { start, end } = themeBlocks[i];
+      scssWithPlaceholders = scssWithPlaceholders.slice(0, start) + scssWithPlaceholders.slice(end);
+    }
+
+    // 3. Extract @import "tailwindcss..." directives (Dart Sass can't resolve these in browser)
     scssWithPlaceholders = scssWithPlaceholders.replace(/@import\s+["']tailwindcss[^"']*["'][^;]*;/g, (match) => {
       tailwindImports.push(match);
       return ''; // Remove completely
     });
 
-    // 3. Extract @import url("//...") - external CDN imports (let Tailwind handle these)
+    // 4. Extract @import url("//...") - external CDN imports (let Tailwind handle these)
     scssWithPlaceholders = scssWithPlaceholders.replace(/@import\s+url\([^)]+\)[^;]*;/g, (match) => {
       tailwindImports.push(match);
       return ''; // Remove completely
     });
 
-    // 4. Replace @apply with placeholder (Dart Sass doesn't understand @apply)
+    // 5. Replace @apply with placeholder (Dart Sass doesn't understand @apply)
     // Use a custom CSS property as placeholder since comments can be stripped by Sass
-    scssWithPlaceholders = scssWithPlaceholders.replace(/@apply\s+[^;]+;/gs, (match) => {
+    // Match @apply followed by class names, with optional semicolon (handles @apply before })
+    scssWithPlaceholders = scssWithPlaceholders.replace(/@apply\s+[^;}\n]+;?/g, (match) => {
       const index = tailwindDirectives.length;
       tailwindDirectives.push(match);
       return `--tw-apply-${index}: __PLACEHOLDER__;`;
     });
 
-    // 5. Extract Tailwind v4 wildcard resets (e.g., --color-*: initial; --text-*: initial;)
+    // 6. Extract Tailwind v4 wildcard resets (e.g., --color-*: initial; --text-*: initial;)
     // Dart Sass doesn't understand this syntax - it's Tailwind v4 specific
     const wildcardResets = [];
     scssWithPlaceholders = scssWithPlaceholders.replace(/--[a-z]+-\*:\s*initial\s*;/g, (match) => {
@@ -564,7 +591,7 @@ async function preprocessSCSS(scss, preprocessor = 'css') {
     });
 
     // Restore Tailwind directives at the beginning of the file
-    // Order matters: @layer first, then @import directives
+    // Order for Tailwind v4: @layer first, then @import, then @theme blocks
     const restoredDirectives = [];
 
     if (tailwindLayers.length > 0) {
@@ -575,22 +602,23 @@ async function preprocessSCSS(scss, preprocessor = 'css') {
       restoredDirectives.push(...tailwindImports);
     }
 
-    if (restoredDirectives.length > 0) {
-      compiledCss = restoredDirectives.join('\n') + '\n\n' + compiledCss;
+    // Restore @theme blocks (with wildcard resets injected if any)
+    if (themeBlocks.length > 0) {
+      // Inject wildcard resets into the first @theme block
+      if (wildcardResets.length > 0) {
+        const firstBlock = themeBlocks[0].content;
+        const insertIdx = firstBlock.indexOf('{') + 1;
+        const wildcardStr = '\n  ' + wildcardResets.join('\n  ');
+        themeBlocks[0].content = firstBlock.slice(0, insertIdx) + wildcardStr + firstBlock.slice(insertIdx);
+      }
+      restoredDirectives.push(...themeBlocks.map(b => b.content));
+    } else if (wildcardResets.length > 0) {
+      // No @theme block found, create one for wildcard resets
+      restoredDirectives.push('@theme {\n  ' + wildcardResets.join('\n  ') + '\n}');
     }
 
-    // Restore wildcard resets inside @theme block
-    // These must be placed at the beginning of the @theme block
-    if (wildcardResets.length > 0) {
-      const themeMatch = compiledCss.match(/@theme\s*\{/);
-      if (themeMatch) {
-        const themeIndex = themeMatch.index + themeMatch[0].length;
-        const wildcardString = '\n  ' + wildcardResets.join('\n  ');
-        compiledCss = compiledCss.slice(0, themeIndex) + wildcardString + compiledCss.slice(themeIndex);
-      } else {
-        // No @theme block found, prepend as standalone @theme
-        compiledCss = '@theme {\n  ' + wildcardResets.join('\n  ') + '\n}\n\n' + compiledCss;
-      }
+    if (restoredDirectives.length > 0) {
+      compiledCss = restoredDirectives.join('\n') + '\n\n' + compiledCss;
     }
 
     return compiledCss;

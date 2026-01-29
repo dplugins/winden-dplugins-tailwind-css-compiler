@@ -1,3 +1,5 @@
+import '@/types/global.d.ts';
+
 /**
  * Default Full Site Editing (FSE) screen breakpoints
  */
@@ -59,15 +61,15 @@ const safeParse = (data: string | any, key: string): Record<string, any> => {
 /**
  * Dynamic screens from FSE theme, falls back to default if empty
  */
-const parsedScreensFSE = safeParse((window as any)?.fseThemeData, 'screens');
+const parsedScreensFSE = safeParse(window.fseThemeData, 'screens');
 export const dynamicScreensFSE = Object.keys(parsedScreensFSE).length > 0 ? parsedScreensFSE : defaultFSEScreens;
 
 /**
  * Dynamic screens from Bricks builder theme
  */
-export const dynamicScreensBricks = safeParse((window as any)?.bricksThemeData, 'screens');
+export const dynamicScreensBricks = safeParse(window.bricksThemeData, 'screens');
 
 /**
  * Dynamic screens from Oxygen builder theme
  */
-export const dynamicScreensOxygen = safeParse((window as any)?.oxygenThemeData, 'screens');
+export const dynamicScreensOxygen = safeParse(window.oxygenThemeData, 'screens');

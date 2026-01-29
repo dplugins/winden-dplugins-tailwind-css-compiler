@@ -300,6 +300,9 @@ class Sanitization
             'autocomplete_oxygen',
             'autocomplete_oxygen6',
             'autocomplete_elementor',
+            'winden_classes_gutenberg',
+            'winden_classes_bricks',
+            'winden_classes_oxygen',
             'dequeue_styles_gutenberg',
             'dequeue_styles_bricks',
             'dequeue_styles_oxygen',
@@ -336,6 +339,9 @@ class Sanitization
             } elseif ($key === 'css_preprocessor') {
                 // Whitelist: css or scss
                 $sanitized[$key] = in_array($value, ['css', 'scss'], true) ? $value : 'css';
+            } elseif ($key === 'autocomplete_mode') {
+                // Whitelist: plain-classes or winden-classes
+                $sanitized[$key] = in_array($value, ['plain-classes', 'winden-classes'], true) ? $value : 'plain-classes';
             } else {
                 $sanitized[$key] = sanitize_text_field($value);
             }

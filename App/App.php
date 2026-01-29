@@ -8,6 +8,8 @@ use Winden\App\Helpers\Builders;
 use Winden\App\Helpers\Migration;
 use Winden\App\Assets\MonacoEditorProvider;
 use Winden\App\Caching\AutoCompile;
+use Winden\App\PageBuilder\GutenbergWindenClasses;
+use Winden\App\Helpers\LicenseManager;
 
 class App
 {
@@ -20,6 +22,7 @@ class App
         $this->runAdmin();
         $this->registerMonacoHooks();
         $this->initAutoCompile();
+        $this->initPageBuilderIntegrations();
     }
 
     /**
@@ -36,6 +39,26 @@ class App
     private function initAutoCompile()
     {
         new AutoCompile();
+    }
+
+    /**
+     * Initialize page builder integrations
+     */
+    private function initPageBuilderIntegrations()
+    {
+        $settings = get_option('winden_dplugins_options', []);
+
+        // Gutenberg: Winden classes autocomplete (requires setting enabled)
+        if (!empty($settings['winden_classes_gutenberg'])) {
+            new GutenbergWindenClasses();
+        }
+
+        // Oxygen: Separate Winden classes input (requires setting enabled) - Pro feature
+        if (LicenseManager::proFolderExists() && Builders::isOxygenPluginActivated()) {
+            if (!empty($settings['winden_classes_oxygen'])) {
+                new \Winden\Pro\PageBuilder\OxygenWindenClasses();
+            }
+        }
     }
 
     /**

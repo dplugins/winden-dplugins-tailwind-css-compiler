@@ -10,6 +10,8 @@ export const SuggestionsList = ({
   inputValue,
   onSuggestionHover,
   onSuggestionLeave,
+  onListMouseMove,
+  isKeyboardNavigation,
 }) => {
   const [sortSuggestion, setSortSuggestion] = React.useState([]);
 
@@ -68,7 +70,13 @@ export const SuggestionsList = ({
   }, [selectedIndex]);
 
   return (
-    <ul ref={listRef} className="winauto-textarea--suggestions">
+    <ul
+      ref={listRef}
+      className={`winauto-textarea--suggestions ${
+        isKeyboardNavigation ? "winauto-suggestions--keyboard" : ""
+      }`}
+      onMouseMove={() => onListMouseMove && onListMouseMove()}
+    >
       {sortSuggestion.map((suggestion, index) => (
         <li
           key={suggestion}
@@ -77,8 +85,14 @@ export const SuggestionsList = ({
             index === selectedIndex ? "winauto-li-hovered" : ""
           }`}
           onClick={() => onSuggestionClick(suggestion)}
-          onMouseEnter={() => onSuggestionHover && onSuggestionHover(suggestion)}
-          onMouseLeave={() => onSuggestionLeave && onSuggestionLeave()}
+          onMouseEnter={() =>
+            !isKeyboardNavigation &&
+            onSuggestionHover &&
+            onSuggestionHover(suggestion)
+          }
+          onMouseLeave={() =>
+            !isKeyboardNavigation && onSuggestionLeave && onSuggestionLeave()
+          }
         >
           <span className="ml-2 grow">{suggestion}</span>
         </li>

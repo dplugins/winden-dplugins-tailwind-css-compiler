@@ -5,6 +5,7 @@ import LoadingScreen from '@el/loadingScreen';
 import type { StyleTab, StyleTabsState } from '@/types/styleTabs';
 import { createStyleTab, combineStyleTabs, parseContentIntoTabs } from '@/types/styleTabs';
 import { buildLineMap, type TabLineMapping } from '@/types/errorMapping';
+import '@/types/global.d.ts';
 
 interface StyleEditorWithTabsProps {
     /** Current combined CSS content */
@@ -61,9 +62,9 @@ export const StyleEditorWithTabs: React.FC<StyleEditorWithTabsProps> = ({
             onChange(combined);
 
             // Expose tabs and line map on window for error mapping
-            (window as any).windenStyleTabs = {
+            window.windenStyleTabs = {
                 tabs: tabsState.tabs,
-                lineMap: buildLineMap(tabsState.tabs),
+                combinedContent: combined,
             };
         }
     }, [tabsState.tabs, initialized]); // Don't include onChange in deps to avoid loops

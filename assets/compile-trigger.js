@@ -10,29 +10,40 @@
 (function() {
     'use strict';
 
+    console.log('[Winden Compile] compile-trigger.js loaded');
+    console.log('[Winden Compile] windenAutoCompile:', window.windenAutoCompile ? 'defined' : 'undefined');
+
     if (!window.windenAutoCompile) {
+        console.log('[Winden Compile] EXITING: windenAutoCompile not defined');
         return;
     }
 
     // Wait for core module to be available
     function waitForCore(callback) {
+        console.log('[Winden Compile] Waiting for WindenCompilerCore...');
         if (window.WindenCompilerCore) {
+            console.log('[Winden Compile] WindenCompilerCore already available');
             callback();
         } else {
             const interval = setInterval(() => {
                 if (window.WindenCompilerCore) {
                     clearInterval(interval);
+                    console.log('[Winden Compile] WindenCompilerCore now available');
                     callback();
                 }
             }, 50);
             // Timeout after 5 seconds
-            setTimeout(() => clearInterval(interval), 5000);
+            setTimeout(() => {
+                clearInterval(interval);
+                console.log('[Winden Compile] TIMEOUT: WindenCompilerCore never loaded');
+            }, 5000);
         }
     }
 
     waitForCore(function() {
         const Core = window.WindenCompilerCore;
         const editors = Core.detectEditorType();
+        console.log('[Winden Compile] Editor detection:', JSON.stringify(editors));
 
         // Create compile function with optional css-injector support
         const compile = Core.createCompileFunction({
@@ -47,34 +58,51 @@
         });
 
         // Helper: Trigger recompile with the compile callback
+        // Flushes any pending Winden class saves first
         function triggerRecompile() {
-            Core.triggerRecompile(compile);
+            // Check if Winden has pending saves that need to be flushed
+            if (window.windenFlushPendingSaves && window.windenHasPendingSaves && window.windenHasPendingSaves()) {
+                console.log('[Winden Compile] Flushing pending Winden class saves before compile...');
+                window.windenFlushPendingSaves().then(function() {
+                    console.log('[Winden Compile] Pending saves flushed, starting compile');
+                    Core.triggerRecompile(compile);
+                }).catch(function(err) {
+                    console.error('[Winden Compile] Error flushing saves:', err);
+                    // Still trigger compile even if flush failed
+                    Core.triggerRecompile(compile);
+                });
+            } else {
+                Core.triggerRecompile(compile);
+            }
         }
 
         // Initialize based on editor type
         function init() {
-            // Don't compile on page load for Fancoolo admin page - only after save event
-            if (editors.isFancoolo) {
-                return;
-            }
-
-            // Compile on page load if needed (for other builders)
-            if (window.windenAutoCompile.needsCompile) {
-                compile();
-            }
+            console.log('[Winden Compile] init() called');
+            // Don't compile on page load - output.css already has the styles
+            // Hot reload elements are only created when saving from Winden admin
+            // or when saving from page builders
 
             if (editors.isGutenberg) {
+                console.log('[Winden Compile] Detected: Gutenberg');
                 initGutenberg();
             } else if (editors.isElementor) {
+                console.log('[Winden Compile] Detected: Elementor');
                 initElementor();
             } else if (editors.isBricks) {
+                console.log('[Winden Compile] Detected: Bricks');
                 initBricks();
             } else if (editors.isOxygen) {
+                console.log('[Winden Compile] Detected: Oxygen');
                 initOxygen();
             } else if (editors.isBreakdance) {
+                console.log('[Winden Compile] Detected: Breakdance');
                 initBreakdance();
             } else if (editors.isOxygen6) {
+                console.log('[Winden Compile] Detected: Oxygen 6');
                 initOxygen6();
+            } else {
+                console.log('[Winden Compile] No editor detected!');
             }
         }
 
@@ -168,19 +196,34 @@
         }
 
         function initOxygen() {
-            // Listen for blockSaved postMessage from iframe
-            window.addEventListener('message', function(event) {
-                if (event.data && event.data.type === 'blockSaved') {
-                    const oxygenUI = document.getElementById('oxygen-ui');
-                    const hasUnsavedChanges = oxygenUI && oxygenUI.classList.contains('oxygen-unsaved-changes');
+            console.log('[Winden Compile] initOxygen started');
 
-                    if (!hasUnsavedChanges) {
-                        triggerRecompile();
+            // Method 1: Keyboard shortcut (Ctrl/Cmd+S)
+            let lastSaveTime = 0;
+
+            // Use capture phase (true) to ensure we run before Oxygen's handlers
+            // which may call stopPropagation() during bubbling
+            document.addEventListener('keydown', (e) => {
+                if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+                    console.log('[Winden Compile] Ctrl+S detected in compile-trigger');
+                    const now = Date.now();
+                    if (now - lastSaveTime < 1000) {
+                        console.log('[Winden Compile] Debounce: skipping (too soon)');
+                        return;
                     }
-                }
-            });
+                    lastSaveTime = now;
 
-            // Fallback: Watch for oxygen-unsaved-changes class removal
+                    // Wait for Oxygen to complete the save before recompiling
+                    console.log('[Winden Compile] Scheduling triggerRecompile in 500ms...');
+                    setTimeout(() => {
+                        console.log('[Winden Compile] Calling triggerRecompile now');
+                        triggerRecompile();
+                    }, 500);
+                }
+            }, true); // Use capture phase
+
+            // Method 2: Watch for oxygen-unsaved-changes class removal (save completed)
+            // This is more reliable than keyboard detection
             const checkOxygenUI = setInterval(() => {
                 const oxygenUI = document.getElementById('oxygen-ui');
 
@@ -193,7 +236,12 @@
                                 const hadUnsaved = mutation.oldValue && mutation.oldValue.includes('oxygen-unsaved-changes');
                                 const hasUnsaved = oxygenUI.classList.contains('oxygen-unsaved-changes');
 
+                                // Only trigger when unsaved changes are cleared (save completed)
                                 if (hadUnsaved && !hasUnsaved) {
+                                    const now = Date.now();
+                                    if (now - lastSaveTime < 1000) return; // Debounce
+                                    lastSaveTime = now;
+
                                     triggerRecompile();
                                 }
                             }
@@ -328,11 +376,15 @@
         });
 
         // Start when ready
+        console.log('[Winden Compile] Setting up init trigger, document.readyState:', document.readyState);
         if (editors.isGutenberg) {
+            console.log('[Winden Compile] Using wp.domReady for Gutenberg');
             wp.domReady(init);
         } else if (document.readyState === 'loading') {
+            console.log('[Winden Compile] Document still loading, waiting for DOMContentLoaded');
             document.addEventListener('DOMContentLoaded', init);
         } else {
+            console.log('[Winden Compile] Document ready, calling init immediately');
             init();
         }
     });

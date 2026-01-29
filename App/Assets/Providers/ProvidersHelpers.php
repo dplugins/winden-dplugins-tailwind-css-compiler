@@ -192,11 +192,24 @@ class ProvidersHelpers
         // Use shared autocomplete JS function
         // Note: get_autocomplete_js() returns static hardcoded JS (no user input)
         $autocomplete_js = self::get_autocomplete_js();
+        // Smart retry: only retry once if compiler isn't ready yet
         $inline_winden_autocomplete = $autocomplete_js . '
-            // Generate autocomplete on load
-            generateWindenAutocomplete();
-            setTimeout(generateWindenAutocomplete, 1000);
-            setTimeout(generateWindenAutocomplete, 3000);
+            // Generate autocomplete with smart retry
+            (function() {
+                var generated = false;
+                function tryGenerate() {
+                    if (!generated && typeof window.tailwindifyClasses === "function") {
+                        generateWindenAutocomplete();
+                        generated = true;
+                    }
+                }
+                // Try immediately
+                tryGenerate();
+                // Single retry after 2s if compiler was not ready
+                if (!generated) {
+                    setTimeout(tryGenerate, 2000);
+                }
+            })();
         ';
         // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Static hardcoded JS from get_autocomplete_js()
         wp_add_inline_script('winden-autocomplete', $inline_winden_autocomplete);
@@ -389,50 +402,10 @@ class ProvidersHelpers
 
     /**
      * Apply !important to compiled styles for Tailwind v4
-     * WordPress.org requirement: Use wp_add_inline_script instead of echo
+     * DISABLED: Users can use Tailwind's built-in ! modifier (e.g., bg-red-500!) instead
      */
     public static function tw_version_four_important()
     {
-        // Register a dummy script handle to attach inline scripts to
-        wp_register_script('winden-tw-important', false, [], \WINDTACS_VERSION, true);
-        wp_enqueue_script('winden-tw-important');
-
-        $inline_script = "
-            document.addEventListener('DOMContentLoaded', function () {
-                const styles = document.querySelector('#compiled-styles-tailwind');
-
-                function applyImportant(element) {
-                    if (element) {
-                        let cssText = element.innerHTML;
-                        cssText = cssText.replace(/;/g, ' !important;');
-                        element.innerHTML = cssText;
-                    }
-                }
-
-                // Apply initially
-                applyImportant(styles);
-
-                // Watch for changes
-                const observer = new MutationObserver((mutations) => {
-                    mutations.forEach((mutation) => {
-                        if (mutation.type === 'childList' || mutation.type === 'characterData') {
-                            applyImportant(styles);
-                        }
-                    });
-                });
-
-                if (styles) {
-                    observer.observe(styles, {
-                        childList: true,
-                        characterData: true,
-                        subtree: true
-                    });
-                }
-            });
-        ";
-
-        wp_add_inline_script('winden-tw-important', $inline_script);
-
         return 'v4';
     }
 

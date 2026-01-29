@@ -81,17 +81,34 @@ export const handleSave = async (
       let combinedCSS = scssContentRef.current;
 
       if (wizzardConfig?.configCode && wizzardConfig.configCode.trim().length > 0) {
-        // Insert @theme block before @layer/@import statements
-        const layerRegex = /(@layer[^;]*;|@import[^;]*;)/;
-        const match = combinedCSS.match(layerRegex);
+        // Insert @theme block AFTER @layer and @import statements (Tailwind v4 requirement)
+        // @theme must come after @import "tailwindcss/theme.css" to extend (not replace) defaults
+        const lastImportRegex = /@import[^;]*;/g;
+        let lastImportMatch;
+        let lastImportEnd = -1;
 
-        if (match) {
-          const insertIndex = combinedCSS.indexOf(match[0]);
-          combinedCSS = combinedCSS.slice(0, insertIndex) +
-            wizzardConfig.configCode + '\n\n' +
-            combinedCSS.slice(insertIndex);
+        // Find the position after the last @import statement
+        while ((lastImportMatch = lastImportRegex.exec(combinedCSS)) !== null) {
+          lastImportEnd = lastImportMatch.index + lastImportMatch[0].length;
+        }
+
+        if (lastImportEnd > -1) {
+          // Insert @theme after all imports
+          combinedCSS = combinedCSS.slice(0, lastImportEnd) +
+            '\n\n' + wizzardConfig.configCode +
+            combinedCSS.slice(lastImportEnd);
         } else {
-          combinedCSS = wizzardConfig.configCode + '\n\n' + combinedCSS;
+          // No imports found - check for @layer
+          const layerMatch = combinedCSS.match(/@layer[^;]*;/);
+          if (layerMatch) {
+            const layerEnd = combinedCSS.indexOf(layerMatch[0]) + layerMatch[0].length;
+            combinedCSS = combinedCSS.slice(0, layerEnd) +
+              '\n\n' + wizzardConfig.configCode +
+              combinedCSS.slice(layerEnd);
+          } else {
+            // No @layer or @import - prepend @theme
+            combinedCSS = wizzardConfig.configCode + '\n\n' + combinedCSS;
+          }
         }
       }
 

@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import type { WizzardState, WizzardContentResponse } from '@/types/wizzard'
 import { buildAjaxUrl } from '@/utils/ajaxUrl'
+import '@/types/global.d.ts'
 
 /**
  * Hook to fetch content (JS, SCSS, and Wizzard state) from WordPress
@@ -55,13 +56,13 @@ export function useWizzardContent() {
 
             // Fetch JS content (Config Tab) and SCSS content
             result.javascript = await fetchFileOrUseDB(
-                `${(window as any).uploadUrl}/winden/tailwind.config.js?_t=${Date.now()}`,
+                `${window.uploadUrl}/winden/tailwind.config.js?_t=${Date.now()}`,
                 dbData.data.javascript,
                 DEFAULT_JS_CONTENT
             );
 
             result.scss = await fetchFileOrUseDB(
-                `${(window as any).uploadUrl}/winden/style-tab.css?_t=${Date.now()}`,
+                `${window.uploadUrl}/winden/style-tab.css?_t=${Date.now()}`,
                 dbData.data.scss,
                 DEFAULT_CSS_CONTENT
             );

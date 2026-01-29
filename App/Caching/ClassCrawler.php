@@ -28,6 +28,8 @@ use Winden\App\Caching\Crawlers\FancooloCrawler;
 use Winden\App\Helpers\SettingsOptions;
 use Winden\App\Helpers\Builders;
 use Winden\App\Helpers\LicenseManager;
+use Winden\App\Helpers\DataConverter;
+use Winden\App\Database\ClassManager;
 
 class ClassCrawler
 {
@@ -68,17 +70,7 @@ class ClassCrawler
         $had_index = !empty($post_classes_index);
 
         // Fallback to existing global classes if the per-post index is empty
-        $existing_classes = get_option('winden_crawled_classes', []);
-        if (!is_array($existing_classes)) {
-            if (is_string($existing_classes)) {
-                $unserialized = @unserialize($existing_classes);
-                $existing_classes = is_array($unserialized) ? $unserialized : [$existing_classes];
-            } else if (is_object($existing_classes)) {
-                $existing_classes = (array) $existing_classes;
-            } else {
-                $existing_classes = [];
-            }
-        }
+        $existing_classes = DataConverter::getOptionAsArray('winden_crawled_classes');
 
         // Get the old classes for this specific post (before the edit)
         $old_post_classes = $post_classes_index[$post_id] ?? [];
@@ -302,6 +294,13 @@ class ClassCrawler
         $hookCrawler = new HookCrawler();
         $hookClasses = $hookCrawler->classes();
         $this->classes = array_merge($this->classes, $hookClasses);
+
+        // Get Winden classes from database (separate from builder class storage)
+        // This provides clean, user-controlled class lists without builder artifacts
+        $windenDbClasses = ClassManager::getAllClasses();
+        if (!empty($windenDbClasses)) {
+            $this->classes = array_merge($this->classes, $windenDbClasses);
+        }
 
         $finalClasses = array_unique($this->classes);
 
