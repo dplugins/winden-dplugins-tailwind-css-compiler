@@ -352,11 +352,12 @@ class ProvidersHelpers
 
         // Use wp_json_encode for proper JavaScript escaping
         $inline_consts = sprintf(
-            'window.uploadUrl = %s; window.inIframe = %s; window.apiVersion2 = %s; window.ajaxurl = %s;',
+            'window.uploadUrl = %s; window.inIframe = %s; window.apiVersion2 = %s; window.ajaxurl = %s; window.winden_plugin_url = %s;',
             wp_json_encode($uploadUrl),
             wp_json_encode($inIframe),
             wp_json_encode($apiVersion2),
-            wp_json_encode($ajaxurl)
+            wp_json_encode($ajaxurl),
+            wp_json_encode(WINDTACS_PLUGIN_URL)
         );
         wp_add_inline_script('tailwind-compiler-options', $inline_consts);
 

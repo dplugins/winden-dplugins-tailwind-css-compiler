@@ -122,12 +122,13 @@ class MonacoEditorProvider
         $inline_options = 'window.tailwind_compiler_options = ' . wp_json_encode($compiler_options) . ';';
         wp_add_inline_script('winden-compiler-options', $inline_options);
 
-        // Add uploadUrl and ajaxurl needed by tailwindcss-watcher.js
+        // Add uploadUrl, ajaxurl, and plugin URL needed by tailwindcss-watcher.js and compiler
         $upload_dir = wp_upload_dir();
         $inline_urls = sprintf(
-            'window.uploadUrl = %s; window.ajaxurl = %s;',
+            'window.uploadUrl = %s; window.ajaxurl = %s; window.winden_plugin_url = %s;',
             wp_json_encode($upload_dir['baseurl']),
-            wp_json_encode(admin_url('admin-ajax.php'))
+            wp_json_encode(admin_url('admin-ajax.php')),
+            wp_json_encode(WINDTACS_PLUGIN_URL)
         );
         wp_add_inline_script('winden-compiler-options', $inline_urls);
 

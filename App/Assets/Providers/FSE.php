@@ -73,9 +73,10 @@ class FSE extends BaseProvider
                 // Add inline script with configuration
                 $compiler_options = $this->get_compiler_options($settings);
                 $config_js = sprintf(
-                    'window.uploadUrl = %s; window.ajaxurl = %s; window.tailwind_compiler_options = %s;',
+                    'window.uploadUrl = %s; window.ajaxurl = %s; window.winden_plugin_url = %s; window.tailwind_compiler_options = %s;',
                     wp_json_encode(WINDTACS_UPLOADS_URL['baseurl']),
                     wp_json_encode(admin_url('admin-ajax.php')),
+                    wp_json_encode(WINDTACS_PLUGIN_URL),
                     wp_json_encode($compiler_options)
                 );
                 wp_add_inline_script('winden-compiler-module', $config_js, 'before');

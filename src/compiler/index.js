@@ -286,18 +286,26 @@ async function initializeDartSass() {
   dartSassPromise = new Promise((resolve, reject) => {
     // Get the plugin base URL dynamically
     const getPluginUrl = () => {
+      // First priority: Use the URL passed from PHP (most reliable)
       if (window.winden_plugin_url) {
         return window.winden_plugin_url;
       }
 
+      // Second priority: Find the compiler script and extract plugin URL from it
       const scripts = document.getElementsByTagName('script');
       for (let script of scripts) {
-        if (script.src && script.src.includes('/winden/')) {
-          const pluginUrl = script.src.substring(0, script.src.indexOf('/winden/')) + '/winden/';
-          return pluginUrl;
+        if (script.src && script.src.includes('tailwindcss-compiler.js')) {
+          // Extract URL up to and including the plugin folder
+          // e.g., ".../plugins/winden-dplugins/build/compiler/tailwindcss-compiler.js"
+          //    -> ".../plugins/winden-dplugins/"
+          const buildIndex = script.src.indexOf('/build/compiler/');
+          if (buildIndex > 0) {
+            return script.src.substring(0, buildIndex + 1);
+          }
         }
       }
 
+      // Fallback (should rarely be reached if PHP sets window.winden_plugin_url)
       return '/wp-content/plugins/winden/';
     };
 
