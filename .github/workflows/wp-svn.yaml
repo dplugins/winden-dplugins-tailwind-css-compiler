@@ -1,0 +1,36 @@
+
+name: Deploy to WordPress.org
+
+on:
+  push:
+    tags:
+      - "*"
+
+jobs:
+  tag:
+    name: New tag
+    runs-on: ubuntu-latest
+    steps:
+      # Check out the repository
+      - uses: actions/checkout@v3
+
+      # Install dependencies and build the project (optional)
+      - name: Build
+        run: |
+          npm install
+          npm run build
+
+      # Ensure `svn` is installed and available
+      - name: Install SVN
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y subversion
+          svn --version || { echo "SVN installation failed"; exit 1; }
+
+      # Deploy the plugin to WordPress.org
+      - name: WordPress Plugin Deploy
+        uses: 10up/action-wordpress-plugin-deploy@stable
+        env:
+          SVN_PASSWORD: ${{ secrets.SVN_PASSWORD }}
+          SVN_USERNAME: ${{ secrets.SVN_USERNAME }}
+          SLUG: dblocks-finder
