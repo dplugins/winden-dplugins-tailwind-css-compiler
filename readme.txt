@@ -1,5 +1,5 @@
 === Winden - Tailwind CSS Compiler ===
-Contributors: flavor
+Contributors: krstivoja
 Tags: tailwind, css, compiler, gutenberg, page builder
 Requires at least: 6.2
 Tested up to: 6.7
