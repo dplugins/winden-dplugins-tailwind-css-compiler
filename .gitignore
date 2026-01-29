@@ -6,8 +6,6 @@
 .DS_Store
 **/.DS_Store
 winden.zip
-composer.lock
-package-lock.json
 
 
 autocomplete_module/node_modules/
