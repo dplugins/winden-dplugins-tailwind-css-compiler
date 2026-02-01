@@ -4,7 +4,7 @@ Tags: tailwind, css, compiler, gutenberg, page builder
 Requires at least: 6.2
 Tested up to: 6.9
 Requires PHP: 7.4
-Stable tag: 1.0.6
+Stable tag: 1.0.7
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -17,6 +17,7 @@ Winden brings the full power of Tailwind CSS v4 to WordPress. Write utility clas
 **Features:**
 
 * Full Tailwind CSS v4 support
+* Fallback for Tailwind CSS v3 with Config support
 * Real-time compilation in browser
 * Works with any theme or page builder
 * Gutenberg integration
@@ -36,8 +37,8 @@ Winden brings the full power of Tailwind CSS v4 to WordPress. Write utility clas
 * @tailwindcss/typography
 * @tailwindcss/container-queries
 
-**Easy migration **
-With single copy paste of style tab you can migrate form WindPress and other tailwindcss integration to Winden keeping all the classs in block attributes
+**Easy migration:**
+* With single copy paste of style tab you can migrate form WindPress and other tailwindcss integration to Winden keeping all the classs in block attributes
 
 == Installation ==
 
@@ -80,19 +81,7 @@ When you use the `@plugin` directive with an external URL in your CSS configurat
 
 == Changelog ==
 
-= 1.0.5 =
-* Initial release
-
-= 1.0.4 =
-* Initial release
-
-= 1.0.3 =
-* Initial release
-
-= 1.0.2 =
-* Initial release
-
-= 1.0.1 =
+= 1.0.7 > 1.0.0 =
 * Initial release
 
 = 1.0.0 =
