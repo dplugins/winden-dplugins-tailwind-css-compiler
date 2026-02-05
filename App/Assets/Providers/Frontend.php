@@ -27,9 +27,10 @@ class Frontend extends BaseProvider
         $settings = SettingsOptions::getWindenOptions();
         $dev_mode_disabled = $settings['disable_dev_mode'] ?? false;
 
-        // Load compiler and dev tools only if dev mode is NOT disabled
+        // Load compiler and dev tools only if dev mode is NOT disabled AND user is logged in
         // IMPORTANT: Compiler must load BEFORE CSS to prevent Flash of Unstyled Content (FOUC)
-        if (!$dev_mode_disabled) {
+        // Logged-out users on public frontend don't need compiler, broadcast listener, or watcher
+        if (!$dev_mode_disabled && is_user_logged_in()) {
             add_action('wp_enqueue_scripts', [$this, 'load_tailwind_cdn'], 9999998);
 
             // Load broadcast listener for real-time updates + CSS cache busting
