@@ -82,11 +82,8 @@ When you use the `@plugin` directive with an external URL in your CSS configurat
 == Changelog ==
 
 = 1.0.8 =
-** Improved:
-- Tested up till 6.9.1
-
-** Bugs:
-- Several scripts were loading on the front end even if user was not logged out
+* Improved: Tested up to WordPress 6.9.1
+* Fixed: Scripts loading on frontend when user was logged out
 
 = 1.0.7 > 1.0.0 =
 * Initial release
