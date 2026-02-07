@@ -86,14 +86,15 @@ class Admin
     private function get_plugin_url_script()
     {
         return sprintf(
-            'window.pluginUrl = %s; window.uploadUrl = %s; window.websiteUrl = %s; window.ajaxUrl = %s; window.nonce = %s; window.inIframe = %s; window.apiVersion2 = %s;',
+            'window.pluginUrl = %s; window.uploadUrl = %s; window.websiteUrl = %s; window.ajaxUrl = %s; window.nonce = %s; window.inIframe = %s; window.apiVersion2 = %s; window.WINDEN_DEBUG = %s;',
             wp_json_encode(WINDTACS_PLUGIN_URL),
             wp_json_encode(WINDTACS_UPLOADS_URL['baseurl']),
             wp_json_encode(WINDTACS_WEBSITE_URL),
             wp_json_encode(admin_url('admin-ajax.php')),
             wp_json_encode(wp_create_nonce('winden_nonce')),
             wp_json_encode(Builders::isBricksEditorFrame() || Builders::isOxygenEditorFrame() || Builders::isElementorEditorPage()),
-            wp_json_encode(Builders::has_api_version_2_block())
+            wp_json_encode(Builders::has_api_version_2_block()),
+            wp_json_encode(defined('WP_DEBUG') && WP_DEBUG)
         );
     }
 }

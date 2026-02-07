@@ -10,7 +10,7 @@ class Builders
 
     public static function isFrontend()
     {
-        if (!is_admin() && !self::isBricksEditor() && !self::isOxygenEditor()) {
+        if (!is_admin() && !self::isBricksEditor() && !self::isOxygenEditor() && !self::isBuilderiusEditor()) {
             return true;
         }
 
@@ -230,6 +230,44 @@ class Builders
         // Oxygen6 is based on Breakdance, so check for Breakdance functions
         return function_exists('\Breakdance\Permissions\hasMinimumPermission') ||
                (defined('BREAKDANCE_MODE') && BREAKDANCE_MODE === 'oxygen');
+    }
+
+    // ------------------------------------------------------------------------
+    // Builderius
+    // ------------------------------------------------------------------------
+
+    public static function isBuilderiusPluginActivated()
+    {
+        // Check for Builderius plugin - it defines builderius_get_version() function
+        // Also check for the main Builderius class in case function isn't loaded yet
+        return function_exists('builderius_get_version')
+            || class_exists('Builderius\\Swoop\\Bundle\\KernelBundle\\Kernel\\Kernel');
+    }
+
+    public static function isBuilderiusEditorPage()
+    {
+        // Check for Builderius builder mode via URL parameter
+        // Builderius uses ?builderius (no value) or ?builderius_template=xxx&builderius
+        // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only check for editor detection
+        return isset($_GET['builderius']) && !isset($_GET['builderius_inner_preview']);
+    }
+
+    public static function isBuilderiusEditor()
+    {
+        // Check if we're in any Builderius editor context
+        // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only check for editor detection
+        $isBuilder = isset($_GET['builderius']);
+        // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only check for editor detection
+        $isInnerPreview = isset($_GET['builderius_inner_preview']);
+
+        return $isBuilder || $isInnerPreview;
+    }
+
+    public static function isBuilderiusEditorFrame()
+    {
+        // Check for inner iframe context in Builderius
+        // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only check for editor detection
+        return isset($_GET['builderius_inner_preview']);
     }
 
     // ------------------------------------------------------------------------

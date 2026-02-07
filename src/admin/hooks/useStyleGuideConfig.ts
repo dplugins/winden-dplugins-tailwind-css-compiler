@@ -199,7 +199,11 @@ function filterAccentColors(
     accentColor: Record<string, any>,
     combinedContent: string
 ): Record<string, any> {
-    const wizardColorPattern = /--color-([a-z0-9]+)(?:-\d+)?:/gi;
+    // Pattern captures full color names like "blue-light", "blue-dark" but excludes shade numbers
+    // - ([a-z][a-z0-9]*) - first word starts with letter
+    // - (?:-[a-z][a-z0-9]*)* - followed by optional hyphen-separated words (starting with letters, not numbers)
+    // - (?:-\d+)? - optionally followed by a shade number like -500
+    const wizardColorPattern = /--color-([a-z][a-z0-9]*(?:-[a-z][a-z0-9]*)*)(?:-\d+)?:/gi;
     const definedColors = new Set<string>();
     let match;
 

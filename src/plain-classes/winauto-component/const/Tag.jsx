@@ -1,3 +1,5 @@
+import { mergeClassTokens } from "../../shared/preview-utils";
+
 export const createTagHandlers = (
   { selectedTags,
     resetInput,
@@ -8,26 +10,50 @@ export const createTagHandlers = (
     setShowSuggestions,
     tagRefs,
     autocomplete,
-    autocompleteKey }
+    autocompleteKey,
+    setEditingCursorPosition }
 ) => {
+  const normalizeTags = (tags = []) =>
+    tags
+      .map((tag) => String(tag || "").trim())
+      .filter(Boolean);
+
   const addTag = (value) => {
-    const updatedValue = autocompleteKey + value;
-    if (selectedTags.includes(updatedValue)) {
+    const updatedValue = `${autocompleteKey}${value}`.trim();
+    if (!updatedValue) {
       resetInput();
       return;
     }
-    selectedTags.push(updatedValue);
-    setSelectedTags([...selectedTags]);
+
+    const nextTags = mergeClassTokens(normalizeTags(selectedTags), [updatedValue]);
+    setSelectedTags(nextTags);
     resetInput();
   };
 
   const updateTag = (newValue, editingTagIndex, shouldReset = true) => {
-    if (selectedTags.includes(newValue)) {
-      resetInput();
+    const normalizedNewValue = String(newValue || "").trim();
+    if (!normalizedNewValue) {
+      if (shouldReset) {
+        resetInput();
+      }
       return;
     }
-    selectedTags[editingTagIndex] = newValue;
-    setSelectedTags([...selectedTags]);
+
+    // Update tag in place to preserve its position
+    const updatedTags = [...selectedTags];
+    updatedTags[editingTagIndex] = normalizedNewValue;
+
+    // Remove duplicates (keep the first occurrence to preserve edited position)
+    const seen = new Set();
+    const deduped = updatedTags.filter((tag) => {
+      if (seen.has(tag)) {
+        return false;
+      }
+      seen.add(tag);
+      return true;
+    });
+
+    setSelectedTags(deduped);
 
     if (shouldReset) {
       resetInput();
@@ -39,22 +65,13 @@ export const createTagHandlers = (
     setSelectedTags(updatedTags);
   };
 
-  const handleTagClick = (tag, index) => {
+  const handleTagClick = (tag, index, cursorPosition = 'end') => {
     setEditingTagIndex(index);
     setInputValue(tag);
-
-    setTimeout(() => {
-      if (tagRefs.current[index]) {
-        const span = tagRefs.current[index].querySelector('[role="textbox"]');
-        if (span) {
-          span.textContent = tag;
-          span.focus();
-          const selection = window.getSelection();
-          selection.selectAllChildren(span);
-          selection.collapseToEnd();
-        }
-      }
-    }, 0);
+    // Pass cursor position to the Tag component
+    if (setEditingCursorPosition) {
+      setEditingCursorPosition(cursorPosition);
+    }
 
     setSuggestions(
       autocomplete.filter((key) =>

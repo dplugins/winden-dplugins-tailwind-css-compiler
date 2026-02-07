@@ -16,6 +16,7 @@ interface ColorShade {
   hex: string;
   isEnabled: boolean;
   isDefault: boolean;
+  isCustom?: boolean;
 }
 
 interface ColorEntry {
@@ -31,6 +32,13 @@ interface ColorEntry {
   reverseShades?: boolean;
   originalGeneratedColors?: string[];
   isMainColorChange?: boolean;
+  // Builder/utility source flags (set at runtime for display colors)
+  utilityValue?: string;
+  locked?: boolean;
+  isUtility?: boolean;
+  isFSE?: boolean;
+  isBricks?: boolean;
+  isOxygen?: boolean;
 }
 
 // Scale State (for spacing, fontSize, borderRadius)

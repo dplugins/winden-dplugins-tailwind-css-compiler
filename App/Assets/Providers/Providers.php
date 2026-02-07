@@ -61,6 +61,12 @@ class Providers
             } else {
                 $this->loadFrontendWithProNotice('Bricks');
             }
+        } else if (Builders::isBuilderiusEditorPage()) {
+            if ($isProActive) {
+                $this->app->executeProvider(\Winden\Pro\Providers\Builderius::class);
+            } else {
+                $this->loadFrontendWithProNotice('Builderius');
+            }
         } else if (Builders::isGutenbergEditorPage()) {
             // Free: Gutenberg/FSE editor - always available
             $this->app->executeProvider(\Winden\App\Assets\Providers\FSE::class);

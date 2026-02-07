@@ -21,11 +21,19 @@ class SaveContent
         add_action('wp_ajax_winden_clear_cache', [$this, 'clear_winden_cache']);
     }
 
+    private function winden_log($phase, $message, $context = [])
+    {
+        if (!defined('WP_DEBUG') || !WP_DEBUG) return;
+        $ctx = $context ? ' ' . wp_json_encode($context) : '';
+        error_log("[Winden] [{$phase}] {$message}{$ctx}");
+    }
+
     public function save_winden_content()
     {
         // Validate request (JSON input, capability, nonce)
         $request = AjaxHelper::validateRequest('edit_posts');
         if (!$request['success']) {
+            $this->winden_log('Save', 'Validation failed', ['error' => $request['error']]);
             AjaxHelper::sendError($request['error']);
             return;
         }
@@ -61,13 +69,35 @@ class SaveContent
             $css = Sanitization::sanitize_css($css_raw);
             $wizzard = Sanitization::sanitize_wizzard_state($wizzard);
 
+            // Stale-write detection: if the client sends expected_updated_at,
+            // verify it matches what's currently stored before overwriting.
+            if (!empty($data['expected_updated_at'])) {
+                $existing = get_option('winden_dplugins_editor');
+                $stored_ts = is_array($existing) ? ($existing['updated_at'] ?? null) : null;
+                if ($stored_ts && $stored_ts !== $data['expected_updated_at']) {
+                    $this->winden_log('Save', 'Stale write rejected', [
+                        'client_ts' => $data['expected_updated_at'],
+                        'server_ts' => $stored_ts,
+                    ]);
+                    wp_send_json_error([
+                        'code'    => 'STALE_SAVE',
+                        'message' => 'Another save occurred since you last loaded. Please reload and try again.',
+                        'server_updated_at' => $stored_ts,
+                    ]);
+                    return;
+                }
+            }
+
+            $now = gmdate('Y-m-d\TH:i:s\Z');
+
             // Save the data to the database
             $config_data = [
                 'javascript' => $javascript,
                 'scss' => $scss,
                 // 'css' => $css, // Save CSS as a string
                 'compiled_scss' => $css,
-                'wizzard' => $wizzard // Save wizzard data
+                'wizzard' => $wizzard, // Save wizzard data
+                'updated_at' => $now,
             ];
 
             // Update the option in the database
@@ -123,8 +153,13 @@ class SaveContent
                 file_put_contents($filtered_input_path, $input_content);
             }
 
-            // Respond with a success message
-            wp_send_json_success('Content saved successfully!');
+            $this->winden_log('Save', 'Content saved', ['updated_at' => $now]);
+
+            // Respond with success and the new timestamp for stale-write tracking
+            wp_send_json_success([
+                'message'    => 'Content saved successfully!',
+                'updated_at' => $now,
+            ]);
         } else {
             // Respond with an error message
             wp_send_json_error('Invalid data received.');

@@ -41,6 +41,11 @@
         const isOxygen6 = window.location.href.includes('oxygen=builder') && !isBreakdance;
         // Fancoolo uses page=fancoolo-app
         const isFancoolo = window.location.href.includes('page=fancoolo-app');
+        // Builderius uses ?builderius in the main window (not iframe)
+        // URL can be ?builderius or ?builderius=builder or ?builderius=1
+        const urlParams = new URLSearchParams(window.location.search);
+        const isBuilderius = urlParams.has('builderius') &&
+                             !urlParams.has('builderius_inner_preview');
 
         return {
             isGutenberg,
@@ -49,7 +54,8 @@
             isOxygen,
             isBreakdance,
             isOxygen6,
-            isFancoolo
+            isFancoolo,
+            isBuilderius
         };
     }
 
@@ -75,14 +81,9 @@
      * @param {Function} compileCallback - Function to call after successful crawl
      */
     function triggerRecompile(compileCallback) {
-        console.log('[Winden Core] triggerRecompile called');
-
         if (!window.windenAutoCompile) {
-            console.log('[Winden Core] ABORTING: windenAutoCompile not defined');
             return;
         }
-
-        console.log('[Winden Core] Starting AJAX crawl request...');
 
         // Always trigger full crawl for consistent output across all builders
         fetch(window.windenAutoCompile.ajaxUrl, {
@@ -93,30 +94,23 @@
                 _nonce: window.windenAutoCompile.nonce
             })
         })
-        .then(response => {
-            console.log('[Winden Core] AJAX response status:', response.status);
-            return response.json();
-        })
+        .then(response => response.json())
         .then(data => {
-            console.log('[Winden Core] AJAX response data:', data);
             if (data.success) {
-                console.log('[Winden Core] Crawl successful, calling compile callback...');
                 // Crawl is done, now compile with fresh classes
                 if (typeof compileCallback === 'function') {
                     compileCallback().then(() => {
-                        console.log('[Winden Core] ✅ Compile callback completed successfully');
+                        console.log('[Winden] ✅ Compiled successfully');
                     }).catch((err) => {
-                        console.error('[Winden Core] ❌ Compile callback failed:', err);
+                        console.error('[Winden] ❌ Compilation failed:', err);
                     });
-                } else {
-                    console.log('[Winden Core] No compile callback provided');
                 }
             } else {
-                console.error('[Winden Core] ❌ Crawl failed:', data);
+                console.error('[Winden] ❌ Crawl failed:', data);
             }
         })
         .catch((err) => {
-            console.error('[Winden Core] ❌ AJAX request failed:', err);
+            console.error('[Winden] ❌ AJAX request failed:', err);
             // On error, still try to compile (may use stale classes)
             if (typeof compileCallback === 'function') {
                 compileCallback().catch(() => {});
@@ -272,6 +266,14 @@
                     injectCSS(gutenbergIframe.contentDocument, css);
                 }
             }
+
+            // Builderius preview iframe
+            if (editors.isBuilderius) {
+                const builderiusIframe = document.querySelector('iframe[class*="preview"], iframe[src*="builderius_inner_preview"]');
+                if (builderiusIframe && builderiusIframe.contentDocument) {
+                    injectCSS(builderiusIframe.contentDocument, css);
+                }
+            }
         }
     }
 
@@ -343,19 +345,15 @@
         const editors = detectEditorType();
 
         return async function compile() {
-            console.log('[Winden Core] compile() called, isCompiling:', isCompiling);
             if (isCompiling) {
-                console.log('[Winden Core] Already compiling, skipping');
                 return;
             }
             isCompiling = true;
-            console.log('[Winden Core] Starting compilation...');
+            const startTime = performance.now();
 
             try {
                 // Fetch classes and config
-                console.log('[Winden Core] Fetching compile data...');
                 const data = await fetchCompileData();
-                console.log('[Winden Core] Compile data received, classes count:', data.classes?.length || 0);
                 let { classes, config, styles, wizzardConfig, css_preprocessor: cssPreprocessor } = data;
 
                 // Normalize classes
@@ -368,7 +366,6 @@
                 await waitForCompiler();
 
                 // Compile CSS
-                console.log('[Winden Core] Calling tailwindify...');
                 const compiled = await window.tailwindify(classes, combinedStyles, config, cssPreprocessor);
 
                 if (compiled.error) {
@@ -380,27 +377,24 @@
                     throw new Error('Invalid CSS generated');
                 }
 
-                console.log('[Winden Core] CSS compiled, length:', compiled.css.length);
-
                 // Save to output.css
-                console.log('[Winden Core] Saving compiled CSS...');
                 await saveCompiledCSS(compiled.css);
-                console.log('[Winden Core] CSS saved to output.css');
 
                 // Clear the recompile flag
                 await clearRecompileFlag();
 
                 // Hot-reload CSS in the page
-                console.log('[Winden Core] Hot-reloading CSS...');
                 if (typeof options.onCSSReload === 'function') {
                     options.onCSSReload(compiled.css);
                 } else {
                     reloadCompiledCSS(compiled.css, editors);
                 }
-                console.log('[Winden Core] ✅ Compilation complete!');
+
+                const duration = Math.round(performance.now() - startTime);
+                console.log(`[Winden] ✅ Compiled in ${duration}ms`);
 
             } catch (error) {
-                console.error('[Winden Core] ❌ Compilation failed:', error);
+                console.error('[Winden] ❌ Compilation failed:', error);
 
                 // Store last error for debugging
                 if (window.windenAutoCompile) {

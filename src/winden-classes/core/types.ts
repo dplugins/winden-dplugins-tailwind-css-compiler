@@ -19,6 +19,8 @@ export interface AutocompleteOptions {
   debounceMs?: number;
   /** Additional class for dropdown (e.g., for theming) */
   dropdownClass?: string;
+  /** Parent element for dropdown (defaults to document.body). Use this when the input is in a different document context (e.g., iframe, sidebar panel) */
+  dropdownParent?: HTMLElement;
 }
 
 export interface ClassData {

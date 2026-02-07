@@ -2,6 +2,8 @@ import { DEFAULT_CSS_CONTENT_V4, DEFAULT_CSS_CONTENT, DEFAULT_JS_CONTENT } from 
 import { fetchSettings } from '@functions/Settings';
 import type { WizzardState } from '@/types/wizzard';
 import { buildAjaxUrl } from '@/utils/ajaxUrl';
+import { setServerUpdatedAt } from './HandleSave';
+import { log } from '@/utils/logger';
 
 declare global {
   interface Window {
@@ -53,7 +55,19 @@ export const fetchContent = async (
 
     if (dbData.success) {
       const decodedWizzard = dbData.data.wizzard;
+
+      log.info('Fetch', 'Content loaded from server', {
+        hasWizzard: !!decodedWizzard,
+        colorCount: decodedWizzard?.colorEntries?.length ?? 0,
+        updatedAt: dbData.data.updated_at ?? null,
+      });
+
       setWizzardContent(decodedWizzard || null);
+
+      // Track the server timestamp for stale-write detection
+      if (dbData.data.updated_at) {
+        setServerUpdatedAt(dbData.data.updated_at);
+      }
 
       /**
        * Fetch file content or use database content as fallback
@@ -78,7 +92,10 @@ export const fetchContent = async (
             setContent(decodedContent || defaultContent);
           }
         } catch (error) {
-          console.error(`Error fetching content:`, error);
+          log.warn('Fetch', 'File fetch failed, using DB fallback', {
+            fileUrl,
+            error: error instanceof Error ? error.message : String(error),
+          });
           const decodedContent = atob(dbContent);
           setContent(decodedContent || defaultContent);
         }
@@ -105,11 +122,13 @@ export const fetchContent = async (
       cachedScssContent = atob(dbData.data.scss);
       cachedWizzardContent = decodedWizzard;
     } else {
-      // console.error('Error fetching content:', dbData.data);
+      log.warn('Fetch', 'Content fetch returned error, using defaults', { response: dbData.data });
       setDefaultContent(setJsContent, setScssContent, settingsRes);
     }
   } catch (error) {
-    // console.error('Error fetching content:', error);
+    log.error('Fetch', 'Content fetch threw an exception, using defaults', {
+      error: error instanceof Error ? error.message : String(error),
+    });
     setDefaultContent(setJsContent, setScssContent, settingsRes);
   } finally {
     if (typeof callback === "function") {
@@ -130,11 +149,13 @@ export const fetchWizzardState = async (): Promise<WizzardState | []> => {
     if (data.success) {
       return data.data;
     } else {
-      // console.error('Error fetching wizzard state: ', data.data);
+      log.warn('Fetch', 'Wizzard state fetch returned error', { response: data.data });
       return [];
     }
   } catch (error) {
-    // console.error('Error fetching wizzard state: ', error);
+    log.error('Fetch', 'Wizzard state fetch threw an exception', {
+      error: error instanceof Error ? error.message : String(error),
+    });
     return [];
   }
 };

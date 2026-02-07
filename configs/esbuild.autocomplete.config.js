@@ -1,6 +1,5 @@
 const esbuild = require('esbuild');
 const fs = require('fs');
-const path = require('path');
 const { createSassPlugin } = require('./esbuild.plugins');
 
 // Track dependencies globally per build
@@ -20,6 +19,7 @@ const createWordPressExternalsPlugin = (trackerId) => ({
       '@wordpress/hooks': { global: 'window.wp.hooks', wpDep: 'wp-hooks' },
       'react': { global: 'window.React', wpDep: 'react' },
       'react-dom': { global: 'window.ReactDOM', wpDep: 'react-dom' },
+      'react-dom/client': { global: 'window.ReactDOM', wpDep: 'react-dom' }, // React 18 createRoot API
       'lodash': { global: 'window.lodash', wpDep: 'lodash' },
     };
 
@@ -67,17 +67,20 @@ const createWordPressExternalsPlugin = (trackerId) => ({
 });
 
 // Shared Sass plugin from centralized config
-const sharedSassPlugin = createSassPlugin(['./src']);
+// Include both ./src and ./pro/src for free and pro integrations
+const sharedSassPlugin = createSassPlugin(['./src', './pro/src']);
 
 // Base options shared by all builds
 const createBuildOptions = (entryPoint, useBundledReact = false, trackerId = '', outputDir = 'build/') => {
   // Determine output path based on source location
   let outfile;
   if (entryPoint.startsWith('./pro/src/')) {
-    // Pro integrations: ./pro/src/plain-classes/bricks/index.js -> ./pro/build/plain-classes/bricks/index.js
+    // Pro integrations:
+    // ./pro/src/plain-classes/bricks/index.js -> ./pro/build/plain-classes/bricks/index.js
+    // ./pro/src/winden-classes/bricks/index.js -> ./pro/build/winden-classes/bricks/index.js
     outfile = entryPoint.replace('./pro/src/', './pro/build/');
   } else {
-    // Free integrations: ./src/plain-classes/gutenberg/index.js -> ./build/plain-classes/gutenberg/index.js
+    // Free integrations: ./src/tailwind-autocomplete/core/index.ts -> ./build/tailwind-autocomplete/core/index.js
     outfile = entryPoint.replace('./src/', './build/');
   }
 
@@ -114,22 +117,28 @@ const createBuildOptions = (entryPoint, useBundledReact = false, trackerId = '',
 
 // Free integrations (included in WordPress.org distribution)
 const freeIntegrations = [
-  { path: './src/plain-classes/gutenberg/index.js', bundleReact: false },
   { path: './src/plain-classes/winauto-component/index.js', bundleReact: false },
-  // Tailwind Autocomplete - core library and builder integrations
-  { path: './src/tailwind-autocomplete/core/index.ts', bundleReact: true },  // Standalone autocomplete library
-  { path: './src/tailwind-autocomplete/core/ui.ts', bundleReact: false },    // Reusable classes UI component
-  { path: './src/tailwind-autocomplete/gutenberg/index.js', bundleReact: false },
-  { path: './src/tailwind-autocomplete/oxygen/index.js', bundleReact: false },
+  // Plain Classes - Tags-based autocomplete (old system, free for Gutenberg)
+  { path: './src/plain-classes/gutenberg/index.js', bundleReact: false },
+  // Winden Classes - core library and Gutenberg panel (FREE)
+  { path: './src/winden-classes/core/index.ts', bundleReact: true },        // Core autocomplete library
+  { path: './src/winden-classes/core/ui.ts', bundleReact: false },          // Reusable UI component
+  { path: './src/winden-classes/gutenberg/index.js', bundleReact: false },  // Gutenberg panel
 ];
 
 // Pro integrations (require license) - only include if pro folder exists
 const proIntegrations = [
+  // Plain Classes - Tags-based autocomplete (old system)
   { path: './pro/src/plain-classes/bricks/index.js', bundleReact: false },
-  { path: './pro/src/plain-classes/bricks-winden/index.js', bundleReact: true }, // Winden Classes for Bricks
   { path: './pro/src/plain-classes/elementor/index.js', bundleReact: false },
   { path: './pro/src/plain-classes/oxygen/index.js', bundleReact: false },
   { path: './pro/src/plain-classes/oxygen6/index.js', bundleReact: false },
+  { path: './pro/src/plain-classes/builderius/index.js', bundleReact: false },
+  // Winden Classes - new system (pro builders)
+  { path: './pro/src/winden-classes/bricks/index.js', bundleReact: false },     // Bricks panel
+  { path: './pro/src/winden-classes/oxygen/index.js', bundleReact: false },     // Oxygen Classic panel
+  { path: './pro/src/winden-classes/oxygen6/index.js', bundleReact: false },    // Oxygen 6 panel
+  { path: './pro/src/winden-classes/elementor/index.js', bundleReact: false },  // Elementor panel
 ];
 
 // Check if pro folder exists
@@ -158,6 +167,15 @@ function generateAssetFile(outputPath, dependencies = []) {
   fs.writeFileSync(assetFile, assetContent);
 }
 
+function getIntegrationKey(integrationPath) {
+  return integrationPath
+    .replace(/^\.\//, '')
+    .replace(/^pro\/src\//, 'pro-')
+    .replace(/^src\//, '')
+    .replace(/\/index\.(js|jsx|ts|tsx)$/, '')
+    .replace(/[\\/]/g, '-');
+}
+
 // Build all integrations in parallel
 async function build() {
   try {
@@ -166,7 +184,7 @@ async function build() {
 
     // Build all integrations concurrently
     const buildPromises = integrations.map(async (integration) => {
-      const name = path.basename(path.dirname(integration.path));
+      const name = getIntegrationKey(integration.path);
       const strategy = integration.bundleReact ? 'React bundled' : 'WordPress externals';
       const trackerId = `build-${name}`;
 
@@ -205,7 +223,7 @@ async function watch() {
 
     const contexts = await Promise.all(
       integrations.map(async (integration) => {
-        const name = path.basename(path.dirname(integration.path));
+        const name = getIntegrationKey(integration.path);
         const trackerId = `watch-${name}`;
         const buildOptions = createBuildOptions(integration.path, integration.bundleReact, trackerId);
 

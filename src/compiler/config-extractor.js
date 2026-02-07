@@ -103,36 +103,43 @@ export function convertJsConfigToCss(jsConfigString) {
  */
 export function extractColors(cssContent) {
     const colors = {};
-    
+
     // Match color custom properties
     const colorMatches = cssContent.match(/--color-([^:]+):\s*([^;]+);/g) || [];
-    
+
     colorMatches.forEach(match => {
         const colorName = match.match(/--color-([^:]+):/)?.[1];
         const colorValue = match.match(/:\s*([^;]+);/)?.[1];
-        
+
         if (colorName && colorValue && colorValue.trim() !== 'initial') {
             // Handle nested color objects (e.g., red-50, red-100, etc.)
+            // Important: Multi-word color names like "blue-light" should stay together
+            // Only numeric suffixes (50, 100, 200, etc.) are shade values
             const parts = colorName.split('-');
+
+            // Find the last numeric part (if any) - that's the shade
+            // Everything before it is the color name
+            let baseColor = colorName;
+            let shade = 'DEFAULT';
+
             if (parts.length >= 2) {
-                const baseColor = parts[0];
-                const shade = parts.slice(1).join('-');
-                
-                if (!colors[baseColor]) {
-                    colors[baseColor] = {};
+                const lastPart = parts[parts.length - 1];
+                // Check if the last part is numeric (a shade like 50, 100, 200, 500, etc.)
+                if (/^\d+$/.test(lastPart)) {
+                    // Last part is a shade number
+                    baseColor = parts.slice(0, -1).join('-');
+                    shade = lastPart;
                 }
-                colors[baseColor][shade] = colorValue.trim();
-            } else {
-                // This is a default color (e.g., --color-tahiti: #51e2fa)
-                // We'll handle this after processing all shades
-                if (!colors[colorName]) {
-                    colors[colorName] = {};
-                }
-                colors[colorName]['DEFAULT'] = colorValue.trim();
+                // If last part is not numeric, the whole thing is the color name
             }
+
+            if (!colors[baseColor]) {
+                colors[baseColor] = {};
+            }
+            colors[baseColor][shade] = colorValue.trim();
         }
     });
-    
+
     // Clean up colors that only have DEFAULT values
     Object.keys(colors).forEach(colorName => {
         const colorObj = colors[colorName];
@@ -141,7 +148,7 @@ export function extractColors(cssContent) {
             colors[colorName] = colorObj['DEFAULT'];
         }
     });
-    
+
     return colors;
 }
 

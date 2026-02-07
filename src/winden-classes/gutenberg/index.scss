@@ -1,0 +1,75 @@
+/**
+ * Winden Classes for Gutenberg
+ *
+ * Imports core styles and shared toggle, uses light theme.
+ * Gutenberg uses blue accent: #007cba
+ */
+
+// Import core styles (use instead of import to avoid deprecation)
+@use '../core/styles.scss';
+
+// Import shared toggle component
+@use '../../plain-classes/winauto-styles/_winauto-toggle.scss';
+
+// Gutenberg uses light theme with blue accent
+.winden-classes {
+  display: grid;
+
+  // Light theme variables
+  --wcl-bg: #ffffff;
+  --wcl-bg-hover: #f1f5f9;
+  --wcl-bg-selected: #e2e8f0;
+  --wcl-color: #1e1e1e;
+  --wcl-border: #878787;
+  --wcl-label: #1e1e1e;
+  --wcl-text-value: #1e1e1e;
+  --wcl-accent: #007cba;
+  --winauto-action: #007cba;
+  --winauto-bg: #ffffff;
+  --winauto-contrast: #1e1e1e;
+
+  textarea {
+    padding: 2px 5px;
+  }
+}
+
+.winden-classes-container {
+  padding: 12px;
+  padding-bottom: 16px;
+  border: none;
+  border-top: 1px solid #e0e0e0;
+  margin-top: -1px;
+
+  textarea {
+    width: 100%;
+  }
+}
+
+.winden-classes-container-header {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 8px;
+
+  h3 {
+    margin: 0px !important;
+    font-size: 13px;
+    text-transform: none;
+  }
+}
+
+// Gutenberg-specific overrides
+.winden-classes-gutenberg-panel {
+  position: relative;
+
+  .winden-textarea-base {
+    min-height: 60px;
+    resize: vertical;
+  }
+
+  .winden-split-mode {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+}

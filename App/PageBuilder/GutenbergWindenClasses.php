@@ -72,14 +72,14 @@ class GutenbergWindenClasses
      */
     public function enqueueAutocompleteAssets()
     {
-        $autocomplete_js = WINDTACS_PLUGIN_DIR . 'build/tailwind-autocomplete/index.js';
-        $autocomplete_css = WINDTACS_PLUGIN_DIR . 'build/tailwind-autocomplete/index.css';
+        // Load core autocomplete library
+        $autocomplete_js = WINDTACS_PLUGIN_DIR . 'build/winden-classes/core/index.js';
+        $autocomplete_css = WINDTACS_PLUGIN_DIR . 'build/winden-classes/core/index.css';
 
-        // Load the autocomplete UI component
         if (file_exists($autocomplete_js)) {
             wp_enqueue_script(
                 'winden-tailwind-autocomplete',
-                WINDTACS_PLUGIN_URL . 'build/tailwind-autocomplete/index.js',
+                WINDTACS_PLUGIN_URL . 'build/winden-classes/core/index.js',
                 [],
                 filemtime($autocomplete_js),
                 true
@@ -89,7 +89,7 @@ class GutenbergWindenClasses
         if (file_exists($autocomplete_css)) {
             wp_enqueue_style(
                 'winden-tailwind-autocomplete',
-                WINDTACS_PLUGIN_URL . 'build/tailwind-autocomplete/index.css',
+                WINDTACS_PLUGIN_URL . 'build/winden-classes/core/index.css',
                 [],
                 filemtime($autocomplete_css)
             );

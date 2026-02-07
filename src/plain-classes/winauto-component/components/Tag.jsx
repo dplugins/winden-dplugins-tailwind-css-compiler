@@ -18,6 +18,7 @@ export const Tag = ({
   onDrop,
   isDragging = false,
   previewValue,
+  cursorPosition = 'end',
 }) => {
   const editingRef = React.useRef(null);
   const dragIntentRef = React.useRef(false);
@@ -36,18 +37,45 @@ export const Tag = ({
   // Handle initial content when entering edit mode
   React.useEffect(() => {
     if (isEditing && editingRef.current && !previewValue) {
-      editingRef.current.textContent = tag;
-      // Focus and select all text when entering edit mode
-      editingRef.current.focus();
+      const element = editingRef.current;
+      element.textContent = tag;
 
-      // Select all text using Range API
-      const range = document.createRange();
-      range.selectNodeContents(editingRef.current);
-      const selection = window.getSelection();
-      selection.removeAllRanges();
-      selection.addRange(range);
+      // Focus first
+      element.focus();
+
+      // Use a small delay to let the focus settle, then set cursor position
+      const setCursorPosition = () => {
+        try {
+          const doc = element.ownerDocument;
+          const win = doc.defaultView || window;
+          const selection = win.getSelection();
+
+          if (!selection) {
+            return;
+          }
+
+          // Ensure element is focused
+          element.focus();
+
+          // Use execCommand to select all, then collapse to start or end
+          // This is more reliable across different browser contexts
+          doc.execCommand('selectAll', false, null);
+
+          if (cursorPosition === 'start') {
+            selection.collapseToStart();
+          } else {
+            selection.collapseToEnd();
+          }
+        } catch (e) {
+          // Cursor positioning failed silently
+        }
+      };
+
+      // Try setting cursor position multiple times to ensure it sticks
+      setTimeout(setCursorPosition, 10);
+      setTimeout(setCursorPosition, 50);
     }
-  }, [isEditing, tag, previewValue]);
+  }, [isEditing, tag, previewValue, cursorPosition]);
 
   // Handle double-click to select all text
   const handleDoubleClick = (e) => {

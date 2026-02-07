@@ -242,7 +242,11 @@ class AutoCompile
 
         // Get crawled classes with safe unserialization and normalization
         $classes = DataConverter::getOptionAsArray('winden_crawled_classes');
+        error_log('[Winden Compile] Raw crawled classes count: ' . count($classes));
+        error_log('[Winden Compile] Classes include bg-yellow-400: ' . (in_array('bg-yellow-400', $classes) ? 'YES' : 'NO'));
         $classes = DataConverter::normalizeClasses($classes);
+        error_log('[Winden Compile] After normalize - count: ' . count($classes));
+        error_log('[Winden Compile] After normalize - includes bg-yellow-400: ' . (in_array('bg-yellow-400', $classes) ? 'YES' : 'NO'));
 
         // Return classes and config to browser for compilation
         // Even with empty classes, we still need to compile (for @apply directives, custom components, etc.)
@@ -344,8 +348,9 @@ class AutoCompile
         $is_oxygen6 = Builders::isOxygen6EditorPage();
         $is_elementor = Builders::isElementorEditorPage();
         $is_fancoolo = Builders::isFancooloEditorPage();
+        $is_builderius = Builders::isBuilderiusEditorPage();
         $is_gutenberg = Builders::isGutenbergEditor() || Builders::isGutenbergEditorContext();
-        $is_builder = $is_bricks || $is_oxygen || $is_oxygen6 || $is_elementor || $is_fancoolo;
+        $is_builder = $is_bricks || $is_oxygen || $is_oxygen6 || $is_elementor || $is_fancoolo || $is_builderius;
         $is_valid_context = $is_builder || $is_gutenberg || $is_fancoolo;
 
         // Don't load on frontend unless it's a builder editor

@@ -11,6 +11,7 @@ interface Shade {
   hex: string;
   isEnabled: boolean;
   isDefault: boolean;
+  isCustom?: boolean;
 }
 
 interface ColorEntry {
@@ -179,7 +180,8 @@ const ShadesList: React.FC<ShadesListProps> = memo(({ entry, shadesList, updateC
     let updatedShadesList = [...safeShadesList];
     updatedShadesList[index] = {
       ...updatedShadesList[index],
-      hex: newHexColor
+      hex: newHexColor,
+      isCustom: true  // Mark as manually customized so it persists on reload
     };
 
     // Preserve the original generated colors - don't overwrite them
@@ -235,7 +237,8 @@ const ShadesList: React.FC<ShadesListProps> = memo(({ entry, shadesList, updateC
       let updatedShadesList = [...safeShadesList];
       updatedShadesList[index] = {
         ...updatedShadesList[index],
-        hex: parsedColor.toHexString()
+        hex: parsedColor.toHexString(),
+        isCustom: true  // Mark as manually customized so it persists on reload
       };
 
       // This is an individual shade change, preserve original generated colors
@@ -289,7 +292,8 @@ const ShadesList: React.FC<ShadesListProps> = memo(({ entry, shadesList, updateC
     let updatedShadesList = [...safeShadesList];
     updatedShadesList[index] = {
       ...updatedShadesList[index],
-      hex: originalGeneratedColor
+      hex: originalGeneratedColor,
+      isCustom: false  // Clear custom flag since we're resetting to generated
     };
 
     // This is a reset, not an individual modification, so preserve original colors

@@ -1,4 +1,5 @@
 import { useCallback } from "react";
+import { mergeClassTokens } from "../../shared/preview-utils";
 
 const copyTagsToClipboard = (tags) => {
     const tagString = tags.join(" ");
@@ -282,12 +283,11 @@ export const createKeydownHandler = ({
 
                             if (editingTagIndex !== -1 && !screens.includes(suggestion) && selectedTags) {
                                 const previewValue = (breakpoint || '') + suggestion;
-                                const tempTagsCopy = [...selectedTags];
-                                tempTagsCopy[editingTagIndex] = previewValue;
-                                tempTagsToApply = tempTagsCopy;
+                                const withoutEditingTag = selectedTags.filter((_, index) => index !== editingTagIndex);
+                                tempTagsToApply = mergeClassTokens(withoutEditingTag, [previewValue]);
                             } else if (editingTagIndex === -1 && !screens.includes(suggestion)) {
                                 const newTag = (breakpoint || '') + suggestion;
-                                tempTagsToApply = [...selectedTags, newTag];
+                                tempTagsToApply = mergeClassTokens(selectedTags, [newTag]);
                             }
 
                             if (tempTagsToApply) {
@@ -312,12 +312,11 @@ export const createKeydownHandler = ({
 
                             if (editingTagIndex !== -1 && !screens.includes(suggestion) && selectedTags) {
                                 const previewValue = (breakpoint || '') + suggestion;
-                                const tempTagsCopy = [...selectedTags];
-                                tempTagsCopy[editingTagIndex] = previewValue;
-                                tempTagsToApply = tempTagsCopy;
+                                const withoutEditingTag = selectedTags.filter((_, index) => index !== editingTagIndex);
+                                tempTagsToApply = mergeClassTokens(withoutEditingTag, [previewValue]);
                             } else if (editingTagIndex === -1 && !screens.includes(suggestion)) {
                                 const newTag = (breakpoint || '') + suggestion;
-                                tempTagsToApply = [...selectedTags, newTag];
+                                tempTagsToApply = mergeClassTokens(selectedTags, [newTag]);
                             }
 
                             if (tempTagsToApply) {
@@ -336,8 +335,11 @@ export const createKeydownHandler = ({
 
             // Helper function to get cursor position
             const getCursorPosition = (element) => {
-                const selection = window.getSelection();
-                if (selection.rangeCount === 0) return 0;
+                // Use element's document context (important for iframes/Vue panels like Oxygen 6)
+                const doc = element.ownerDocument;
+                const win = doc.defaultView || window;
+                const selection = win.getSelection();
+                if (!selection || selection.rangeCount === 0) return 0;
                 const range = selection.getRangeAt(0);
                 const preCaretRange = range.cloneRange();
                 preCaretRange.selectNodeContents(element);
@@ -353,26 +355,31 @@ export const createKeydownHandler = ({
                     const textLength = e.target.textContent.length;
 
                     if (e.key === "ArrowLeft" && cursorPos === 0 && !e.shiftKey) {
-                        // At start of tag, move to previous tag
+                        // At start of tag, move to previous tag (cursor at end to continue left navigation)
                         e.preventDefault();
                         if (editingTagIndex > 0) {
                             resetInput();
-                            handleTagClick(selectedTags[editingTagIndex - 1], editingTagIndex - 1);
+                            handleTagClick(selectedTags[editingTagIndex - 1], editingTagIndex - 1, 'end');
                         } else {
                             resetInput();
                         }
                     } else if (e.key === "ArrowRight" && cursorPos === textLength && !e.shiftKey) {
-                        // At end of tag, move to next tag
+                        // At end of tag, move to next tag (cursor at start to continue right navigation)
                         e.preventDefault();
                         if (editingTagIndex < selectedTags.length - 1) {
                             resetInput();
-                            handleTagClick(selectedTags[editingTagIndex + 1], editingTagIndex + 1);
+                            handleTagClick(selectedTags[editingTagIndex + 1], editingTagIndex + 1, 'start');
                         } else {
                             resetInput();
                             if (inputRef.current) inputRef.current.focus();
                         }
                     }
-                    // If not at boundary or shift is pressed, let default behavior handle it (selection)
+                    // If not at boundary, let default browser behavior handle cursor movement
+                    // Do NOT return here - let the event propagate for normal text editing
+                    if ((e.key === "ArrowLeft" && cursorPos === 0) || (e.key === "ArrowRight" && cursorPos === textLength)) {
+                        return; // Only return if we handled the navigation
+                    }
+                    // Otherwise, don't return - let default arrow key behavior work
                     return;
                 }
 
@@ -382,7 +389,8 @@ export const createKeydownHandler = ({
                         e.preventDefault();
                         const newIndex = focusedTagIndex === -1 ? selectedTags.length - 1 : Math.max(0, focusedTagIndex - 1);
                         setFocusedTagIndex(newIndex);
-                        handleTagClick(selectedTags[newIndex], newIndex);
+                        // Coming from right, cursor at end to continue left navigation
+                        handleTagClick(selectedTags[newIndex], newIndex, 'end');
                     } else if (e.key === "ArrowRight") {
                         e.preventDefault();
                         const newIndex = focusedTagIndex === -1 ? 0 : focusedTagIndex + 1;
@@ -391,7 +399,8 @@ export const createKeydownHandler = ({
                             setFocusedTagIndex(-1);
                         } else {
                             setFocusedTagIndex(newIndex);
-                            handleTagClick(selectedTags[newIndex], newIndex);
+                            // Coming from left, cursor at start to continue right navigation
+                            handleTagClick(selectedTags[newIndex], newIndex, 'start');
                         }
                     }
                 }

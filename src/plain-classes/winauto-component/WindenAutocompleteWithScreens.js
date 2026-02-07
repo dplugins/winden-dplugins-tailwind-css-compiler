@@ -1,7 +1,22 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { Autocomplete as WindenAutocomplete } from '../winauto-component/index.js';
 
-const WindenAutocompleteWithScreens = ({ defaultTags, onChange, isDark = true, blockId = null }) => {
+const areTagListsEqual = (a = [], b = []) => {
+  if (!Array.isArray(a) || !Array.isArray(b)) return false;
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    if (a[i] !== b[i]) return false;
+  }
+  return true;
+};
+
+const WindenAutocompleteWithScreens = ({
+  defaultTags,
+  onChange,
+  isDark = true,
+  blockId = null,
+  onPreviewClassChange,
+}) => {
   const [isScreenChecked, setIsScreenChecked] = useState(false);
   const [__tags, set__Tags] = useState(defaultTags);
   const [dragData, setDragData] = useState(null);
@@ -163,7 +178,11 @@ const WindenAutocompleteWithScreens = ({ defaultTags, onChange, isDark = true, b
         return;
       }
       if (Array.isArray(event.detail.newClasses)) {
-        set__Tags(event.detail.newClasses);
+        set__Tags((prevTags) => (
+          areTagListsEqual(prevTags, event.detail.newClasses)
+            ? prevTags
+            : event.detail.newClasses
+        ));
       }
     };
     window.addEventListener('activeElementClassesChange', handleActiveElementClassesChange);
@@ -243,6 +262,7 @@ const WindenAutocompleteWithScreens = ({ defaultTags, onChange, isDark = true, b
               dragOverScreen={dragOverScreen}
               dragData={dragData}
               blockId={blockId}
+              onPreviewClassChange={onPreviewClassChange}
             />
             {screenOptions.map((key, idx) => (
               <div key={idx} style={{ marginTop: '10px' }}>
@@ -283,6 +303,7 @@ const WindenAutocompleteWithScreens = ({ defaultTags, onChange, isDark = true, b
                   dragOverScreen={dragOverScreen}
                   dragData={dragData}
                   blockId={blockId}
+                  onPreviewClassChange={onPreviewClassChange}
                 />
               </div>
             ))}
@@ -310,6 +331,7 @@ const WindenAutocompleteWithScreens = ({ defaultTags, onChange, isDark = true, b
             screens={screenOptions}
             isDark={isDark}
             blockId={blockId}
+            onPreviewClassChange={onPreviewClassChange}
           />
         )
       }

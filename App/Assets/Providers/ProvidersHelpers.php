@@ -270,9 +270,9 @@ class ProvidersHelpers
 
     public static function plain_classes_autocomplete($folder_name)
     {
-        // Pro integrations (bricks, elementor, oxygen, oxygen6) are in pro/build/
+        // Pro integrations (bricks, elementor, oxygen, oxygen6, builderius) are in pro/build/
         // Free integrations (gutenberg, winauto-component) are in build/
-        $pro_integrations = ['bricks', 'elementor', 'oxygen', 'oxygen6'];
+        $pro_integrations = ['bricks', 'elementor', 'oxygen', 'oxygen6', 'builderius'];
 
         if (in_array($folder_name, $pro_integrations)) {
             $build_dir = 'pro/build/plain-classes/';

@@ -1,6 +1,16 @@
 import type { ColorEntry } from "@/types/wizzard";
 
 /**
+ * Generate a unique ID for color entries
+ * Combines timestamp with random number to prevent duplicates
+ */
+let idCounter = 0;
+function generateUniqueId(): number {
+  idCounter++;
+  return Date.now() * 1000 + idCounter + Math.floor(Math.random() * 1000);
+}
+
+/**
  * Color preset factory function type
  */
 type ColorPresetFunction = (
@@ -56,7 +66,7 @@ export const colorPresets: Record<string, ColorPresetFunction> = {
       ...colorEntries,
       // Neutrals
       {
-        id: Date.now(),
+        id: generateUniqueId(),
         name: "Neutrals",
         hex: "#696969",
         minLightness: 5,
@@ -85,7 +95,7 @@ export const colorPresets: Record<string, ColorPresetFunction> = {
       },
       // Primary
       {
-        id: Date.now() + 1,
+        id: generateUniqueId(),
         name: "Primary",
         hex: "#06b6d4",
         minLightness: 5,
@@ -114,7 +124,7 @@ export const colorPresets: Record<string, ColorPresetFunction> = {
       },
       // Secondary
       {
-        id: Date.now() + 2,
+        id: generateUniqueId(),
         name: "Secondary",
         hex: "#FFA500",
         minLightness: 5,
@@ -163,7 +173,7 @@ function createColorPreset(
     setColorEntries([
       ...colorEntries,
       {
-        id: Date.now(),
+        id: generateUniqueId(),
         name: name,
         hex: hex,
         minLightness: 5,

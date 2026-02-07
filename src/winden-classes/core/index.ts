@@ -219,10 +219,106 @@ function getSuggestions(
 }
 
 /**
+ * Inject dropdown CSS into the document if not already present
+ */
+function injectDropdownStyles(doc: Document): void {
+  const styleId = 'winden-autocomplete-styles';
+  if (doc.getElementById(styleId)) {
+    return; // Already injected
+  }
+
+  const style = doc.createElement('style');
+  style.id = styleId;
+  style.textContent = `
+    .winden-autocomplete-dropdown {
+      background: #2a2a2a;
+      border: 1px solid #444;
+      border-radius: 6px;
+      max-height: 300px;
+      overflow-y: auto;
+      overflow-x: hidden;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-size: 13px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+    }
+    .winden-autocomplete-dropdown::-webkit-scrollbar {
+      width: 6px;
+    }
+    .winden-autocomplete-dropdown::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    .winden-autocomplete-dropdown::-webkit-scrollbar-thumb {
+      background: #3d3d5c;
+      border-radius: 3px;
+    }
+    .winden-autocomplete-dropdown::-webkit-scrollbar-thumb:hover {
+      background: #4d4d6c;
+    }
+    .winden-autocomplete-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      cursor: pointer;
+      transition: background-color 0.1s ease;
+      color: #e5e5e5;
+    }
+    .winden-autocomplete-item:hover {
+      background: #3a3a3a;
+    }
+    .winden-autocomplete-item--selected {
+      background: #3d3d5c;
+    }
+    .winden-autocomplete-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 22px;
+      height: 18px;
+      padding: 0 4px;
+      border-radius: 3px;
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      flex-shrink: 0;
+    }
+    .winden-autocomplete-badge--breakpoint {
+      background: #7b66ff;
+      color: white;
+    }
+    .winden-autocomplete-badge--variant {
+      background: #059669;
+      color: white;
+    }
+    .winden-autocomplete-badge--class {
+      background: #7b66ff;
+      color: white;
+    }
+    .winden-autocomplete-value {
+      color: #e2e8f0;
+      font-size: 12px;
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .winden-autocomplete-desc {
+      display: none;
+    }
+  `;
+  doc.head.appendChild(style);
+}
+
+/**
  * Create the dropdown element
  */
-function createDropdown(extraClass?: string): HTMLElement {
-  const dropdown = document.createElement('div');
+function createDropdown(extraClass?: string, ownerDoc?: Document): HTMLElement {
+  const doc = ownerDoc || document;
+
+  // Inject styles into the document if needed
+  injectDropdownStyles(doc);
+
+  const dropdown = doc.createElement('div');
   dropdown.className = 'winden-autocomplete-dropdown' + (extraClass ? ` ${extraClass}` : '');
   dropdown.style.display = 'none';
   return dropdown;
@@ -230,11 +326,15 @@ function createDropdown(extraClass?: string): HTMLElement {
 
 /**
  * Position the dropdown below the input
+ * Handles cross-document positioning when input and dropdown are in the same document
  */
 function positionDropdown(dropdown: HTMLElement, input: HTMLInputElement): void {
   const rect = input.getBoundingClientRect();
-  const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
-  const scrollLeft = window.pageXOffset || document.documentElement.scrollLeft;
+  const dropdownDoc = dropdown.ownerDocument;
+  const dropdownWin = dropdownDoc?.defaultView || window;
+
+  const scrollTop = dropdownWin.pageYOffset || dropdownDoc?.documentElement?.scrollTop || 0;
+  const scrollLeft = dropdownWin.pageXOffset || dropdownDoc?.documentElement?.scrollLeft || 0;
 
   dropdown.style.position = 'absolute';
   dropdown.style.top = `${rect.bottom + scrollTop}px`;
@@ -251,7 +351,8 @@ function renderSuggestions(
   suggestions: Suggestion[],
   selectedIndex: number,
   onSelect: (suggestion: Suggestion) => void,
-  onHover?: (index: number) => void
+  onHover?: (index: number) => void,
+  getInteractionMode?: () => 'keyboard' | 'mouse'
 ): void {
   dropdown.innerHTML = '';
 
@@ -293,7 +394,8 @@ function renderSuggestions(
     });
 
     item.addEventListener('mouseenter', () => {
-      if (interactionMode !== 'mouse') {
+      const currentMode = getInteractionMode ? getInteractionMode() : 'keyboard';
+      if (currentMode !== 'mouse') {
         return;
       }
       // Update selection on hover - both visual and state
@@ -356,16 +458,27 @@ export function createTailwindAutocomplete(options: AutocompleteOptions): Autoco
   let lastParsed: ParsedInput | null = null;
   let lastPreviewClass: string | null = null;
 
-  // Create dropdown
-  const dropdown = createDropdown(options.dropdownClass);
-  document.body.appendChild(dropdown);
+  // Getter for interaction mode (used by renderSuggestions)
+  const getInteractionMode = () => interactionMode;
+
+  // Determine the dropdown parent - use provided parent, or fall back to input's document body
+  const dropdownParent = options.dropdownParent || input.ownerDocument?.body || document.body;
+  const dropdownOwnerDoc = dropdownParent.ownerDocument || document;
+
+  // Create dropdown in the same document context as the parent
+  const dropdown = createDropdown(options.dropdownClass, dropdownOwnerDoc);
+  dropdownParent.appendChild(dropdown);
 
   /**
    * Update suggestions based on current input
    */
   const updateSuggestions = () => {
     // Only show suggestions if input is focused (prevents dropdown on programmatic changes)
-    if (document.activeElement !== input) {
+    // Check both the input's own document and the main document for activeElement
+    const inputDoc = input.ownerDocument;
+    const isInputFocused = inputDoc?.activeElement === input || document.activeElement === input;
+
+    if (!isInputFocused) {
       closeSuggestions();
       return;
     }
@@ -374,6 +487,7 @@ export function createTailwindAutocomplete(options: AutocompleteOptions): Autoco
     const cursorPosition = input.selectionStart ?? value.length;
     const parsed = parseInput(value, cursorPosition);
     lastParsed = parsed;
+
     if (options.onPreview) {
       if (lastPreviewClass !== null) {
         options.onPreview(null);
@@ -385,7 +499,7 @@ export function createTailwindAutocomplete(options: AutocompleteOptions): Autoco
     selectedIndex = 0;
 
     positionDropdown(dropdown, input);
-    renderSuggestions(dropdown, suggestions, selectedIndex, handleSelect, handleHover);
+    renderSuggestions(dropdown, suggestions, selectedIndex, handleSelect, handleHover, getInteractionMode);
 
     isOpen = suggestions.length > 0;
   };
@@ -518,14 +632,14 @@ export function createTailwindAutocomplete(options: AutocompleteOptions): Autoco
       case 'ArrowDown':
         e.preventDefault();
         selectedIndex = (selectedIndex + 1) % suggestions.length;
-        renderSuggestions(dropdown, suggestions, selectedIndex, handleSelect, handleHover);
+        renderSuggestions(dropdown, suggestions, selectedIndex, handleSelect, handleHover, getInteractionMode);
         updatePreview(selectedIndex);
         break;
 
       case 'ArrowUp':
         e.preventDefault();
         selectedIndex = selectedIndex <= 0 ? suggestions.length - 1 : selectedIndex - 1;
-        renderSuggestions(dropdown, suggestions, selectedIndex, handleSelect, handleHover);
+        renderSuggestions(dropdown, suggestions, selectedIndex, handleSelect, handleHover, getInteractionMode);
         updatePreview(selectedIndex);
         break;
 
@@ -575,15 +689,17 @@ export function createTailwindAutocomplete(options: AutocompleteOptions): Autoco
   input.addEventListener('focus', handleFocus);
   input.addEventListener('blur', handleBlur);
 
-  // Handle window scroll/resize
+  // Handle window scroll/resize - use the correct window context
+  const dropdownWin = dropdownOwnerDoc?.defaultView || window;
+
   const handleReposition = () => {
     if (isOpen) {
       positionDropdown(dropdown, input);
     }
   };
 
-  window.addEventListener('scroll', handleReposition, true);
-  window.addEventListener('resize', handleReposition);
+  dropdownWin.addEventListener('scroll', handleReposition, true);
+  dropdownWin.addEventListener('resize', handleReposition);
 
   const handleDropdownMouseMove = () => {
     interactionMode = 'mouse';
@@ -607,8 +723,8 @@ export function createTailwindAutocomplete(options: AutocompleteOptions): Autoco
       input.removeEventListener('keydown', handleKeyDown);
       input.removeEventListener('focus', handleFocus);
       input.removeEventListener('blur', handleBlur);
-      window.removeEventListener('scroll', handleReposition, true);
-      window.removeEventListener('resize', handleReposition);
+      dropdownWin.removeEventListener('scroll', handleReposition, true);
+      dropdownWin.removeEventListener('resize', handleReposition);
       dropdown.removeEventListener('mousemove', handleDropdownMouseMove);
       dropdown.removeEventListener('mouseleave', handleDropdownMouseLeave);
       dropdown.remove();
@@ -665,6 +781,33 @@ import {
   updateClassData,
 } from './data';
 
+// Export split mode utilities
+export {
+  AUTOCOMPLETE_DISABLE_ATTRS,
+  parseClassesByBreakpoint,
+  removeBreakpointPrefix,
+  addBreakpointPrefix,
+  combineFromSplitTextareas,
+  syncToSplitTextareas,
+  generateSplitModeHTML,
+  generateMainTextareaHTML,
+  isAutocompleteReady,
+  waitForAutocomplete,
+} from './split-mode';
+
+import {
+  AUTOCOMPLETE_DISABLE_ATTRS,
+  parseClassesByBreakpoint,
+  removeBreakpointPrefix,
+  addBreakpointPrefix,
+  combineFromSplitTextareas,
+  syncToSplitTextareas,
+  generateSplitModeHTML,
+  generateMainTextareaHTML,
+  isAutocompleteReady,
+  waitForAutocomplete,
+} from './split-mode';
+
 // Expose to window for global access
 declare global {
   interface Window {
@@ -678,6 +821,19 @@ declare global {
       setClasses: typeof setClasses;
       addClasses: typeof addClasses;
       updateClassData: typeof updateClassData;
+      // Split mode utilities
+      splitMode: {
+        AUTOCOMPLETE_DISABLE_ATTRS: typeof AUTOCOMPLETE_DISABLE_ATTRS;
+        parseClassesByBreakpoint: typeof parseClassesByBreakpoint;
+        removeBreakpointPrefix: typeof removeBreakpointPrefix;
+        addBreakpointPrefix: typeof addBreakpointPrefix;
+        combineFromSplitTextareas: typeof combineFromSplitTextareas;
+        syncToSplitTextareas: typeof syncToSplitTextareas;
+        generateSplitModeHTML: typeof generateSplitModeHTML;
+        generateMainTextareaHTML: typeof generateMainTextareaHTML;
+        isAutocompleteReady: typeof isAutocompleteReady;
+        waitForAutocomplete: typeof waitForAutocomplete;
+      };
     };
   }
 }
@@ -693,5 +849,18 @@ if (typeof window !== 'undefined') {
     setClasses,
     addClasses,
     updateClassData,
+    // Split mode utilities
+    splitMode: {
+      AUTOCOMPLETE_DISABLE_ATTRS,
+      parseClassesByBreakpoint,
+      removeBreakpointPrefix,
+      addBreakpointPrefix,
+      combineFromSplitTextareas,
+      syncToSplitTextareas,
+      generateSplitModeHTML,
+      generateMainTextareaHTML,
+      isAutocompleteReady,
+      waitForAutocomplete,
+    },
   };
 }

@@ -8,6 +8,12 @@
 
 import './index.scss';
 
+// Import core split mode utilities
+import {
+    syncToSplitTextareas,
+    combineFromSplitTextareas,
+} from '../core/split-mode';
+
 (function() {
     'use strict';
 
@@ -21,34 +27,8 @@ import './index.scss';
     const { createElement, Fragment, useState, useEffect, useRef } = wp.element;
     const { createHigherOrderComponent } = wp.compose;
     const { InspectorControls } = wp.blockEditor;
-    const { PanelBody } = wp.components;
 
     const breakpoints = window.windenGutenbergClasses?.breakpoints || ['sm', 'md', 'lg', 'xl', '2xl'];
-
-    // Remove any existing filters first
-    removeFilter('editor.BlockEdit', 'winden/with-winden-classes-panel');
-
-    /**
-     * Parse classes by breakpoint
-     */
-    function parseClassesByBreakpoint(classes) {
-        const groups = { '': [] };
-        breakpoints.forEach(bp => { groups[bp] = []; });
-
-        const bpPattern = new RegExp(`^(${breakpoints.join('|')}):`);
-
-        (classes || '').split(/\s+/).forEach(cls => {
-            if (!cls) return;
-            const match = cls.match(bpPattern);
-            if (match && groups[match[1]] !== undefined) {
-                groups[match[1]].push(cls);
-            } else {
-                groups[''].push(cls);
-            }
-        });
-
-        return groups;
-    }
 
     /**
      * Winden Classes Panel Component
@@ -163,38 +143,27 @@ import './index.scss';
             }
         }, [className]);
 
-        // Sync to split mode textareas
+        // Sync to split mode textareas (uses core utility)
         const syncToSplitMode = () => {
-            const groups = parseClassesByBreakpoint(className);
-
-            if (splitRefs.current['']) {
-                splitRefs.current[''].value = groups[''].join(' ');
-            }
-
-            breakpoints.forEach(bp => {
-                if (splitRefs.current[bp]) {
-                    splitRefs.current[bp].value = groups[bp].join(' ');
-                }
-            });
+            syncToSplitTextareas(
+                className,
+                (bp, value) => {
+                    if (splitRefs.current[bp]) {
+                        splitRefs.current[bp].value = value;
+                    }
+                },
+                breakpoints
+            );
         };
 
-        // Combine classes from split textareas
+        // Combine classes from split textareas (uses core utility)
         const combineClasses = () => {
-            const allClasses = [];
-
-            if (splitRefs.current['']) {
-                const defaultClasses = splitRefs.current[''].value.trim();
-                if (defaultClasses) allClasses.push(defaultClasses);
-            }
-
-            breakpoints.forEach(bp => {
-                if (splitRefs.current[bp]) {
-                    const bpClasses = splitRefs.current[bp].value.trim();
-                    if (bpClasses) allClasses.push(bpClasses);
-                }
-            });
-
-            return allClasses.join(' ');
+            return combineFromSplitTextareas(
+                (bp) => {
+                    return splitRefs.current[bp] ? splitRefs.current[bp].value : '';
+                },
+                breakpoints
+            );
         };
 
         // Toggle split mode
@@ -260,17 +229,17 @@ import './index.scss';
 
         const splitModeView = createElement('div', { className: 'winden-split-mode' }, splitGroups);
 
-        // Toggle switch
-        const toggleSwitch = createElement('label', { className: 'winden-toggle-wrapper' },
-            createElement('span', { className: `winden-toggle ${isSplitMode ? 'is-checked' : ''}` },
+        // Toggle switch (same structure as Plain Classes)
+        const toggleSwitch = createElement('label', { className: 'windauto--toggle--label', style: { marginTop: '12px' } },
+            createElement('span', { className: `winauto--toggle ${isSplitMode ? 'is-checked' : ''}` },
                 createElement('input', {
                     type: 'checkbox',
                     checked: isSplitMode,
                     onChange: handleToggleSplit
                 }),
-                createElement('span', { className: 'winden-toggle-dot' })
+                createElement('span', { className: 'winauto--toggle_dot' })
             ),
-            createElement('span', { className: 'winden-toggle-label' }, 'Split by breakpoint')
+            'Split Screens (by breakpoint)'
         );
 
         return createElement('div', {
@@ -283,7 +252,20 @@ import './index.scss';
     }
 
     /**
+     * Winden Classes panel icon (same as Plain Classes)
+     */
+    const WindenIcon = createElement('svg', {
+        height: '24px',
+        viewBox: '0 -960 960 960',
+        width: '24px',
+        fill: 'currentColor'
+    },
+        createElement('path', { d: 'M164.62-520q-26.66 0-45.64-18.98T100-584.62v-130.76q0-26.66 18.98-45.64T164.62-780H520v260H164.62Zm0-40H480v-180H164.62q-10.77 0-17.7 6.92-6.92 6.93-6.92 17.7v130.76q0 10.77 6.92 17.7 6.93 6.92 17.7 6.92Zm0 380q-26.66 0-45.64-18.98T100-244.62v-130.76q0-26.66 18.98-45.64T164.62-440H600v260H164.62Zm0-40H560v-180H164.62q-10.77 0-17.7 6.92-6.92 6.93-6.92 17.7v130.76q0 10.77 6.92 17.7 6.93 6.92 17.7 6.92ZM680-180v-340h-80v-260h250.77l-80 204.62h78.46L680-180ZM200-280h60v-60h-60v60Zm0-340h60v-60h-60v60Zm-60 60V-740v180Zm0 340V-400v180Z' })
+    );
+
+    /**
      * Add Winden Classes panel to block inspector
+     * Uses same structure as Plain Classes (no collapsible PanelBody)
      */
     const withWindenClassesPanel = createHigherOrderComponent((BlockEdit) => {
         return (props) => {
@@ -300,11 +282,11 @@ import './index.scss';
             return createElement(Fragment, null,
                 createElement(BlockEdit, props),
                 isSelected && createElement(InspectorControls, null,
-                    createElement(PanelBody, {
-                        title: 'Winden Classes',
-                        initialOpen: true,
-                        className: 'winden-classes-panel'
-                    },
+                    createElement('div', { className: 'winden-classes-container winden-classes' },
+                        createElement('div', { className: 'winden-classes-container-header' },
+                            WindenIcon,
+                            createElement('h3', null, 'Winden Classes')
+                        ),
                         createElement(WindenClassesPanel, {
                             attributes,
                             setAttributes,

@@ -15,10 +15,13 @@ class SettingsSaveGet
         'autocomplete_oxygen',
         'autocomplete_oxygen6',
         'autocomplete_elementor',
+        'autocomplete_builderius',
 
         'winden_classes_gutenberg',
         'winden_classes_bricks',
         'winden_classes_oxygen',
+        'winden_classes_oxygen6',
+        'winden_classes_elementor',
 
         'autocomplete_mode',
 

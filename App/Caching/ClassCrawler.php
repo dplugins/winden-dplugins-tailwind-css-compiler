@@ -35,6 +35,7 @@ class ClassCrawler
 {
     private array $classes;
     private array $posts;
+    private array $classesBySource;
 
     /**
      * @param int|null $single_post_id If provided, only crawl this single post (for incremental updates)
@@ -42,6 +43,7 @@ class ClassCrawler
     public function __construct(?int $single_post_id = null)
     {
         $this->classes = [];
+        $this->classesBySource = [];
 
         if ($single_post_id && $single_post_id > 0) {
             // Single post mode: only query this specific post
@@ -185,6 +187,25 @@ class ClassCrawler
         return $posts;
     }
 
+    /**
+     * Add classes from a source to tracking
+     */
+    private function addClassesFromSource(string $source, array $classes): void
+    {
+        if (empty($classes)) {
+            return;
+        }
+
+        if (!isset($this->classesBySource[$source])) {
+            $this->classesBySource[$source] = [];
+        }
+
+        $this->classesBySource[$source] = array_values(array_unique(
+            array_merge($this->classesBySource[$source], $classes)
+        ));
+        $this->classes = array_merge($this->classes, $classes);
+    }
+
     public function classes(): array
     {
         // Process Gutenberg classes if posts exist
@@ -197,7 +218,7 @@ class ClassCrawler
                 $gutenbergClasses = [];
             }
 
-            $this->classes = array_merge($this->classes, $gutenbergClasses);
+            $this->addClassesFromSource('Gutenberg / Block Editor', $gutenbergClasses);
         }
 
         // Pro crawlers - only load if license is active
@@ -206,48 +227,55 @@ class ClassCrawler
             if (Builders::isBricksThemeActivated() && !empty($this->posts)) {
                 $bricksCrawler = new \Winden\Pro\Crawlers\BricksCrawler($this->posts);
                 $bricksClasses = $bricksCrawler->classes();
-                $this->classes = array_merge($this->classes, $bricksClasses);
+                $this->addClassesFromSource('Bricks Builder', $bricksClasses);
 
                 // Also run Bricks2Crawler for Bricks 2 global classes
                 $bricks2Crawler = new \Winden\Pro\Crawlers\Bricks2Crawler($this->posts);
                 $bricks2Classes = $bricks2Crawler->classes();
-                $this->classes = array_merge($this->classes, $bricks2Classes);
+                $this->addClassesFromSource('Bricks Global Classes', $bricks2Classes);
             }
 
             // Process Oxygen classes if plugin is active and posts exist
             if (Builders::isOxygenPluginActivated() && !empty($this->posts)) {
                 $oxygenCrawler = new \Winden\Pro\Crawlers\OxygenCrawler($this->posts);
                 $oxygenClasses = $oxygenCrawler->classes();
-                $this->classes = array_merge($this->classes, $oxygenClasses);
+                $this->addClassesFromSource('Oxygen Builder', $oxygenClasses);
             }
 
             // Process Oxygen 6 classes if plugin is active and posts exist
             if (Builders::isOxygen6PluginActivated() && !empty($this->posts)) {
                 $oxygen6Crawler = new \Winden\Pro\Crawlers\Oxygen6Crawler($this->posts);
                 $oxygen6Classes = $oxygen6Crawler->classes();
-                $this->classes = array_merge($this->classes, $oxygen6Classes);
+                $this->addClassesFromSource('Oxygen 6', $oxygen6Classes);
             }
 
             // Process Elementor classes if plugin is active and posts exist
             if (Builders::isElementorPluginActivated() && !empty($this->posts)) {
                 $elementorCrawler = new \Winden\Pro\Crawlers\ElementorCrawler($this->posts);
                 $elementorClasses = $elementorCrawler->classes();
-                $this->classes = array_merge($this->classes, $elementorClasses);
+                $this->addClassesFromSource('Elementor', $elementorClasses);
+            }
+
+            // Process Builderius classes if plugin is active
+            if (Builders::isBuilderiusPluginActivated()) {
+                $builderiusCrawler = new \Winden\Pro\Crawlers\BuilderiusCrawler($this->posts);
+                $builderiusClasses = $builderiusCrawler->classes();
+                $this->addClassesFromSource('Builderius', $builderiusClasses);
             }
         }
 
         $scorgCrawler = new ScriptsOrganizerCrawler();
         $scorgClasses = $scorgCrawler->classes();
-        $this->classes = array_merge($this->classes, $scorgClasses);
+        $this->addClassesFromSource('Scripts Organizer', $scorgClasses);
 
         $metaBoxBlockViews = new MetaBoxBlockViews();
         $metaBoxClasses = $metaBoxBlockViews->classes();
-        $this->classes = array_merge($this->classes, $metaBoxClasses);
+        $this->addClassesFromSource('MetaBox Block Views', $metaBoxClasses);
 
         // Scan Fancoolo custom post type and meta fields
         $fancooloCrawler = new FancooloCrawler($this->posts);
         $fancoloClasses = $fancooloCrawler->classes();
-        $this->classes = array_merge($this->classes, $fancoloClasses);
+        $this->addClassesFromSource('Fancoolo', $fancoloClasses);
 
         $settings = SettingsOptions::getWindenOptions();
 
@@ -283,7 +311,7 @@ class ClassCrawler
 
             try {
                 $scanned_classes = $scannerCrawler->classes($scan_path, $scan_file_formats);
-                $this->classes = array_merge($this->classes, $scanned_classes);
+                $this->addClassesFromSource('File Scanner', $scanned_classes);
             } catch (\Exception $e) {
                 // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- Intentional production logging for error tracking
                 error_log('[Winden ClassCrawler] Exception in ScanCrawler: ' . $e->getMessage());
@@ -293,13 +321,13 @@ class ClassCrawler
         // Execute custom crawlers through hooks
         $hookCrawler = new HookCrawler();
         $hookClasses = $hookCrawler->classes();
-        $this->classes = array_merge($this->classes, $hookClasses);
+        $this->addClassesFromSource('Custom Hooks', $hookClasses);
 
         // Get Winden classes from database (separate from builder class storage)
         // This provides clean, user-controlled class lists without builder artifacts
         $windenDbClasses = ClassManager::getAllClasses();
         if (!empty($windenDbClasses)) {
-            $this->classes = array_merge($this->classes, $windenDbClasses);
+            $this->addClassesFromSource('Separate Class System', $windenDbClasses);
         }
 
         $finalClasses = array_unique($this->classes);
@@ -308,6 +336,42 @@ class ClassCrawler
         $finalClasses = array_values($finalClasses);
 
         return $finalClasses;
+    }
+
+    /**
+     * Get classes grouped by their source
+     *
+     * @return array Array with 'sources' (grouped classes) and 'total' (total unique count)
+     */
+    public function classesWithSources(): array
+    {
+        // Ensure classes have been crawled
+        if (empty($this->classesBySource)) {
+            $this->classes();
+        }
+
+        // Build the result with sources that have classes
+        $sources = [];
+        foreach ($this->classesBySource as $source => $classes) {
+            if (!empty($classes)) {
+                sort($classes);
+                $sources[] = [
+                    'name' => $source,
+                    'count' => count($classes),
+                    'classes' => $classes,
+                ];
+            }
+        }
+
+        // Sort sources by count (highest first)
+        usort($sources, function($a, $b) {
+            return $b['count'] - $a['count'];
+        });
+
+        return [
+            'sources' => $sources,
+            'total' => count(array_unique($this->classes)),
+        ];
     }
 
     public function addClass(string $class): void

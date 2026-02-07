@@ -15,6 +15,7 @@ class SettingsPage
         add_action('admin_init', [$this, 'register_settings']);
         add_action('admin_post_winden_generate_classes', [$this, 'generate_classes_file']);
         add_action('wp_ajax_winden_get_classes', [$this, 'get_classes']); // Register the AJAX action
+        add_action('wp_ajax_winden_get_classes_grouped', [$this, 'get_classes_grouped']); // Grouped classes with sources
     }
 
     public function modify_script_loader_tag($tag, $handle, $src)
@@ -199,5 +200,24 @@ class SettingsPage
 
         // Return the classes as a JSON response
         wp_send_json_success(['classes' => $classes]);
+    }
+
+    /**
+     * Get classes grouped by source for the cache status dialog
+     */
+    public function get_classes_grouped()
+    {
+        // Check if the user has the right capability
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error('Unauthorized user');
+            return;
+        }
+
+        // Create an instance of ClassCrawler
+        $crawler = new \Winden\App\Caching\ClassCrawler();
+        $groupedData = $crawler->classesWithSources();
+
+        // Return the grouped data as a JSON response
+        wp_send_json_success($groupedData);
     }
 }

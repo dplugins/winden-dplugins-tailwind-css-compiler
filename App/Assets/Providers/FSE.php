@@ -253,13 +253,13 @@ class FSE extends BaseProvider
     public function enqueue_winden_classes_autocomplete()
     {
         // First, load the autocomplete library
-        $autocomplete_js = WINDTACS_PLUGIN_DIR . 'build/tailwind-autocomplete/core/index.js';
-        $autocomplete_css = WINDTACS_PLUGIN_DIR . 'build/tailwind-autocomplete/core/index.css';
+        $autocomplete_js = WINDTACS_PLUGIN_DIR . 'build/winden-classes/core/index.js';
+        $autocomplete_css = WINDTACS_PLUGIN_DIR . 'build/winden-classes/core/index.css';
 
         if (file_exists($autocomplete_js)) {
             wp_enqueue_script(
                 'winden-tailwind-autocomplete',
-                WINDTACS_PLUGIN_URL . 'build/tailwind-autocomplete/core/index.js',
+                WINDTACS_PLUGIN_URL . 'build/winden-classes/core/index.js',
                 [],
                 filemtime($autocomplete_js),
                 true
@@ -269,16 +269,16 @@ class FSE extends BaseProvider
         if (file_exists($autocomplete_css)) {
             wp_enqueue_style(
                 'winden-tailwind-autocomplete',
-                WINDTACS_PLUGIN_URL . 'build/tailwind-autocomplete/core/index.css',
+                WINDTACS_PLUGIN_URL . 'build/winden-classes/core/index.css',
                 [],
                 filemtime($autocomplete_css)
             );
         }
 
-        // Then load the Gutenberg integration
-        $js_path = WINDTACS_PLUGIN_DIR . 'build/tailwind-autocomplete/gutenberg/index.js';
-        $css_path = WINDTACS_PLUGIN_DIR . 'build/tailwind-autocomplete/gutenberg/index.css';
-        $asset_file_path = WINDTACS_PLUGIN_DIR . 'build/tailwind-autocomplete/gutenberg/index.asset.php';
+        // Then load the Gutenberg integration (Free feature)
+        $js_path = WINDTACS_PLUGIN_DIR . 'build/winden-classes/gutenberg/index.js';
+        $css_path = WINDTACS_PLUGIN_DIR . 'build/winden-classes/gutenberg/index.css';
+        $asset_file_path = WINDTACS_PLUGIN_DIR . 'build/winden-classes/gutenberg/index.asset.php';
 
         if (!file_exists($js_path)) {
             return;
@@ -294,7 +294,7 @@ class FSE extends BaseProvider
 
         wp_enqueue_script(
             'winden-classes-gutenberg',
-            WINDTACS_PLUGIN_URL . 'build/tailwind-autocomplete/gutenberg/index.js',
+            WINDTACS_PLUGIN_URL . 'build/winden-classes/gutenberg/index.js',
             $dependencies,
             $version,
             true
@@ -304,7 +304,7 @@ class FSE extends BaseProvider
         if (file_exists($css_path)) {
             wp_enqueue_style(
                 'winden-classes-gutenberg',
-                WINDTACS_PLUGIN_URL . 'build/tailwind-autocomplete/gutenberg/index.css',
+                WINDTACS_PLUGIN_URL . 'build/winden-classes/gutenberg/index.css',
                 [],
                 filemtime($css_path)
             );

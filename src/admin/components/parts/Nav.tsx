@@ -10,6 +10,7 @@ import {
 } from "@el/Dialog";
 import { Spinner } from "@el/Spinner";
 import { SettingsDialog } from "./SettingsDialog";
+import { ClassSourceList } from "./ClassSourceList";
 import { ReactComponent as HelpIcon } from "@/assets/icons/helpIcon.svg";
 import { ReactComponent as CogIcon } from "@/assets/icons/GearIcon.svg";
 import { ReactComponent as ShadowIcon } from "@/assets/icons/ShadowIcon.svg";
@@ -31,6 +32,17 @@ interface CacheStatus {
   errors?: string;
   createdAt?: string;
   auto_fixed?: boolean;
+}
+
+interface ClassSource {
+  name: string;
+  count: number;
+  classes: string[];
+}
+
+interface GroupedClassesData {
+  sources: ClassSource[];
+  total: number;
 }
 
 /**
@@ -66,6 +78,8 @@ const Nav: React.FC = () => {
   const [isSettingsOpen, setSettingsOpen] = useState(false);
   const [licenseProcessing, setLicenseProcessing] = useState(false);
   const [licenseError, setLicenseError] = useState<string | null>(null);
+  const [groupedClasses, setGroupedClasses] = useState<GroupedClassesData | null>(null);
+  const [classesLoading, setClassesLoading] = useState(false);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -155,18 +169,44 @@ const Nav: React.FC = () => {
     }
   }, [scriptLoaded]);
 
+  const fetchGroupedClasses = useCallback(async () => {
+    setClassesLoading(true);
+    try {
+      const response = await fetch(
+        `${window.ajaxUrl}?action=winden_get_classes_grouped`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({ _nonce: window.nonce }),
+        }
+      );
+      const result = await response.json();
+      if (result.success && result.data) {
+        setGroupedClasses(result.data);
+      }
+    } catch (error) {
+      console.error('[Nav] Failed to fetch grouped classes:', error);
+    } finally {
+      setClassesLoading(false);
+    }
+  }, []);
+
   const openModal = useCallback(() => {
     if (cacheStatus?.status && !cacheInProgress) {
       setOpen(true);
+      // Fetch grouped classes when dialog opens
+      fetchGroupedClasses();
     }
-  }, [cacheStatus?.status, cacheInProgress]);
+  }, [cacheStatus?.status, cacheInProgress, fetchGroupedClasses]);
 
   const onSave = useCallback(async () => {
+    wizzardContentRef.current = localWizzardState;
     await handleSave(jsContentRef, scssContentRef, wizzardContentRef, settings);
-  }, [jsContentRef, scssContentRef, wizzardContentRef, settings]);
+  }, [jsContentRef, scssContentRef, wizzardContentRef, settings, localWizzardState]);
 
   const handleSaveAndFetchClasses = useCallback(async () => {
     setLoading(true);
+    wizzardContentRef.current = localWizzardState;
     await handleSave(jsContentRef, scssContentRef, wizzardContentRef, settings);
     setLoading(false);
     // Always use v4
@@ -208,7 +248,7 @@ const Nav: React.FC = () => {
 
   const toggleSettingsModal = useCallback(() => setSettingsOpen(prev => !prev), []);
 
-  const handleChange = useCallback((settingName: keyof Settings) => (value: any) => {
+  const handleChange = useCallback((settingName: keyof Settings) => (value: Settings[keyof Settings]) => {
     // Use functional update to avoid stale closure when multiple settings change at once
     setSettings(prev => {
       const newSettings = { ...prev, [settingName]: value };
@@ -300,9 +340,19 @@ const Nav: React.FC = () => {
             </DialogDescription>
           </DialogHeader>
           {cacheStatus?.status === "completed" ? (
-            <a href={`${window.uploadUrl}/winden/output.css?t=${Date.now()}`} target="_blank">
-              View cache ↗
-            </a>
+            <>
+              <Button
+                variant="default"
+                onClick={() => window.open(`${window.uploadUrl}/winden/output.css?t=${Date.now()}`, '_blank')}
+              >
+                View cache ↗
+              </Button>
+              <ClassSourceList
+                sources={groupedClasses?.sources || []}
+                total={groupedClasses?.total || 0}
+                isLoading={classesLoading}
+              />
+            </>
           ) : null}
 
           {cacheStatus?.status === "failed" && cacheStatus?.errors?.length && (

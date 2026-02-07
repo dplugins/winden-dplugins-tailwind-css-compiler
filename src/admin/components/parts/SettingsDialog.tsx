@@ -18,9 +18,12 @@ interface Settings {
   autocomplete_oxygen?: boolean;
   autocomplete_oxygen6?: boolean;
   autocomplete_elementor?: boolean;
+  autocomplete_builderius?: boolean;
   winden_classes_gutenberg?: boolean;
   winden_classes_bricks?: boolean;
   winden_classes_oxygen?: boolean;
+  winden_classes_oxygen6?: boolean;
+  winden_classes_elementor?: boolean;
   dequeue_styles_gutenberg?: boolean;
   dequeue_styles_bricks?: boolean;
   dequeue_styles_oxygen?: boolean;
@@ -115,13 +118,13 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
               <TabsList className="inline-flex p-1 bg-base-3 rounded-lg mb-4">
                 <TabsTrigger
                   value="plain-classes"
-                  className="px-4 py-1.5 text-xs font-medium rounded-md transition-all data-[state=active]:bg-white data-[state=active]:text-base-foreground data-[state=active]:shadow-sm data-[state=active]:after:hidden data-[state=inactive]:text-base-foreground/60 data-[state=inactive]:hover:text-base-foreground"
+                  className="px-4 py-1.5 text-xs font-medium rounded-md transition-all data-[state=active]:bg-base-foreground data-[state=active]:text-base-1 data-[state=active]:shadow-sm data-[state=active]:after:hidden data-[state=inactive]:text-base-foreground/60 data-[state=inactive]:hover:text-base-foreground"
                 >
                   Plain Classes
                 </TabsTrigger>
                 <TabsTrigger
                   value="winden-classes"
-                  className="px-4 py-1.5 text-xs font-medium rounded-md transition-all data-[state=active]:bg-white data-[state=active]:text-base-foreground data-[state=active]:shadow-sm data-[state=active]:after:hidden data-[state=inactive]:text-base-foreground/60 data-[state=inactive]:hover:text-base-foreground"
+                  className="px-4 py-1.5 text-xs font-medium rounded-md transition-all data-[state=active]:bg-base-foreground data-[state=active]:text-base-1 data-[state=active]:shadow-sm data-[state=active]:after:hidden data-[state=inactive]:text-base-foreground/60 data-[state=inactive]:hover:text-base-foreground"
                 >
                   Winden Classes
                 </TabsTrigger>
@@ -143,10 +146,14 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
                   {isProVersion && (
                     <>
                       <SwitchWithLabel
-                        label="Bricks Builder 2"
+                        label="Bricks Builder"
                         name="autocomplete_bricks"
                         checked={settings.autocomplete_bricks ?? false}
-                        onChange={onSettingChange("autocomplete_bricks")}
+                        onChange={(value) => {
+                          onSettingChange("autocomplete_bricks")(value);
+                          // Disable Winden Classes when Plain Classes is enabled
+                          if (value) onSettingChange("winden_classes_bricks")(false);
+                        }}
                       />
                       <SwitchWithLabel
                         label="Oxygen Builder Classic"
@@ -170,6 +177,12 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
                         checked={settings.autocomplete_elementor ?? false}
                         onChange={onSettingChange("autocomplete_elementor")}
                       />
+                      <SwitchWithLabel
+                        label="Builderius"
+                        name="autocomplete_builderius"
+                        checked={settings.autocomplete_builderius ?? false}
+                        onChange={onSettingChange("autocomplete_builderius")}
+                      />
                     </>
                   )}
                 </div>
@@ -191,7 +204,7 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
                   {isProVersion && (
                     <>
                       <SwitchWithLabel
-                        label="Bricks Builder 2 (Separate Class System)"
+                        label="Bricks Builder (Separate Class System)"
                         name="winden_classes_bricks"
                         checked={settings.winden_classes_bricks ?? false}
                         onChange={(value) => {
@@ -210,9 +223,34 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
                           if (value) onSettingChange("autocomplete_oxygen")(false);
                         }}
                       />
+                      <SwitchWithLabel
+                        label="Oxygen Builder 6 (Separate Class System)"
+                        name="winden_classes_oxygen6"
+                        checked={settings.winden_classes_oxygen6 ?? false}
+                        onChange={(value) => {
+                          onSettingChange("winden_classes_oxygen6")(value);
+                          // Disable Plain Classes when Winden Classes is enabled
+                          if (value) onSettingChange("autocomplete_oxygen6")(false);
+                        }}
+                      />
+                      <SwitchWithLabel
+                        label="Elementor"
+                        name="winden_classes_elementor"
+                        checked={settings.winden_classes_elementor ?? false}
+                        onChange={(value) => {
+                          onSettingChange("winden_classes_elementor")(value);
+                          // Disable Plain Classes when Winden Classes is enabled
+                          if (value) onSettingChange("autocomplete_elementor")(false);
+                        }}
+                      />
                     </>
                   )}
                 </div>
+
+                {isProVersion && ( 
+                  <p>Learn more about <a href="https://docs.dplugins.com/winden/autocomplete/#separate-class-system" target="_blank" className="">Separate Classes System</a>.</p>
+                )}
+
               </TabsContent>
             </Tabs>
 

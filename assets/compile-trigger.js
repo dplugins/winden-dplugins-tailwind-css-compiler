@@ -10,32 +10,35 @@
 (function() {
     'use strict';
 
-    console.log('[Winden Compile] compile-trigger.js loaded');
-    console.log('[Winden Compile] windenAutoCompile:', window.windenAutoCompile ? 'defined' : 'undefined');
+    // Debug logging helper
+    const debug = window.WINDTACS_DEBUG ? console.log.bind(console) : () => {};
+
+    debug('[Winden Compile] compile-trigger.js loaded');
+    debug('[Winden Compile] windenAutoCompile:', window.windenAutoCompile ? 'defined' : 'undefined');
 
     if (!window.windenAutoCompile) {
-        console.log('[Winden Compile] EXITING: windenAutoCompile not defined');
+        debug('[Winden Compile] EXITING: windenAutoCompile not defined');
         return;
     }
 
     // Wait for core module to be available
     function waitForCore(callback) {
-        console.log('[Winden Compile] Waiting for WindenCompilerCore...');
+        debug('[Winden Compile] Waiting for WindenCompilerCore...');
         if (window.WindenCompilerCore) {
-            console.log('[Winden Compile] WindenCompilerCore already available');
+            debug('[Winden Compile] WindenCompilerCore already available');
             callback();
         } else {
             const interval = setInterval(() => {
                 if (window.WindenCompilerCore) {
                     clearInterval(interval);
-                    console.log('[Winden Compile] WindenCompilerCore now available');
+                    debug('[Winden Compile] WindenCompilerCore now available');
                     callback();
                 }
             }, 50);
             // Timeout after 5 seconds
             setTimeout(() => {
                 clearInterval(interval);
-                console.log('[Winden Compile] TIMEOUT: WindenCompilerCore never loaded');
+                debug('[Winden Compile] TIMEOUT: WindenCompilerCore never loaded');
             }, 5000);
         }
     }
@@ -43,7 +46,7 @@
     waitForCore(function() {
         const Core = window.WindenCompilerCore;
         const editors = Core.detectEditorType();
-        console.log('[Winden Compile] Editor detection:', JSON.stringify(editors));
+        debug('[Winden Compile] Editor detection:', JSON.stringify(editors));
 
         // Create compile function with optional css-injector support
         const compile = Core.createCompileFunction({
@@ -62,9 +65,9 @@
         function triggerRecompile() {
             // Check if Winden has pending saves that need to be flushed
             if (window.windenFlushPendingSaves && window.windenHasPendingSaves && window.windenHasPendingSaves()) {
-                console.log('[Winden Compile] Flushing pending Winden class saves before compile...');
+                debug('[Winden Compile] Flushing pending Winden class saves before compile...');
                 window.windenFlushPendingSaves().then(function() {
-                    console.log('[Winden Compile] Pending saves flushed, starting compile');
+                    debug('[Winden Compile] Pending saves flushed, starting compile');
                     Core.triggerRecompile(compile);
                 }).catch(function(err) {
                     console.error('[Winden Compile] Error flushing saves:', err);
@@ -78,31 +81,34 @@
 
         // Initialize based on editor type
         function init() {
-            console.log('[Winden Compile] init() called');
+            debug('[Winden Compile] init() called');
             // Don't compile on page load - output.css already has the styles
             // Hot reload elements are only created when saving from Winden admin
             // or when saving from page builders
 
             if (editors.isGutenberg) {
-                console.log('[Winden Compile] Detected: Gutenberg');
+                debug('[Winden Compile] Detected: Gutenberg');
                 initGutenberg();
             } else if (editors.isElementor) {
-                console.log('[Winden Compile] Detected: Elementor');
+                debug('[Winden Compile] Detected: Elementor');
                 initElementor();
             } else if (editors.isBricks) {
-                console.log('[Winden Compile] Detected: Bricks');
+                debug('[Winden Compile] Detected: Bricks');
                 initBricks();
             } else if (editors.isOxygen) {
-                console.log('[Winden Compile] Detected: Oxygen');
+                debug('[Winden Compile] Detected: Oxygen');
                 initOxygen();
             } else if (editors.isBreakdance) {
-                console.log('[Winden Compile] Detected: Breakdance');
+                debug('[Winden Compile] Detected: Breakdance');
                 initBreakdance();
             } else if (editors.isOxygen6) {
-                console.log('[Winden Compile] Detected: Oxygen 6');
+                debug('[Winden Compile] Detected: Oxygen 6');
                 initOxygen6();
+            } else if (editors.isBuilderius) {
+                debug('[Winden Compile] Detected: Builderius');
+                initBuilderius();
             } else {
-                console.log('[Winden Compile] No editor detected!');
+                debug('[Winden Compile] No editor detected!');
             }
         }
 
@@ -127,27 +133,61 @@
         }
 
         function initElementor() {
-            window.addEventListener('elementor/init', function() {
-                class WindenAfterSave extends $e.modules.hookUI.After {
-                    getCommand() {
-                        return 'document/save/save';
-                    }
-
-                    getId() {
-                        return 'winden-after-save';
-                    }
-
-                    getConditions(args) {
-                        return true;
-                    }
-
-                    apply(args) {
-                        triggerRecompile();
-                    }
+            function registerElementorHook() {
+                if (typeof $e === 'undefined' || !$e.modules || !$e.modules.hookUI) {
+                    debug('[Winden Compile] $e.modules.hookUI not available yet');
+                    return false;
                 }
 
-                $e.hooks.registerUIAfter(new WindenAfterSave());
+                try {
+                    class WindenAfterSave extends $e.modules.hookUI.After {
+                        getCommand() {
+                            return 'document/save/save';
+                        }
+
+                        getId() {
+                            return 'winden-after-save';
+                        }
+
+                        getConditions(args) {
+                            return true;
+                        }
+
+                        apply(args) {
+                            debug('[Winden Compile] Elementor save detected, triggering recompile');
+                            triggerRecompile();
+                        }
+                    }
+
+                    $e.hooks.registerUIAfter(new WindenAfterSave());
+                    debug('[Winden Compile] Elementor hook registered successfully');
+                    return true;
+                } catch (e) {
+                    debug('[Winden Compile] Error registering Elementor hook:', e);
+                    return false;
+                }
+            }
+
+            // Try to register immediately (Elementor might already be initialized)
+            if (registerElementorHook()) {
+                return;
+            }
+
+            // If not ready, listen for elementor/init event
+            window.addEventListener('elementor/init', function() {
+                debug('[Winden Compile] elementor/init event fired');
+                // Small delay to ensure $e is fully ready
+                setTimeout(registerElementorHook, 100);
             });
+
+            // Also try periodically in case we missed the event
+            let attempts = 0;
+            const checkInterval = setInterval(function() {
+                attempts++;
+                if (registerElementorHook() || attempts > 50) {
+                    clearInterval(checkInterval);
+                }
+            }, 200);
         }
 
         function initBricks() {
@@ -196,7 +236,7 @@
         }
 
         function initOxygen() {
-            console.log('[Winden Compile] initOxygen started');
+            debug('[Winden Compile] initOxygen started');
 
             // Method 1: Keyboard shortcut (Ctrl/Cmd+S)
             let lastSaveTime = 0;
@@ -205,18 +245,18 @@
             // which may call stopPropagation() during bubbling
             document.addEventListener('keydown', (e) => {
                 if ((e.ctrlKey || e.metaKey) && e.key === 's') {
-                    console.log('[Winden Compile] Ctrl+S detected in compile-trigger');
+                    debug('[Winden Compile] Ctrl+S detected in compile-trigger');
                     const now = Date.now();
                     if (now - lastSaveTime < 1000) {
-                        console.log('[Winden Compile] Debounce: skipping (too soon)');
+                        debug('[Winden Compile] Debounce: skipping (too soon)');
                         return;
                     }
                     lastSaveTime = now;
 
                     // Wait for Oxygen to complete the save before recompiling
-                    console.log('[Winden Compile] Scheduling triggerRecompile in 500ms...');
+                    debug('[Winden Compile] Scheduling triggerRecompile in 500ms...');
                     setTimeout(() => {
-                        console.log('[Winden Compile] Calling triggerRecompile now');
+                        debug('[Winden Compile] Calling triggerRecompile now');
                         triggerRecompile();
                     }, 500);
                 }
@@ -370,21 +410,78 @@
             setTimeout(() => clearInterval(checkOxygen6Ready), 10000);
         }
 
+        function initBuilderius() {
+            debug('[Winden Compile] initBuilderius started');
+
+            let lastSaveTime = 0;
+
+            // Method 1: Watch for "Template saved!" toast notification
+            const setupToastObserver = () => {
+                const observer = new MutationObserver((mutations) => {
+                    for (const mutation of mutations) {
+                        for (const node of mutation.addedNodes) {
+                            if (node.nodeType !== Node.ELEMENT_NODE) continue;
+
+                            // Check for toast with "Template saved!" or "Component saved!"
+                            const toast = node.matches?.('.toastSuccess, [data-type="success"]')
+                                ? node
+                                : node.querySelector?.('.toastSuccess, [data-type="success"]');
+
+                            if (toast) {
+                                const title = toast.querySelector?.('[data-title], .uniSonnerNotifications__title');
+                                const titleText = title?.textContent || '';
+
+                                if (titleText.includes('saved')) {
+                                    debug('[Winden Compile] Builderius save toast detected:', titleText);
+                                    const now = Date.now();
+                                    if (now - lastSaveTime < 1000) return;
+                                    lastSaveTime = now;
+
+                                    setTimeout(() => {
+                                        debug('[Winden Compile] Triggering recompile after save toast');
+                                        triggerRecompile();
+                                    }, 100);
+                                }
+                            }
+                        }
+                    }
+                });
+
+                observer.observe(document.body, {
+                    childList: true,
+                    subtree: true
+                });
+
+                debug('[Winden Compile] Toast observer set up');
+            };
+
+            setupToastObserver();
+
+            // Method 2: Keyboard shortcut fallback (Ctrl/Cmd+S)
+            document.addEventListener('keydown', (e) => {
+                if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+                    debug('[Winden Compile] Ctrl+S detected in Builderius');
+                    // Don't trigger here - let the toast observer handle it
+                    // This is just for debugging
+                }
+            }, true);
+        }
+
         // Listen for Fancoolo post save events
         window.addEventListener('fancoolo:postSaved', function(event) {
             triggerRecompile();
         });
 
         // Start when ready
-        console.log('[Winden Compile] Setting up init trigger, document.readyState:', document.readyState);
+        debug('[Winden Compile] Setting up init trigger, document.readyState:', document.readyState);
         if (editors.isGutenberg) {
-            console.log('[Winden Compile] Using wp.domReady for Gutenberg');
+            debug('[Winden Compile] Using wp.domReady for Gutenberg');
             wp.domReady(init);
         } else if (document.readyState === 'loading') {
-            console.log('[Winden Compile] Document still loading, waiting for DOMContentLoaded');
+            debug('[Winden Compile] Document still loading, waiting for DOMContentLoaded');
             document.addEventListener('DOMContentLoaded', init);
         } else {
-            console.log('[Winden Compile] Document ready, calling init immediately');
+            debug('[Winden Compile] Document ready, calling init immediately');
             init();
         }
     });

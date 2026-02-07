@@ -438,7 +438,8 @@ const compileClasses = async (compileOptions = {}) => {
 
             // Skip CSS injection on first compile (output.css already has styles)
             // After first compile, enable real-time CSS injection for class changes
-            const compiledStylesNode = (!isFirstCompile && !disableCSSInjection) ? getOrCreateStyleElement('winden-watcher-css') : null;
+            // Uses shared ID so watcher and hot-reload (css-injector) write to one <style> tag
+            const compiledStylesNode = (!isFirstCompile && !disableCSSInjection) ? getOrCreateStyleElement('winden-compiled-css-hotreload') : null;
 
             // Fetch latest config and style files
             const getConfigFileString = await fetchEditorContent();

@@ -63,6 +63,7 @@ export function roundRgbColor(color: RGB): RGB {
 
 /**
  * Generate shades for a color
+ * Preserves custom (manually edited) shade hex values
  */
 export function generateColorShades(
   hexColor: string,
@@ -71,17 +72,28 @@ export function generateColorShades(
   maxLightness: number,
   existingShades: ColorShade[] = []
 ): ColorShade[] {
-  return generateShades(hexColor, shadesCount, minLightness, maxLightness).map(
+  const generatedFromAlgo = generateShades(hexColor, shadesCount, minLightness, maxLightness);
+
+  const result = generatedFromAlgo.map(
     (generatedHex, idx) => {
       const existingShade = existingShades[idx] || {};
+
+      // Only preserve shades that are explicitly marked as custom (manually edited)
+      // Non-custom shades should regenerate when main color changes
+      const shouldPreserveCustomHex = existingShade.isCustom === true;
+      const finalHex = shouldPreserveCustomHex && existingShade.hex ? existingShade.hex : generatedHex;
+
       return {
         name: `${(idx + 1) * 100}`,
-        hex: generatedHex,
+        hex: finalHex,
         isEnabled: existingShade.isEnabled !== undefined ? existingShade.isEnabled : true,
         isDefault: existingShade.isDefault !== undefined ? existingShade.isDefault : false,
+        isCustom: existingShade.isCustom || false,
       };
     }
   );
+
+  return result;
 }
 
 /**
@@ -175,10 +187,10 @@ export function getPlaceholderText(format: 'hex' | 'rgb' | 'hsl' | 'oklch'): str
  * Determine color source label
  */
 export function getColorSourceLabel(entry: ColorEntryType): string | null {
-  if ((entry as any).isUtility) return 'Utility';
-  if ((entry as any).isFSE) return 'FSE';
-  if ((entry as any).isBricks) return 'Bricks';
-  if ((entry as any).isOxygen) return 'Oxygen';
+  if (entry.isUtility) return 'Utility';
+  if (entry.isFSE) return 'FSE';
+  if (entry.isBricks) return 'Bricks';
+  if (entry.isOxygen) return 'Oxygen';
   return null;
 }
 
@@ -187,8 +199,8 @@ export function getColorSourceLabel(entry: ColorEntryType): string | null {
  */
 export function isSpecialUtilityColor(entry: ColorEntryType): boolean {
   return (
-    (entry as any).utilityValue &&
-    ['transparent', 'currentColor', 'inherit'].includes((entry as any).utilityValue)
+    !!entry.utilityValue &&
+    ['transparent', 'currentColor', 'inherit'].includes(entry.utilityValue)
   );
 }
 
@@ -196,7 +208,7 @@ export function isSpecialUtilityColor(entry: ColorEntryType): boolean {
  * Check if color is system-locked (utility, FSE, Bricks, Oxygen)
  */
 export function isSystemLockedColor(entry: ColorEntryType): boolean {
-  return (entry as any).locked === true;
+  return entry.locked === true;
 }
 
 /**

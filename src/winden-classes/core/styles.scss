@@ -1,0 +1,278 @@
+/**
+ * Winden Classes Core Styles
+ *
+ * Base styles for all builders. Dark theme is default.
+ * Each builder overrides --wcl-accent for their brand color:
+ * - Gutenberg: #007cba (blue)
+ * - Bricks: #f59e0b (yellow/amber)
+ * - Oxygen: #5c6bc0 (purple/indigo)
+ */
+
+:root {
+  // Base colors (dark theme default)
+  --wcl-bg: #2a2a2a;
+  --wcl-bg-hover: #3a3a3a;
+  --wcl-bg-selected: #3d3d5c;
+  --wcl-color: #e5e5e5;
+  --wcl-border: #444;
+  --wcl-label: #888;
+
+  // Accent color - override per builder
+  --wcl-accent: #7b66ff;
+  --wcl-accent-success: #059669;
+  --wcl-accent-info: var(--wcl-accent);
+
+  // Text colors
+  --wcl-text-value: #e2e8f0;
+  --wcl-text-desc: #64748b;
+
+  // Scrollbar
+  --wcl-scrollbar: #3d3d5c;
+  --wcl-scrollbar-hover: #4d4d6c;
+
+  // Toggle variables (for winauto-toggle.scss compatibility)
+  --winauto-action: var(--wcl-accent);
+  --winauto-bg: var(--wcl-bg);
+  --winauto-contrast: #888;
+
+  // Sizing
+  --wcl-max-w: 300px;
+  --wcl-dropdown-radius: 6px;
+  --wcl-badge-radius: 3px;
+}
+
+// Light theme - apply to any element needing light theme (e.g., Gutenberg)
+.wcl-theme-light {
+  --wcl-bg: #ffffff;
+  --wcl-bg-hover: #f1f5f9;
+  --wcl-bg-selected: #e2e8f0;
+  --wcl-color: #1e1e1e;
+  --wcl-border: #878787;
+  --wcl-label: #1e1e1e;
+  --wcl-text-value: #1e1e1e;
+  --wcl-text-desc: #1e1e1e;
+  --wcl-accent: #007cba;
+  --winauto-action: #007cba;
+  --winauto-bg: #ffffff;
+  --winauto-contrast: #1e1e1e;
+}
+
+// Container box (used by Oxygen 6, can be used by other dark theme builders)
+.winden-classes-box {
+  padding: 12px 16px;
+  background: #1a1a1a;
+  border-bottom: 1px solid #333;
+  margin-bottom: 0;
+}
+
+// Header with icon (used by all builders)
+.winden-classes-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+
+  svg {
+    flex-shrink: 0;
+    color: var(--wcl-label);
+  }
+
+  .winden-control-label {
+    margin-bottom: 0;
+  }
+}
+
+.winden-control-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--wcl-label);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 8px;
+}
+
+.winden-classes-extension {
+  margin-top: 8px;
+  margin-bottom: 16px;
+
+  label {
+    margin-bottom: 4px;
+    display: flex;
+  }
+}
+
+.winden-classes-input-wrapper {
+  width: 100%;
+}
+
+.winden-autocomplete-wrapper {
+  position: relative;
+  width: 100%;
+}
+
+.winden-textarea-base {
+  width: 100%;
+  min-height: 60px;
+  background: var(--wcl-bg);
+  border: 1px solid var(--wcl-border);
+  border-radius: 3px;
+  padding: 8px 10px;
+  color: var(--wcl-color);
+  font-size: 12px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  line-height: 1.5;
+  resize: vertical;
+  box-sizing: border-box;
+
+  &:focus {
+    outline: none;
+    border-color: var(--wcl-accent);
+    box-shadow: 0 0 0 2px rgba(92, 107, 192, 0.3);
+  }
+
+  &::placeholder {
+    color: #666;
+  }
+}
+
+// Split mode container - scoped under component ID for specificity
+#winden-classes-component .winden-split-container,
+.winden-split-container {
+  display: none;
+  flex-direction: column;
+  gap: 8px;
+}
+
+#winden-classes-component .winden-split-container.is-active,
+.winden-split-container.is-active {
+  display: flex;
+}
+
+.winden-split-group {
+  .winden-split-label {
+    font-size: 10px;
+    font-weight: 600;
+    color: #666;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 4px;
+  }
+
+  .winden-split-textarea {
+    min-height: 40px;
+  }
+}
+
+// Toggle label wrapper
+.windauto--toggle--label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  font-size: 12px;
+  color: var(--wcl-label);
+  cursor: pointer;
+  user-select: none;
+
+  &:hover {
+    color: #aaa;
+  }
+}
+
+// Autocomplete dropdown (injected via JS for cross-document support)
+.winden-autocomplete-dropdown {
+  background: var(--wcl-bg);
+  border: 1px solid var(--wcl-border);
+  border-radius: var(--wcl-dropdown-radius);
+  max-height: 300px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 13px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+
+  // Scrollbar styling
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: var(--wcl-scrollbar);
+    border-radius: var(--wcl-badge-radius);
+
+    &:hover {
+      background: var(--wcl-scrollbar-hover);
+    }
+  }
+}
+
+.winden-autocomplete-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  cursor: pointer;
+  transition: background-color 0.1s ease;
+  color: var(--wcl-color);
+
+  &:last-child {
+    border-bottom: none;
+  }
+
+  // Hover state (mouse)
+  &:hover {
+    background: var(--wcl-bg-hover);
+  }
+
+  // Selected/active state (keyboard navigation)
+  &--selected {
+    background: var(--wcl-bg-selected);
+  }
+}
+
+.winden-autocomplete-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: var(--wcl-badge-radius);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  flex-shrink: 0;
+
+  &--breakpoint {
+    background: var(--wcl-accent);
+    color: white;
+  }
+
+  &--variant {
+    background: var(--wcl-accent-success);
+    color: white;
+  }
+
+  &--class {
+    background: var(--wcl-accent-info);
+    color: white;
+  }
+}
+
+.winden-autocomplete-value {
+  color: var(--wcl-text-value);
+  font-size: 12px;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.winden-autocomplete-desc {
+  display: none; // Disabled for now
+}

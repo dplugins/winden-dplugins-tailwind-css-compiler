@@ -22,7 +22,7 @@
   /* Border & Input */
   --color-border: hsl(210 30% 92% / 1);
   /* --color-border: #f2f2f3; */
-  --color-input: hsl(210 30% 82% / 1);
+  --color-input: #b4b8bd;
   --color-ring: hsl(from var(--color-base-foreground) h s l / 0.75);
 
   /* Base colors */
@@ -73,8 +73,8 @@
 
   /* Base colors */
   --color-base-1: #121212;
-  --color-base-2: #181d20;
-  --color-base-3: #373F41;
+  --color-base-2: #222324;
+  --color-base-3: #393d3d;
   --color-base-foreground: #E3E3E3;
 
   /* Danger */

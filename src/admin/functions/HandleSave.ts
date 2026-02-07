@@ -3,6 +3,21 @@ import { fetchSettings } from '@functions/Settings';
 import type { WizzardState } from '@/types/wizzard';
 import { windenBroadcast } from '@/utils/broadcastChannel';
 import { buildAjaxUrl } from '@/utils/ajaxUrl';
+import { log } from '@/utils/logger';
+
+/**
+ * Tracks the last-known server timestamp for stale-write detection.
+ * Updated on successful save and initial fetch.
+ */
+let _serverUpdatedAt: string | null = null;
+
+export function setServerUpdatedAt(ts: string | null) {
+  _serverUpdatedAt = ts;
+}
+
+export function getServerUpdatedAt(): string | null {
+  return _serverUpdatedAt;
+}
 
 declare global {
   interface Window {
@@ -23,7 +38,7 @@ const utf8ToBase64 = (str: string): string => {
     // Convert string to UTF-8 bytes, then to base64
     return btoa(unescape(encodeURIComponent(str)));
   } catch (e) {
-    console.error('Error encoding to base64:', e);
+    log.error('Save', 'Base64 encoding failed, using fallback', { error: String(e) });
     // Fallback: try regular btoa
     return btoa(str);
   }
@@ -43,7 +58,7 @@ export const handleSave = async (
   settings?: Record<string, any>
 ): Promise<void> => {
   const saveStartTime = performance.now();
-  // console.log('[SAVE] Save button pressed at:', new Date().toISOString());
+  log.info('Save', 'Save started');
 
   let cssContent = '';
 
@@ -56,7 +71,7 @@ export const handleSave = async (
           cssContent = result.text; // SCSS compiled successfully to CSS
           resolve(cssContent);
         } else {
-          console.error('Error compiling SCSS:', result.formatted);
+          log.error('Save', 'SCSS compilation failed', { formatted: result.formatted });
           reject(new Error(result.formatted));
         }
       });
@@ -74,7 +89,7 @@ export const handleSave = async (
     // Always use Tailwind v4 bundling
     if (typeof window.tailwindV4BundleCSS === 'function' && scssContentRef?.current?.length) {
       const bundleStartTime = performance.now();
-      // console.log('[SAVE] Starting Tailwind v4 CSS bundling...');
+      log.debug('Save', 'Preparing CSS bundle');
 
       // Include Wizard theme configuration in Tailwind v4 compilation
       const wizzardConfig = wizzardContentRef?.current;
@@ -119,7 +134,11 @@ export const handleSave = async (
       cssContent = combinedCSS; // Pass through directly - let the compiler handle everything
 
       const bundleEndTime = performance.now();
-      // console.log(`[SAVE] Tailwind v4 bundling skipped - compiler will handle it in ${(bundleEndTime - bundleStartTime).toFixed(2)}ms`);
+      log.debug('Save', 'CSS bundle ready', {
+        durationMs: +(bundleEndTime - bundleStartTime).toFixed(2),
+        hasWizzardConfig: !!(wizzardConfig?.configCode),
+        cssLength: combinedCSS.length,
+      });
     }
 
     const isJsEmpty = jsContentRef?.current?.length < 1;
@@ -128,17 +147,26 @@ export const handleSave = async (
     const scssWithoutComments = scssContentRef?.current?.replace(/\/\*[^*]*\*+(?:[^/*][^*]*\*+)*\//g, '').trim();
     const isScssEmpty = scssWithoutComments.length < 1;
 
-    const data = {
+    const data: Record<string, string> = {
       javascript: utf8ToBase64(JSON.stringify(isJsEmpty ? DEFAULT_JS_CONTENT : jsContentRef.current)),
       scss: utf8ToBase64(JSON.stringify(isScssEmpty ? DEFAULT_CSS_CONTENT : scssContentRef.current)),
       wizzard: utf8ToBase64(JSON.stringify(wizzardContentRef.current)),
       css: utf8ToBase64(cssContent),
     };
 
+    // Stale-write detection: send the last-known server timestamp
+    if (_serverUpdatedAt) {
+      data.expected_updated_at = _serverUpdatedAt;
+    }
+
     const jsonData = JSON.stringify({ ...data, '_nonce': window.nonce });
 
     const dbSaveStartTime = performance.now();
-    // console.log('[SAVE] Sending data to database...');
+    log.debug('Save', 'Sending to database', {
+      jsEmpty: isJsEmpty,
+      scssEmpty: isScssEmpty,
+      hasStaleGuard: !!_serverUpdatedAt,
+    });
 
     const response = await fetch(buildAjaxUrl('winden_save_content'), {
       method: 'POST',
@@ -150,9 +178,17 @@ export const handleSave = async (
 
     const result = await response.json();
     const dbSaveEndTime = performance.now();
-    // console.log(`[SAVE] Database save completed in ${(dbSaveEndTime - dbSaveStartTime).toFixed(2)}ms`);
+    log.debug('Save', 'Database response received', {
+      durationMs: +(dbSaveEndTime - dbSaveStartTime).toFixed(2),
+      success: result.success,
+    });
 
     if (result.success) {
+      // Track the new server timestamp for stale-write detection
+      if (result.data?.updated_at) {
+        _serverUpdatedAt = result.data.updated_at;
+      }
+
       // Broadcast changes to all open tabs (admin, editors, frontend)
       windenBroadcast.postMessage({
         type: 'CONTENT_SAVED',
@@ -171,17 +207,34 @@ export const handleSave = async (
       }
 
       const saveEndTime = performance.now();
-      const totalTime = (saveEndTime - saveStartTime).toFixed(2);
-      // console.log(`[SAVE] ✅ Total save process completed in ${totalTime}ms`);
+      log.info('Save', 'Save completed', {
+        durationMs: +(saveEndTime - saveStartTime).toFixed(2),
+        updatedAt: result.data?.updated_at,
+      });
     } else {
-      console.error('Error saving content:', result.data);
+      // Handle stale-write conflict
+      if (result.data?.code === 'STALE_SAVE') {
+        log.warn('Save', 'Stale write detected — another save occurred since last load', {
+          serverUpdatedAt: result.data.server_updated_at,
+        });
+        if (result.data.server_updated_at) {
+          _serverUpdatedAt = result.data.server_updated_at;
+        }
+        alert('Another save occurred since you last loaded. Your changes were not saved. Please reload the page.');
+      } else {
+        log.error('Save', 'Save failed', { response: result.data });
+      }
       const saveEndTime = performance.now();
-      // console.log(`[SAVE] ❌ Save failed after ${(saveEndTime - saveStartTime).toFixed(2)}ms`);
+      log.warn('Save', 'Save unsuccessful', {
+        durationMs: +(saveEndTime - saveStartTime).toFixed(2),
+      });
     }
   } catch (error) {
-    console.error('Error saving content:', error);
     const saveEndTime = performance.now();
-    // console.log(`[SAVE] ❌ Save error after ${(saveEndTime - saveStartTime).toFixed(2)}ms`);
+    log.error('Save', 'Save threw an exception', {
+      durationMs: +(saveEndTime - saveStartTime).toFixed(2),
+      error: error instanceof Error ? error.message : String(error),
+    });
   }
 };
 
@@ -225,9 +278,11 @@ export const handleWizzardStateUpdate = async (
         callback();
       }
     } else {
-      console.error('Error updating wizzard state:', result.data);
+      log.error('WizzardSave', 'Wizzard state update failed', { response: result.data });
     }
   } catch (error) {
-    console.error('Error updating wizzard state:', error);
+    log.error('WizzardSave', 'Wizzard state update threw an exception', {
+      error: error instanceof Error ? error.message : String(error),
+    });
   }
 };

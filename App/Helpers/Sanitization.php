@@ -303,6 +303,8 @@ class Sanitization
             'winden_classes_gutenberg',
             'winden_classes_bricks',
             'winden_classes_oxygen',
+            'winden_classes_oxygen6',
+            'winden_classes_elementor',
             'dequeue_styles_gutenberg',
             'dequeue_styles_bricks',
             'dequeue_styles_oxygen',

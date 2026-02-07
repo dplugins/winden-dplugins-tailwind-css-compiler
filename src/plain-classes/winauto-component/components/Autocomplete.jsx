@@ -6,6 +6,15 @@ import { createTagHandlers } from "../const/Tag";
 import { createSuggestionHandlers } from "../const/Suggestion";
 import { createInputHandlers } from "../const/Input";
 import { createKeydownHandler } from "../const/Keydown";
+import { mergeClassTokens, getConflictingClasses } from "../../shared/preview-utils";
+
+const areTagListsEqual = (a = [], b = []) => {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    if (a[i] !== b[i]) return false;
+  }
+  return true;
+};
 
 export const Autocomplete = ({
   onChange,
@@ -22,6 +31,7 @@ export const Autocomplete = ({
   dragOverScreen,
   dragData,
   onPreviewChange,
+  onPreviewClassChange,
   blockId = null,
 }) => {
   const inputRef = useRef(null);
@@ -29,6 +39,7 @@ export const Autocomplete = ({
   const suggestionsRef = useRef(null);
   const latestValuesRef = useRef({ editingTagIndex: -1 });
   const onChangeRef = useRef(onChange);
+  const skipNextOnChangeRef = useRef(false);
 
   // Update the ref when onChange changes
   useEffect(() => {
@@ -36,6 +47,25 @@ export const Autocomplete = ({
   }, [onChange]);
 
   const [selectedTags, setSelectedTags] = useState(defaultTags ?? []);
+
+  // Sync selectedTags when defaultTags changes externally (e.g., after cleanup in parent)
+  // This allows the parent to control the tags (e.g., removing duplicate utility families)
+  useEffect(() => {
+    if (!defaultTags) return;
+
+    const defaultSet = new Set(defaultTags);
+    const currentSet = new Set(selectedTags);
+
+    // Only update if the sets are different (parent cleaned up duplicates)
+    const isDifferent = defaultSet.size !== currentSet.size ||
+      ![...defaultSet].every(tag => currentSet.has(tag));
+
+    if (isDifferent) {
+      skipNextOnChangeRef.current = true;
+      setSelectedTags(defaultTags);
+    }
+  }, [defaultTags]);
+
   const [inputValue, setInputValue] = useState("");
   const [suggestions, setSuggestions] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -51,6 +81,7 @@ export const Autocomplete = ({
   const [isPreviewMode, setIsPreviewMode] = useState(false);
   const [lastPreviewClass, setLastPreviewClass] = useState(null);
   const [isKeyboardNavigation, setIsKeyboardNavigation] = useState(false);
+  const [editingCursorPosition, setEditingCursorPosition] = useState('end');
 
   const getMatchingScreenKey = (str = autocompleteKey) => {
     const matchedKey = screens.find((key) => str.startsWith(`${key}:`));
@@ -148,13 +179,17 @@ export const Autocomplete = ({
       }
 
       if (Array.isArray(event.detail.newClasses)) {
-        if (isScreenChecked) {
-          const _tags = getBreakpointTags(event.detail.newClasses);
-          const _screen = getMatchingScreenKey() ?? "default";
-          setSelectedTags(_tags[_screen]);
-        } else {
-          setSelectedTags(event.detail.newClasses);
-        }
+        const nextTags = isScreenChecked
+          ? (getBreakpointTags(event.detail.newClasses)[getMatchingScreenKey() ?? "default"] || [])
+          : event.detail.newClasses;
+
+        setSelectedTags((prevTags) => {
+          if (areTagListsEqual(prevTags, nextTags)) {
+            return prevTags;
+          }
+          skipNextOnChangeRef.current = true;
+          return nextTags;
+        });
       }
     };
     window.addEventListener(
@@ -172,6 +207,11 @@ export const Autocomplete = ({
   }, []);
 
   useEffect(() => {
+    if (skipNextOnChangeRef.current) {
+      skipNextOnChangeRef.current = false;
+      return;
+    }
+
     if (typeof onChangeRef.current === "function" && !tempTags) {
       try {
         onChangeRef.current(selectedTags);
@@ -206,6 +246,9 @@ export const Autocomplete = ({
       setHoveredSuggestion(null);
       setTempTags(null);
       setLastPreviewClass(null);
+      if (typeof onPreviewClassChange === 'function') {
+        onPreviewClassChange(null, { isPreview: false, blockId });
+      }
 
       // Clean up any remaining preview styles (Gutenberg only)
       if (typeof wp !== 'undefined' && wp.data && wp.data.select && wp.data.select('core/block-editor')) {
@@ -224,7 +267,7 @@ export const Autocomplete = ({
         }
       }
     }
-  }, [editingTagIndex]);
+  }, [editingTagIndex, onPreviewClassChange, blockId]);
 
   const handleBreakpoint = handleBreakpointUpdate(
     setBreakpoint,
@@ -264,10 +307,34 @@ export const Autocomplete = ({
     tagRefs,
     autocomplete,
     autocompleteKey,
+    setEditingCursorPosition,
   });
 
   // Function to apply styles directly to the target element
   const applyPreviewStyles = (tags, isPreview = true) => {
+    const newPreviewClass = isPreview
+      ? (
+        editingTagIndex !== -1 &&
+        Array.isArray(tags) &&
+        typeof tags[editingTagIndex] === 'string'
+          ? tags[editingTagIndex]
+          : (tags.length > 0 ? tags[tags.length - 1] : null)
+      )
+      : null;
+    const replacedClass =
+      editingTagIndex !== -1 &&
+      Array.isArray(selectedTags) &&
+      typeof selectedTags[editingTagIndex] === 'string'
+        ? selectedTags[editingTagIndex]
+        : null;
+    const existingTagsForConflict = Array.isArray(selectedTags)
+      ? selectedTags.filter((_, index) => index !== editingTagIndex)
+      : [];
+    const conflictCandidates = newPreviewClass
+      ? getConflictingClasses(existingTagsForConflict, newPreviewClass)
+      : [];
+    const finalReplacedClass = replacedClass || conflictCandidates[0] || null;
+
     // Find the active element (the one being edited in Gutenberg)
     let activeElement = null;
 
@@ -296,7 +363,6 @@ export const Autocomplete = ({
 
       if (isPreview) {
         // Only add the NEW class being previewed, not all tags
-        const newPreviewClass = tags.length > 0 ? tags[tags.length - 1] : null;
         if (newPreviewClass) {
           activeElement.classList.add(newPreviewClass);
           setLastPreviewClass(newPreviewClass);
@@ -310,6 +376,29 @@ export const Autocomplete = ({
         setLastPreviewClass(null);
       }
     }
+
+    if (typeof onPreviewClassChange === 'function') {
+      onPreviewClassChange(newPreviewClass, {
+        isPreview,
+        tags,
+        blockId,
+        autocompleteKey,
+        replacedClass: finalReplacedClass,
+      });
+    }
+  };
+
+  const buildPreviewTags = (nextClassName) => {
+    const nextClass = String(nextClassName || '').trim();
+    if (!nextClass) return null;
+
+    const currentTags = Array.isArray(selectedTags) ? selectedTags : [];
+    if (editingTagIndex !== -1) {
+      const withoutEditingTag = currentTags.filter((_, index) => index !== editingTagIndex);
+      return mergeClassTokens(withoutEditingTag, [nextClass]);
+    }
+
+    return mergeClassTokens(currentTags, [nextClass]);
   };
 
   // Handle suggestion hover for preview
@@ -318,25 +407,19 @@ export const Autocomplete = ({
       return;
     }
     setHoveredSuggestion(suggestion);
-    
+
     let tempTagsToApply = null;
 
-    // Apply the hovered class to the target element
-    if (editingTagIndex !== -1 && !screens.includes(suggestion) && selectedTags) {
-      const previewValue = (breakpoint || '') + suggestion;
-      const tempTagsCopy = [...selectedTags];
-      tempTagsCopy[editingTagIndex] = previewValue;
-      tempTagsToApply = tempTagsCopy;
-    } else if (editingTagIndex === -1 && !screens.includes(suggestion)) {
-      // If not in editing mode, we create a new temporary tag array that includes the hovered suggestion.
+    // Apply hovered class as a replacement-aware preview
+    if (!screens.includes(suggestion)) {
       const newTag = (breakpoint || '') + suggestion;
-      tempTagsToApply = [...selectedTags, newTag];
+      tempTagsToApply = buildPreviewTags(newTag);
     }
 
     if (tempTagsToApply) {
       setTempTags(tempTagsToApply);
       setIsPreviewMode(true);
-      
+
       // Apply the class directly to the target element without triggering events
       applyPreviewStyles(tempTagsToApply, true); // Pass true for isPreview
     }
@@ -361,6 +444,9 @@ export const Autocomplete = ({
   const clearTempState = () => {
     setHoveredSuggestion(null);
     setIsPreviewMode(false);
+    if (typeof onPreviewClassChange === 'function') {
+      onPreviewClassChange(null, { isPreview: false, blockId });
+    }
 
     // Clean up preview styles - check in iframe for Gutenberg
     const editorIframe = document.querySelector('iframe[name="editor-canvas"]') || document.querySelector('iframe.block-editor-iframe');
@@ -380,14 +466,6 @@ export const Autocomplete = ({
 
     if (tempTags) {
       setTempTags(null);
-      // Apply the final change when clicking a suggestion
-      if (typeof onChangeRef.current === "function") {
-        try {
-          onChangeRef.current(tempTags);
-        } catch (error) {
-          console.warn('Error calling onChange with final tags:', error);
-        }
-      }
     }
   };
 
@@ -515,6 +593,7 @@ export const Autocomplete = ({
                   onDrop={handleDrop}
                   isDragging={dragData && dragData.originalTag === (autocompleteKey + tag) && dragData.sourceScreen === getMatchingScreenKey()}
                   previewValue={getPreviewValue(index)}
+                  cursorPosition={editingTagIndex === index ? editingCursorPosition : 'end'}
                 />
               </div>
             ))}
@@ -533,12 +612,13 @@ export const Autocomplete = ({
                 onEdit={handleTagClick}
                 autocompleteKey={autocompleteKey}
                 onRemove={removeTag}
-                  onInput={handleInput}
-                  onKeyDown={handleKeyDownWithMode}
+                onInput={handleInput}
+                onKeyDown={handleKeyDownWithMode}
                 onFocus={() => setFocusedTagIndex(-1)}
                 onBlur={() => setFocusedTagIndex(-1)}
                 isDark={isDark}
                 previewValue={getPreviewValue(index)}
+                cursorPosition={editingTagIndex === index ? editingCursorPosition : 'end'}
               />
             </div>
           ))}

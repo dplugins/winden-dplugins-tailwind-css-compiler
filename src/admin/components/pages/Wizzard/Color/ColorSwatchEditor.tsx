@@ -150,20 +150,30 @@ const ColorSwatchEditor: React.FC<ColorSwatchEditorProps> = ({
     }
   }, [color]);
 
-  // Handle click outside to close
+  // Handle click outside to close - use pointerdown tracking to not interfere with dragging
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent): void => {
-      if (editorRef.current && !editorRef.current.contains(event.target as Node)) {
+    let pointerDownInside = false;
+
+    const handlePointerDown = (event: PointerEvent): void => {
+      pointerDownInside = editorRef.current?.contains(event.target as Node) ?? false;
+    };
+
+    const handlePointerUp = (event: PointerEvent): void => {
+      // Only close if pointer started AND ended outside the editor
+      if (!pointerDownInside && editorRef.current && !editorRef.current.contains(event.target as Node)) {
         setShowColorEdit(false);
       }
+      pointerDownInside = false;
     };
 
     if (showColorEdit) {
-      document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener('pointerdown', handlePointerDown, true);
+      document.addEventListener('pointerup', handlePointerUp, true);
     }
 
     return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('pointerdown', handlePointerDown, true);
+      document.removeEventListener('pointerup', handlePointerUp, true);
     };
   }, [showColorEdit]);
 
@@ -171,20 +181,35 @@ const ColorSwatchEditor: React.FC<ColorSwatchEditorProps> = ({
    * Handle color change from Colorful picker
    */
   const handleColorChange = (colorResult: any): void => {
-    console.log('Colorful onChange:', colorResult);
-    const newColor = tinycolor(colorResult.hex || colorResult);
+    try {
+      if (!colorResult) return;
 
-    if (onColorChange) {
-      // For shade editing, use the custom callback
-      onColorChange(newColor.toHexString());
-      // Update local state for the editor
-      setLocalColor(newColor.toRgb());
-      setLocalHsl(newColor.toHsl());
-    } else {
-      // For main color editing, use the standard flow
-      setColor(newColor.toRgb());
-      setHsl(newColor.toHsl());
-      updateColor(newColor.toRgb());
+      // @uiw/react-color returns an object with hex, rgb, hsl, etc.
+      const hexValue = colorResult.hex || colorResult.hexa || (typeof colorResult === 'string' ? colorResult : null);
+      if (!hexValue) return;
+
+      const newColor = tinycolor(hexValue);
+      if (!newColor.isValid()) return;
+
+      const rgb = newColor.toRgb();
+      const hslVal = newColor.toHsl();
+
+      // Update local state first (always works)
+      setLocalColor(rgb);
+      setLocalHsl(hslVal);
+
+      if (onColorChange) {
+        // For shade editing, use the custom callback
+        onColorChange(newColor.toHexString());
+      } else {
+        // For main color editing, use the standard flow
+        if (typeof setColor === 'function') setColor(rgb);
+        if (typeof setHsl === 'function') setHsl(hslVal);
+        if (typeof updateColor === 'function') updateColor(rgb);
+      }
+    } catch (error) {
+      // Silently handle errors during color change to prevent crashes
+      console.warn('[ColorSwatchEditor] Error in handleColorChange:', error);
     }
   };
 
@@ -192,14 +217,20 @@ const ColorSwatchEditor: React.FC<ColorSwatchEditorProps> = ({
    * Handle local color change from sliders
    */
   const handleLocalColorChange = (newColor: RGB): void => {
-    if (onColorChange) {
-      // For shade editing
-      onColorChange(tinycolor(newColor).toHexString());
-      setLocalColor(tinycolor(newColor).toRgb());
-      setLocalHsl(tinycolor(newColor).toHsl());
-    } else {
-      // For main color editing
-      updateColor(newColor);
+    try {
+      const rgb = tinycolor(newColor).toRgb();
+      const hsl = tinycolor(newColor).toHsl();
+
+      setLocalColor(rgb);
+      setLocalHsl(hsl);
+
+      if (onColorChange) {
+        onColorChange(tinycolor(newColor).toHexString());
+      } else if (typeof updateColor === 'function') {
+        updateColor(newColor);
+      }
+    } catch (error) {
+      console.warn('[ColorSwatchEditor] Error in handleLocalColorChange:', error);
     }
   };
 
@@ -207,16 +238,21 @@ const ColorSwatchEditor: React.FC<ColorSwatchEditorProps> = ({
    * Handle local HSL change from sliders
    */
   const handleLocalHslChange = (newHsl: HSL): void => {
-    if (onColorChange) {
-      // For shade editing
+    try {
       const newColor = tinycolor(newHsl);
-      onColorChange(newColor.toHexString());
-      setLocalColor(newColor.toRgb());
+      const rgb = newColor.toRgb();
+
+      setLocalColor(rgb);
       setLocalHsl(newHsl);
-    } else {
-      // For main color editing
-      setHsl(newHsl);
-      updateColor(tinycolor(newHsl).toRgb());
+
+      if (onColorChange) {
+        onColorChange(newColor.toHexString());
+      } else {
+        if (typeof setHsl === 'function') setHsl(newHsl);
+        if (typeof updateColor === 'function') updateColor(rgb);
+      }
+    } catch (error) {
+      console.warn('[ColorSwatchEditor] Error in handleLocalHslChange:', error);
     }
   };
 
@@ -224,31 +260,39 @@ const ColorSwatchEditor: React.FC<ColorSwatchEditorProps> = ({
    * Handle swatch color changes (swatches can return hex strings or HSV objects)
    */
   const handleSwatchChange = (colorData: any): void => {
-    // The @uiw/react-color Swatch component returns HSV format, not hex
-    // So we need to handle both hex strings and HSV/RGB objects
-    let newColor: tinycolor.Instance;
+    try {
+      if (!colorData) return;
 
-    if (typeof colorData === 'string') {
-      // If it's a string, parse it directly
-      newColor = tinycolor(colorData);
-    } else if (colorData.hex) {
-      // If it has a hex property, use that
-      newColor = tinycolor(colorData.hex);
-    } else {
-      // Otherwise, assume it's an HSV/RGB object and parse it
-      newColor = tinycolor(colorData);
-    }
+      // The @uiw/react-color Swatch component returns HSV format, not hex
+      // So we need to handle both hex strings and HSV/RGB objects
+      let newColor: tinycolor.Instance;
 
-    if (onColorChange) {
-      // For shade editing
-      onColorChange(newColor.toHexString());
-      setLocalColor(newColor.toRgb());
-      setLocalHsl(newColor.toHsl());
-    } else {
-      // For main color editing
-      setColor(newColor.toRgb());
-      setHsl(newColor.toHsl());
-      updateColor(newColor.toRgb());
+      if (typeof colorData === 'string') {
+        newColor = tinycolor(colorData);
+      } else if (colorData.hex) {
+        newColor = tinycolor(colorData.hex);
+      } else {
+        newColor = tinycolor(colorData);
+      }
+
+      if (!newColor.isValid()) return;
+
+      const rgb = newColor.toRgb();
+      const hsl = newColor.toHsl();
+
+      // Update local state first
+      setLocalColor(rgb);
+      setLocalHsl(hsl);
+
+      if (onColorChange) {
+        onColorChange(newColor.toHexString());
+      } else {
+        if (typeof setColor === 'function') setColor(rgb);
+        if (typeof setHsl === 'function') setHsl(hsl);
+        if (typeof updateColor === 'function') updateColor(rgb);
+      }
+    } catch (error) {
+      console.warn('[ColorSwatchEditor] Error in handleSwatchChange:', error);
     }
   };
 

@@ -6,6 +6,13 @@ use Winden\App\Helpers\CacheValidator;
 
 class GetContent
 {
+    private function winden_log($phase, $message, $context = [])
+    {
+        if (!defined('WP_DEBUG') || !WP_DEBUG) return;
+        $ctx = $context ? ' ' . wp_json_encode($context) : '';
+        error_log("[Winden] [{$phase}] {$message}{$ctx}");
+    }
+
     public function __construct()
     {
         // Logged-in user endpoints (require authentication)
@@ -202,12 +209,19 @@ class GetContent
             // Normalize lowercase keys to camelCase (fixes old corrupted data)
             $wizzard = Sanitization::normalize_wizzard_keys($wizzard);
 
+            $this->winden_log('Fetch', 'Content loaded', [
+                'has_wizzard' => !empty($wizzard),
+                'updated_at' => isset($configArray['updated_at']) ? $configArray['updated_at'] : null,
+            ]);
+
             $this->handle_json_response([
                 'javascript' => base64_encode($javascript),
                 'scss' => base64_encode($scss), // Include SCSS in the response
-                'wizzard' => $wizzard
+                'wizzard' => $wizzard,
+                'updated_at' => isset($configArray['updated_at']) ? $configArray['updated_at'] : null,
             ], 'Content fetched successfully', 'Invalid JSON structure in the configuration');
         } else {
+            $this->winden_log('Fetch', 'No content found in config');
             wp_send_json_error(['message' => 'No content found in the configuration']);
         }
 

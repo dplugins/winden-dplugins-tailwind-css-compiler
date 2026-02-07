@@ -28,7 +28,24 @@ import {
 import classnames from "classnames";
 
 import { WizzardContext } from "@hooks/wizzardContext";
-import type { ColorEntry as ColorEntryType } from "@/types/wizzard";
+import type { ColorEntry as ColorEntryType, WizzardState } from "@/types/wizzard";
+
+// --- Color reducer ---
+type ColorAction =
+  | { type: 'SET_COLORS'; colors: ColorEntryType[] }
+  | { type: 'REMOVE_COLOR'; id: number }
+  | { type: 'UPDATE_COLOR'; id: number; patch: Partial<ColorEntryType> };
+
+function applyColorAction(entries: ColorEntryType[], action: ColorAction): ColorEntryType[] {
+  switch (action.type) {
+    case 'SET_COLORS':
+      return action.colors;
+    case 'REMOVE_COLOR':
+      return entries.filter(e => e.id !== action.id);
+    case 'UPDATE_COLOR':
+      return entries.map(e => e.id === action.id ? { ...e, ...action.patch } : e);
+  }
+}
 
 interface ColorProps {
   /** Label for the sidebar */
@@ -45,25 +62,34 @@ const Color: React.FC<ColorProps> = ({ label }) => {
   const [isEditing, setIsEditing] = useState<boolean>(false);
   const [editingEntryId, setEditingEntryId] = useState<number | null>(null);
 
-  const setColorEntries = (colors: ColorEntryType[]) => {
-    const _state = { ...localWizzardState };
-    _state.colorEntries = colors;
-    setLocalWizzardState(_state);
-  };
+  const dispatchColor = useCallback((action: ColorAction) => {
+    setLocalWizzardState((prevState) => ({
+      ...prevState,
+      colorEntries: applyColorAction(prevState?.colorEntries ?? [], action),
+    }));
+  }, [setLocalWizzardState]);
 
-  const removeColorEntry = (id: number) => {
-    setColorEntries(
-      (localWizzardState?.colorEntries ?? []).filter((entry) => entry.id !== id)
-    );
-  };
+  const setColorEntries = useCallback(
+    (colors: ColorEntryType[]) => dispatchColor({ type: 'SET_COLORS', colors }),
+    [dispatchColor]
+  );
 
-  const updateColorEntry = (id: number, updatedEntry: Partial<ColorEntryType>) => {
-    setColorEntries(
-      (localWizzardState?.colorEntries ?? []).map((entry) =>
-        entry.id === id ? { ...entry, ...updatedEntry } : entry
-      )
-    );
-  };
+  const removeColorEntry = useCallback(
+    (id: number) => dispatchColor({ type: 'REMOVE_COLOR', id }),
+    [dispatchColor]
+  );
+
+  const updateColorEntry = useCallback(
+    (id: number, patch: Partial<ColorEntryType>) => dispatchColor({ type: 'UPDATE_COLOR', id, patch }),
+    [dispatchColor]
+  );
+
+  const toggleFlag = useCallback(
+    <K extends keyof WizzardState>(key: K, value: WizzardState[K]) => {
+      setLocalWizzardState((prev) => ({ ...prev, [key]: value }));
+    },
+    [setLocalWizzardState]
+  );
 
   const handleEditingChange = useCallback((editing: boolean, entryId: number) => {
     setIsEditing(editing);
@@ -98,14 +124,38 @@ const Color: React.FC<ColorProps> = ({ label }) => {
 
   const contentClass = useMemo(
     () =>
-      classnames({
+      classnames("!overflow-visible", {
         "m-0 border-0 bg-transparent !p-0 !shadow-none": isEditing,
       }),
     [isEditing]
   );
 
+  const [newlyAddedId, setNewlyAddedId] = useState<number | null>(null);
+
   const addColorEntry = () => {
-    colorPresets.tahiti(localWizzardState?.colorEntries ?? [], setColorEntries);
+    const id = Date.now() * 1000 + Math.floor(Math.random() * 1000);
+    const newEntry: ColorEntryType = {
+      id,
+      name: '',
+      hex: '#06b6d4',
+      minLightness: 5,
+      maxLightness: 95,
+      colorFormat: 'hex',
+      shades: [
+        '#e6fbfe', '#b5f2fd', '#83eafb', '#51e2fa', '#20d9f9',
+        '#06c0df', '#0595ae', '#046a7c', '#02404a', '#011519',
+      ].map((hex, index) => ({
+        name: `${(index + 1) * 100}`,
+        hex,
+        isEnabled: true,
+        isDefault: false,
+      })),
+      isLocked: false,
+      enableShades: true,
+      reverseShades: false,
+    };
+    setColorEntries([...(localWizzardState?.colorEntries ?? []), newEntry]);
+    setNewlyAddedId(id);
   };
 
   // Build combined colors array for display
@@ -134,7 +184,7 @@ const Color: React.FC<ColorProps> = ({ label }) => {
         if (typeof value === 'string') {
           colors.push({ id: idCounter++, name, hex: value, isFSE: true, locked: true, enableShades: false });
         } else if (Array.isArray(value)) {
-          value.forEach((item: any) => {
+          value.forEach((item: { slug?: string; color: string }) => {
             colors.push({ id: idCounter++, name: item.slug || name, hex: item.color, isFSE: true, locked: true, enableShades: false });
           });
         } else if (typeof value === 'object') {
@@ -152,7 +202,7 @@ const Color: React.FC<ColorProps> = ({ label }) => {
         if (typeof value === 'string') {
           colors.push({ id: idCounter++, name, hex: value, isBricks: true, locked: true, enableShades: false });
         } else if (Array.isArray(value)) {
-          value.forEach((item: any) => {
+          value.forEach((item: { slug?: string; color: string }) => {
             colors.push({ id: idCounter++, name: item.slug || name, hex: item.color, isBricks: true, locked: true, enableShades: false });
           });
         } else if (typeof value === 'object') {
@@ -170,7 +220,7 @@ const Color: React.FC<ColorProps> = ({ label }) => {
         if (typeof value === 'string') {
           colors.push({ id: idCounter++, name, hex: value, isOxygen: true, locked: true, enableShades: false });
         } else if (Array.isArray(value)) {
-          value.forEach((item: any) => {
+          value.forEach((item: { slug?: string; color: string }) => {
             colors.push({ id: idCounter++, name: item.slug || name, hex: item.color, isOxygen: true, locked: true, enableShades: false });
           });
         } else if (typeof value === 'object') {
@@ -206,11 +256,7 @@ const Color: React.FC<ColorProps> = ({ label }) => {
                     <Checkbox
                       label="Include Utility Colors"
                       checked={localWizzardState?.includeUtilityColors}
-                      onCheckedChange={(checked) => {
-                        const _state = { ...localWizzardState };
-                        _state.includeUtilityColors = checked as boolean;
-                        setLocalWizzardState(_state);
-                      }}
+                      onCheckedChange={(checked) => toggleFlag('includeUtilityColors', checked as boolean)}
                     />
                   </div>
                 </TooltipTrigger>
@@ -226,33 +272,21 @@ const Color: React.FC<ColorProps> = ({ label }) => {
               <Checkbox
                 label="Include FSE Colors"
                 checked={localWizzardState?.extendColorsFSE}
-                onCheckedChange={(checked) => {
-                  const _state = { ...localWizzardState };
-                  _state.extendColorsFSE = checked as boolean;
-                  setLocalWizzardState(_state);
-                }}
+                onCheckedChange={(checked) => toggleFlag('extendColorsFSE', checked as boolean)}
               />
             ) : null}
             {Object.keys(dynamicColorsBricks)?.length ? (
               <Checkbox
                 label="Include Bricks Colors"
                 checked={localWizzardState?.extendColorsBricks}
-                onCheckedChange={(checked) => {
-                  const _state = { ...localWizzardState };
-                  _state.extendColorsBricks = checked as boolean;
-                  setLocalWizzardState(_state);
-                }}
+                onCheckedChange={(checked) => toggleFlag('extendColorsBricks', checked as boolean)}
               />
             ) : null}
             {Object.keys(dynamicColorsOxygen)?.length ? (
               <Checkbox
                 label="Include Oxygen Colors"
                 checked={localWizzardState?.extendColorsOxygen}
-                onCheckedChange={(checked) => {
-                  const _state = { ...localWizzardState };
-                  _state.extendColorsOxygen = checked as boolean;
-                  setLocalWizzardState(_state);
-                }}
+                onCheckedChange={(checked) => toggleFlag('extendColorsOxygen', checked as boolean)}
               />
             ) : null}
 
@@ -261,11 +295,7 @@ const Color: React.FC<ColorProps> = ({ label }) => {
             <Checkbox
               label="Extend"
               checked={localWizzardState?.extendColors}
-              onCheckedChange={(checked) => {
-                const _state = { ...localWizzardState };
-                _state.extendColors = checked as boolean;
-                setLocalWizzardState(_state);
-              }}
+              onCheckedChange={(checked) => toggleFlag('extendColors', checked as boolean)}
             />
           </Sidebar>
         )}
@@ -281,6 +311,7 @@ const Color: React.FC<ColorProps> = ({ label }) => {
                       onRemove={() => removeColorEntry(entry.id)}
                       updateColorEntry={updateColorEntry}
                       onEditingChange={handleEditingChange}
+                      autoFocusName={entry.id === newlyAddedId}
                     />
                   )
                 ) : (
@@ -290,6 +321,7 @@ const Color: React.FC<ColorProps> = ({ label }) => {
                     onRemove={() => removeColorEntry(entry.id)}
                     updateColorEntry={updateColorEntry}
                     onEditingChange={handleEditingChange}
+                    autoFocusName={entry.id === newlyAddedId}
                   />
                 )
               )}

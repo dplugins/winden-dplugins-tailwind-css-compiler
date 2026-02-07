@@ -4,7 +4,7 @@
  * Manages state and wires up calculations to UI
  */
 
-import { useState, useEffect, useCallback, useContext } from "react";
+import { useState, useEffect, useCallback, useContext, useRef } from "react";
 import tinycolor from "tinycolor2";
 import { WizzardContext } from "@hooks/wizzardContext";
 import {
@@ -44,7 +44,7 @@ export function useColorEntry({
   const [color, setColor] = useState<RGB>(tinycolor(entry.hex).toRgb());
   const [hsl, setHsl] = useState<HSL>(parseHexToHsl(entry.hex));
   const [inputValue, setInputValue] = useState<string>(
-    (entry as any).utilityValue || getColorDisplayString(entry.hex, entry.colorFormat || "hex")
+    entry.utilityValue || getColorDisplayString(entry.hex, entry.colorFormat || "hex")
   );
 
   // Shade state
@@ -60,7 +60,7 @@ export function useColorEntry({
   );
 
   // UI state
-  const [colorName, setColorName] = useState<string>(entry?.name || "Unknown");
+  const [colorName, setColorName] = useState<string>(entry?.name ?? "Unknown");
   const [isEditing, setIsEditing] = useState<boolean>(false);
   const [isLocked, setIsLocked] = useState<boolean>(entry.isLocked || false);
   const [isExpanded, setIsExpanded] = useState<boolean>(false);
@@ -91,17 +91,8 @@ export function useColorEntry({
     }
   }, [entry.shades]);
 
-  // Update entry when settings change
-  useEffect(() => {
-    updateColorEntry(entry.id, {
-      ...entry,
-      name: colorName,
-      isLocked,
-      colorFormat,
-      enableShades,
-      reverseShades,
-    });
-  }, [colorName, isLocked, colorFormat, enableShades, reverseShades]);
+  // NOTE: Removed auto-sync useEffect that was causing infinite loop
+  // Individual handlers (toggleLock, handleColorNameChange, etc.) already call updateColorEntry when needed
 
   // Update input value when color format changes
   useEffect(() => {
@@ -140,12 +131,20 @@ export function useColorEntry({
         ...(additionalUpdates?.hex && { hexColor: additionalUpdates.hex }),
       });
 
-      // Merge additional updates if provided
+      // Prevent callers from accidentally overriding freshly generated shade data.
       const finalUpdate = additionalUpdates
-        ? { ...entryUpdate, ...additionalUpdates }
+        ? (() => {
+            const { shades: _ignoredShades, originalGeneratedColors: _ignoredOriginal, ...safeAdditionalUpdates } = additionalUpdates as Partial<ColorEntryType> & {
+              shades?: ColorShade[];
+              originalGeneratedColors?: string[];
+            };
+            return { ...entryUpdate, ...safeAdditionalUpdates };
+          })()
         : entryUpdate;
 
-      updateColorEntry(entry.id, finalUpdate);
+      if (typeof updateColorEntry === 'function') {
+        updateColorEntry(entry.id, finalUpdate);
+      }
     },
     [entry, shadesList, isLocked, colorFormat, updateColorEntry]
   );
@@ -154,17 +153,25 @@ export function useColorEntry({
     (newColor: RGB) => {
       const hexColor = tinycolor(newColor).toHexString();
       const roundedColor = roundRgbColor(newColor);
+      const currentEntryHex = tinycolor(entry.hex).toHexString();
+      const nextColorName = isLocked ? entry.name : getColorNameFromHex(hexColor);
+      const hasHexChanged = hexColor !== currentEntryHex;
+      const hasNameChanged = entry.name !== nextColorName;
+
+      // Ignore duplicate updates from drag/mouse events that resolve to the same color.
+      if (!hasHexChanged && !hasNameChanged) {
+        return;
+      }
 
       setColor(roundedColor);
       setInputValue(getColorDisplayString(hexColor, colorFormat));
 
       if (!isLocked) {
-        setColorName(getColorNameFromHex(hexColor));
+        setColorName(nextColorName);
       }
 
       updateShades(hexColor, shades, minLightness, maxLightness, {
-        ...entry,
-        name: isLocked ? entry.name : getColorNameFromHex(hexColor),
+        name: nextColorName,
         hex: hexColor,
         isLocked,
         colorFormat,
@@ -217,8 +224,13 @@ export function useColorEntry({
   }, [entry.id, onEditingChange]);
 
   const handleColorNameChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    setColorName(e.target.value);
-  }, []);
+    const newName = e.target.value;
+    setColorName(newName);
+    // Sync to parent
+    if (typeof updateColorEntry === 'function') {
+      updateColorEntry(entry.id, { name: newName });
+    }
+  }, [entry.id, updateColorEntry]);
 
   const handleEdit = useCallback(() => {
     setIsEditing(true);
@@ -234,35 +246,66 @@ export function useColorEntry({
   }, [colorName, onRemove, handleClose]);
 
   const toggleLock = useCallback(() => {
-    setIsLocked((prev) => !prev);
-  }, []);
+    setIsLocked((prev) => {
+      const newValue = !prev;
+      // Sync to parent
+      if (typeof updateColorEntry === 'function') {
+        updateColorEntry(entry.id, { isLocked: newValue });
+      }
+      return newValue;
+    });
+  }, [entry.id, updateColorEntry]);
 
   const toggleExpand = useCallback(() => {
     setIsExpanded((prev) => !prev);
   }, []);
 
+  // Debounced shade regeneration for slider inputs (shade count, lightness range).
+  // Local state updates immediately for responsive UI; the expensive
+  // generateColorShades + context update is batched via a short timeout.
+  const shadeDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const debouncedUpdateShades = useCallback(
+    (hexColor: string, count: number, minL: number, maxL: number) => {
+      if (shadeDebounceRef.current) {
+        clearTimeout(shadeDebounceRef.current);
+      }
+      shadeDebounceRef.current = setTimeout(() => {
+        updateShades(hexColor, count, minL, maxL);
+      }, 150);
+    },
+    [updateShades]
+  );
+
+  // Clean up pending debounce on unmount
+  useEffect(() => {
+    return () => {
+      if (shadeDebounceRef.current) clearTimeout(shadeDebounceRef.current);
+    };
+  }, []);
+
   const handleShadesChange = useCallback(
     (value: number) => {
       setShades(value);
-      updateShades(tinycolor(color).toHexString(), value, minLightness, maxLightness);
+      debouncedUpdateShades(tinycolor(color).toHexString(), value, minLightness, maxLightness);
     },
-    [color, minLightness, maxLightness, updateShades]
+    [color, minLightness, maxLightness, debouncedUpdateShades]
   );
 
   const handleMinLightnessChange = useCallback(
     (value: number) => {
       setMinLightness(value);
-      updateShades(tinycolor(color).toHexString(), shades, value, maxLightness);
+      debouncedUpdateShades(tinycolor(color).toHexString(), shades, value, maxLightness);
     },
-    [color, shades, maxLightness, updateShades]
+    [color, shades, maxLightness, debouncedUpdateShades]
   );
 
   const handleMaxLightnessChange = useCallback(
     (value: number) => {
       setMaxLightness(value);
-      updateShades(tinycolor(color).toHexString(), shades, minLightness, value);
+      debouncedUpdateShades(tinycolor(color).toHexString(), shades, minLightness, value);
     },
-    [color, shades, minLightness, updateShades]
+    [color, shades, minLightness, debouncedUpdateShades]
   );
 
   return {

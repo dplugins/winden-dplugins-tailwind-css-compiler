@@ -8,10 +8,14 @@ export const handleBreakpointUpdate = (setBreakpoint, setAddBreakpointValue, inp
     if (inputRef.current) {
       inputRef.current.innerText = value + ":";
       inputRef.current.focus();
-      const selection = window.getSelection();
-      selection.selectAllChildren(inputRef.current);
-      selection.collapseToEnd();
-     
-    
+      try {
+        const selection = window.getSelection();
+        if (selection) {
+          selection.selectAllChildren(inputRef.current);
+          selection.collapseToEnd();
+        }
+      } catch (e) {
+        // Ignore selection errors in edge cases
+      }
     }
   }, [setBreakpoint, setAddBreakpointValue, inputRef]);

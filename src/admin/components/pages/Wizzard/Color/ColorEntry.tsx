@@ -32,6 +32,7 @@ interface ColorEntryProps {
   onRemove: () => void;
   updateColorEntry: (id: number, updatedEntry: Partial<ColorEntryType>) => void;
   onEditingChange: (isEditing: boolean, id: number) => void;
+  autoFocusName?: boolean;
 }
 
 const ColorEntry: React.FC<ColorEntryProps> = ({
@@ -39,7 +40,16 @@ const ColorEntry: React.FC<ColorEntryProps> = ({
   onRemove,
   updateColorEntry,
   onEditingChange,
+  autoFocusName,
 }) => {
+  const nameInputRef = React.useRef<HTMLInputElement>(null);
+
+  React.useEffect(() => {
+    if (autoFocusName && nameInputRef.current) {
+      nameInputRef.current.focus();
+      nameInputRef.current.select();
+    }
+  }, [autoFocusName]);
   const {
     // Color state
     color,
@@ -106,7 +116,7 @@ const ColorEntry: React.FC<ColorEntryProps> = ({
             {/* Color Swatch or Special Utility Indicator */}
             {isSpecialUtility ? (
               <div className="h-10 w-12 min-w-12 rounded-md flex items-center justify-center bg-base-2 text-muted-foreground text-xs font-mono ml-[1px]">
-                {getSpecialUtilityAbbreviation((entry as any).utilityValue)}
+                {getSpecialUtilityAbbreviation(entry.utilityValue ?? '')}
               </div>
             ) : (
               <ColorSwatchEditor
@@ -130,7 +140,7 @@ const ColorEntry: React.FC<ColorEntryProps> = ({
               <Input
                 id="hex-value"
                 type="text"
-                value={(entry as any).utilityValue || inputValue}
+                value={entry.utilityValue || inputValue}
                 onChange={(e) => !isSystemLocked && setInputValue(e.target.value)}
                 onBlur={!isSystemLocked ? handleInputBlur : undefined}
                 onKeyDown={!isSystemLocked ? handleKeyDown : undefined}
@@ -154,12 +164,15 @@ const ColorEntry: React.FC<ColorEntryProps> = ({
             {/* Color Name Input */}
             <div className="relative flex items-center grow w-full">
               <Input
+                ref={nameInputRef}
                 id="color-name"
                 type="text"
                 value={colorName}
                 onChange={handleColorNameChange}
                 disabled={isLocked || isSystemLocked}
                 className="!border-none grow"
+                placeholder="Color name"
+                autoComplete="one-time-code"
                 title={isSystemLocked ? `${colorSource} color` : undefined}
               />
               {colorSource && (
