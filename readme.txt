@@ -4,7 +4,7 @@ Tags: tailwind, css, compiler, gutenberg, page builder
 Requires at least: 6.2
 Tested up to: 6.9.1
 Requires PHP: 7.4
-Stable tag: 1.0.8
+Stable tag: 1.1.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -82,7 +82,7 @@ When you use the `@plugin` directive with an external URL in your CSS configurat
 
 == Changelog ==
 
-= 1.0.9 =
+= 1.1.0 =
 
 Features
 * Text Class Editing Support
@@ -101,11 +101,11 @@ B* etter Error Messages
 * Save and fetch errors now show clearer messages in the browser console. Enable WP_DEBUG to see detailed timing and diagnostic info.
 
 
-= 1.0.8 =
+= 1.0.9 =
 * Improved: Tested up to WordPress 6.9.1
 * Fixed: Scripts loading on frontend when user was logged out
 
-= 1.0.7 > 1.0.0 =
+= 1.0.8 > 1.0.0 =
 * Initial release
 
 = 1.0.0 =
