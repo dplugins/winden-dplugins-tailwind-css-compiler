@@ -30,6 +30,7 @@ Winden brings the full power of Tailwind CSS v4 to WordPress. Write utility clas
 * Oxygen Builder (pro)
 * Bricks Builder (pro)
 * Elementor (pro)
+* Builderius (pro)
 
 **Bundled Tailwind Plugins:**
 
@@ -80,6 +81,25 @@ When you use the `@plugin` directive with an external URL in your CSS configurat
 2. Tailwind classes in Gutenberg
 
 == Changelog ==
+
+= 1.0.9 =
+
+Features
+* Text Class Editing Support
+* Multi-Tab Save Protection If someone else (or another tab) saves while you're editing, you'll get a warning instead of your changes being silently overwritten.
+
+Improvements
+* Color Picker Visibility
+* Fixed the color picker being cut off by overflow: hidden on the layout.
+* Color Shade Updates
+* Changing a base color now correctly updates all generated shades.
+* Multi-Word Color Names
+* Color names like "Blue Light" or "Blue Dark" now display correctly in the Style Guide preview.
+* Smoother Shade Sliders
+* Dragging shade sliders is now more responsive with less lag.
+B* etter Error Messages
+* Save and fetch errors now show clearer messages in the browser console. Enable WP_DEBUG to see detailed timing and diagnostic info.
+
 
 = 1.0.8 =
 * Improved: Tested up to WordPress 6.9.1
