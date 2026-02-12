@@ -58,45 +58,15 @@ class FSE extends BaseProvider
 
         // If dev mode is enabled, load compiler and watcher scripts
         if (!$dev_mode_disabled) {
-            // Load the compiler
-            // Use consistent handle 'winden-compiler-module' to match AutoCompile.php and ProvidersHelpers.php
-            $compiler_path = WINDTACS_PLUGIN_DIR . 'build/compiler/tailwindcss-compiler.js';
-            if (file_exists($compiler_path)) {
-                wp_enqueue_script(
-                    'winden-compiler-module',
-                    WINDTACS_PLUGIN_URL . 'build/compiler/tailwindcss-compiler.js',
-                    array(),
-                    filemtime($compiler_path),
-                    true
-                );
-
-                // Add inline script with configuration
-                $compiler_options = $this->get_compiler_options($settings);
-                $config_js = sprintf(
-                    'window.uploadUrl = %s; window.ajaxurl = %s; window.winden_plugin_url = %s; window.tailwind_compiler_options = %s;',
-                    wp_json_encode(WINDTACS_UPLOADS_URL['baseurl']),
-                    wp_json_encode(admin_url('admin-ajax.php')),
-                    wp_json_encode(WINDTACS_PLUGIN_URL),
-                    wp_json_encode($compiler_options)
-                );
-                wp_add_inline_script('winden-compiler-module', $config_js, 'before');
-            }
+            // Load the compiler with inline config
+            ProvidersHelpers::enqueueCompilerWithOptions();
 
             // NOTE: Watcher script is NOT loaded in parent page
             // It's injected into the iframe via inject_iframe_styles() to avoid styling the admin UI
             // The watcher applies live Tailwind styles, which should only affect the content iframe
 
             // Load broadcast listener for real-time updates
-            $broadcast_path = WINDTACS_PLUGIN_DIR . 'assets/broadcast-listener.js';
-            if (file_exists($broadcast_path)) {
-                wp_enqueue_script(
-                    'winden-broadcast-listener',
-                    WINDTACS_ASSETS_DIR . 'broadcast-listener.js',
-                    array(),
-                    filemtime($broadcast_path),
-                    true
-                );
-            }
+            ProvidersHelpers::enqueueBroadcastListener();
 
             // Add autocomplete generation
             $this->enqueue_autocomplete_generator();
@@ -252,28 +222,8 @@ class FSE extends BaseProvider
      */
     public function enqueue_winden_classes_autocomplete()
     {
-        // First, load the autocomplete library
-        $autocomplete_js = WINDTACS_PLUGIN_DIR . 'build/winden-classes/core/index.js';
-        $autocomplete_css = WINDTACS_PLUGIN_DIR . 'build/winden-classes/core/index.css';
-
-        if (file_exists($autocomplete_js)) {
-            wp_enqueue_script(
-                'winden-tailwind-autocomplete',
-                WINDTACS_PLUGIN_URL . 'build/winden-classes/core/index.js',
-                [],
-                filemtime($autocomplete_js),
-                true
-            );
-        }
-
-        if (file_exists($autocomplete_css)) {
-            wp_enqueue_style(
-                'winden-tailwind-autocomplete',
-                WINDTACS_PLUGIN_URL . 'build/winden-classes/core/index.css',
-                [],
-                filemtime($autocomplete_css)
-            );
-        }
+        // Load the core autocomplete library
+        ProvidersHelpers::enqueueWindenClassesCore();
 
         // Then load the Gutenberg integration (Free feature)
         $js_path = WINDTACS_PLUGIN_DIR . 'build/winden-classes/gutenberg/index.js';
@@ -310,29 +260,8 @@ class FSE extends BaseProvider
             );
         }
 
-        // Pass breakpoints to script
-        $wizzard_state = get_option('winden_dplugins_wizzard_state');
-        $breakpoints = ['sm', 'md', 'lg', 'xl', '2xl'];
-
-        if ($wizzard_state && !empty($wizzard_state['breakpointsActive']) && !empty($wizzard_state['breakpoints'])) {
-            $customBreakpoints = [];
-            foreach ($wizzard_state['breakpoints'] as $bp) {
-                if (!empty($bp['name'])) {
-                    $customBreakpoints[] = $bp['name'];
-                }
-            }
-            if (!empty($wizzard_state['extendBreakpoints'])) {
-                $breakpoints = array_merge($breakpoints, $customBreakpoints);
-            } elseif (!empty($customBreakpoints)) {
-                $breakpoints = $customBreakpoints;
-            }
-        }
-
-        wp_localize_script('winden-classes-gutenberg', 'windenGutenbergClasses', [
-            'breakpoints' => $breakpoints,
+        ProvidersHelpers::localizeWindenClassesData('winden-classes-gutenberg', 'windenGutenbergClasses', [
             'splitMode' => get_option('winden_split_mode', false),
-            'nonce' => wp_create_nonce('winden_nonce'),
-            'ajaxUrl' => admin_url('admin-ajax.php'),
         ]);
     }
 

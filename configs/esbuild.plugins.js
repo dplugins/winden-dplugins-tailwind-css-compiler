@@ -114,6 +114,20 @@ const monacoPlugin = {
   },
 };
 
+// Force color-2-name to use ESM entry instead of browser IIFE
+// The package's "browser" field points to an IIFE that esbuild can't extract named exports from
+const color2namePlugin = {
+  name: 'color-2-name-esm',
+  setup(build) {
+    const rootDir = path.resolve(__dirname, '..');
+    build.onResolve({ filter: /^color-2-name$/ }, () => {
+      return {
+        path: path.resolve(rootDir, 'node_modules/color-2-name/lib/index.js'),
+      };
+    });
+  },
+};
+
 // Custom plugin to handle WordPress externals
 const wordpressExternalsPlugin = {
   name: 'wordpress-externals',
@@ -209,6 +223,7 @@ module.exports = {
   svgPlugin,
   aliasPlugin,
   monacoPlugin,
+  color2namePlugin,
   wordpressExternalsPlugin,
   monacoCdnRemoverPlugin,
 };

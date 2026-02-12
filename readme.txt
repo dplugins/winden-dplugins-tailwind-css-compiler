@@ -4,7 +4,7 @@ Tags: tailwind, css, compiler, gutenberg, page builder
 Requires at least: 6.2
 Tested up to: 6.9.1
 Requires PHP: 7.4
-Stable tag: 1.1.0
+Stable tag: 1.1.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -81,6 +81,24 @@ When you use the `@plugin` directive with an external URL in your CSS configurat
 2. Tailwind classes in Gutenberg
 
 == Changelog ==
+
+= 1.1.1 =
+
+Features
+* Cache popup now have list of classes that were scanned in the process
+
+Improvements
+* Color Management
+* Custom shade colors are now properly preserved during color regeneration.
+* Better input validation and error handling for color names and hex values.
+* Improved breakpoints caching and performance in autocomplete.
+* Compiler and watcher scripts now only load for logged-in users, preventing 400 AJAX errors from anonymous visitors.
+
+Bug Fixes
+* Fixed color shade updates not reflecting base color changes.
+* Improved cache popup behavior.
+
+
 
 = 1.1.0 =
 

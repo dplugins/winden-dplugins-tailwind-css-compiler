@@ -1,14 +1,6 @@
 import { useState, useEffect } from "react";
 import { Autocomplete as WindenAutocomplete } from '../winauto-component/index.js';
-
-const areTagListsEqual = (a = [], b = []) => {
-  if (!Array.isArray(a) || !Array.isArray(b)) return false;
-  if (a.length !== b.length) return false;
-  for (let i = 0; i < a.length; i++) {
-    if (a[i] !== b[i]) return false;
-  }
-  return true;
-};
+import { arraysEqual } from '../../shared/utils.js';
 
 const WindenAutocompleteWithScreens = ({
   defaultTags,
@@ -179,7 +171,7 @@ const WindenAutocompleteWithScreens = ({
       }
       if (Array.isArray(event.detail.newClasses)) {
         set__Tags((prevTags) => (
-          areTagListsEqual(prevTags, event.detail.newClasses)
+          arraysEqual(prevTags, event.detail.newClasses)
             ? prevTags
             : event.detail.newClasses
         ));

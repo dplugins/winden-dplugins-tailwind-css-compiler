@@ -380,6 +380,11 @@ class ProvidersHelpers
      */
     public static function frontend_consts()
     {
+        // These globals are only needed by compiler/watcher scripts in editor contexts
+        if (!is_user_logged_in()) {
+            return;
+        }
+
         $inIframe = Builders::isBricksEditorFrame() || Builders::isOxygenEditorFrame() || Builders::isOxygen6EditorFrame() || Builders::isElementorEditorPage();
         $uploadUrl = WINDTACS_UPLOADS_URL['baseurl'];
         $apiVersion2 = Builders::has_api_version_2_block();
@@ -408,6 +413,111 @@ class ProvidersHelpers
     public static function tw_version_four_important()
     {
         return 'v4';
+    }
+
+    // ------------------------------------------------------------------------
+    // Shared enqueue helpers (used by all builder integrations)
+    // ------------------------------------------------------------------------
+
+    /**
+     * Enqueue Winden Classes core autocomplete library (JS + CSS).
+     * Used by all builder Winden Classes integrations.
+     * Canonical handle: 'winden-tailwind-autocomplete'
+     */
+    public static function enqueueWindenClassesCore(): void
+    {
+        $js = WINDTACS_PLUGIN_DIR . 'build/winden-classes/core/index.js';
+        $css = WINDTACS_PLUGIN_DIR . 'build/winden-classes/core/index.css';
+
+        if (file_exists($js)) {
+            wp_enqueue_script(
+                'winden-tailwind-autocomplete',
+                WINDTACS_PLUGIN_URL . 'build/winden-classes/core/index.js',
+                [],
+                filemtime($js),
+                true
+            );
+        }
+
+        if (file_exists($css)) {
+            wp_enqueue_style(
+                'winden-tailwind-autocomplete',
+                WINDTACS_PLUGIN_URL . 'build/winden-classes/core/index.css',
+                [],
+                filemtime($css)
+            );
+        }
+    }
+
+    /**
+     * Enqueue compiler module with inline config options.
+     * Used by FSE, Oxygen, and Bricks providers for parent-window compiler loading.
+     *
+     * @param string $selector CSS selector for !important (e.g., '.oxygen-body', '.brx-body')
+     */
+    public static function enqueueCompilerWithOptions(string $selector = ''): void
+    {
+        $compiler_path = WINDTACS_PLUGIN_DIR . 'build/compiler/tailwindcss-compiler.js';
+        if (!file_exists($compiler_path)) {
+            return;
+        }
+
+        wp_enqueue_script(
+            'winden-compiler-module',
+            WINDTACS_PLUGIN_URL . 'build/compiler/tailwindcss-compiler.js',
+            [],
+            filemtime($compiler_path),
+            true
+        );
+
+        $options = self::get_compiler_options($selector);
+        $config_js = sprintf(
+            'window.uploadUrl = %s; window.ajaxurl = %s; window.winden_plugin_url = %s; window.tailwind_compiler_options = %s;',
+            wp_json_encode(WINDTACS_UPLOADS_URL['baseurl']),
+            wp_json_encode(admin_url('admin-ajax.php')),
+            wp_json_encode(WINDTACS_PLUGIN_URL),
+            wp_json_encode($options)
+        );
+        wp_add_inline_script('winden-compiler-module', $config_js, 'before');
+    }
+
+    /**
+     * Enqueue broadcast listener for real-time cross-tab CSS updates.
+     * Used by FSE, Oxygen, Bricks, and Oxygen6 providers.
+     */
+    public static function enqueueBroadcastListener(): void
+    {
+        $path = WINDTACS_PLUGIN_DIR . 'assets/broadcast-listener.js';
+        if (!file_exists($path)) {
+            return;
+        }
+
+        wp_enqueue_script(
+            'winden-broadcast-listener',
+            WINDTACS_ASSETS_DIR . 'broadcast-listener.js',
+            [],
+            filemtime($path),
+            true
+        );
+    }
+
+    /**
+     * Localize Winden Classes data (nonce, ajaxUrl, breakpoints) for a builder script.
+     * Standardizes the data contract across all builder integrations.
+     *
+     * @param string $handle    Script handle to attach data to
+     * @param string $jsVarName JavaScript variable name (e.g., 'windenBricksClasses')
+     * @param array  $extra     Additional builder-specific data to merge
+     */
+    public static function localizeWindenClassesData(string $handle, string $jsVarName, array $extra = []): void
+    {
+        $data = array_merge([
+            'nonce' => wp_create_nonce('winden_nonce'),
+            'ajaxUrl' => admin_url('admin-ajax.php'),
+            'breakpoints' => SettingsOptions::getBreakpoints(),
+        ], $extra);
+
+        wp_localize_script($handle, $jsVarName, $data);
     }
 
 }

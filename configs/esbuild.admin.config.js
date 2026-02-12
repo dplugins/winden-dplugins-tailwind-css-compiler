@@ -2,7 +2,7 @@ const esbuild = require('esbuild');
 const { copy } = require('esbuild-plugin-copy');
 const path = require('path');
 const fs = require('fs');
-const { createSassPlugin, svgPlugin, aliasPlugin, monacoPlugin, wordpressExternalsPlugin, monacoCdnRemoverPlugin } = require('./esbuild.plugins');
+const { createSassPlugin, svgPlugin, aliasPlugin, monacoPlugin, color2namePlugin, wordpressExternalsPlugin, monacoCdnRemoverPlugin } = require('./esbuild.plugins');
 
 // Build configuration for admin UI
 const buildOptions = {
@@ -36,6 +36,7 @@ const buildOptions = {
     aliasPlugin,
     svgPlugin,
     monacoPlugin,
+    color2namePlugin,
     monacoCdnRemoverPlugin, // Remove CDN URLs for WordPress.org compliance
     createSassPlugin(['./src']),
     copy({

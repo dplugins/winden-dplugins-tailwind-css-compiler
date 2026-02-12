@@ -57,4 +57,38 @@ class SettingsOptions
     {
         self::$cached_options = null;
     }
+
+    /**
+     * Get breakpoint names from Wizzard state
+     *
+     * Reads from 'winden_dplugins_editor' option (same source as MonacoEditorProvider
+     * for Plain Classes). Handles extend vs replace logic.
+     *
+     * @return array Array of breakpoint names (e.g., ['sm', 'md', 'lg', 'xl', '2xl'] or ['mobile', 'tablet', 'desktop'])
+     */
+    public static function getBreakpoints(): array
+    {
+        $defaultBreakpoints = ['sm', 'md', 'lg', 'xl', '2xl'];
+
+        $winden_editor = get_option('winden_dplugins_editor');
+        $wizzard_state = $winden_editor['wizzard'] ?? null;
+
+        if ($wizzard_state && !empty($wizzard_state['breakpoints']) && is_array($wizzard_state['breakpoints'])) {
+            $customBreakpoints = [];
+            foreach ($wizzard_state['breakpoints'] as $bp) {
+                if (!empty($bp['name'])) {
+                    $customBreakpoints[] = $bp['name'];
+                }
+            }
+
+            if (!empty($customBreakpoints)) {
+                if (!empty($wizzard_state['extendBreakpoints'])) {
+                    return array_merge($defaultBreakpoints, $customBreakpoints);
+                }
+                return $customBreakpoints;
+            }
+        }
+
+        return $defaultBreakpoints;
+    }
 }

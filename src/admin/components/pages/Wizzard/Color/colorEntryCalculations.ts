@@ -131,7 +131,15 @@ export function createUpdatedEntry(
  * Get color name from hex using closest match
  */
 export function getColorNameFromHex(hexColor: string): string {
-  return closest(hexColor).name || "Unknown";
+  const parsedColor = tinycolor(hexColor);
+  if (!parsedColor.isValid()) {
+    return "Unknown";
+  }
+
+  const { r, g, b } = parsedColor.toRgb();
+  // color-2-name logs false "Invalid Hex value" warnings for valid hex input.
+  // Passing RGB avoids that parser path while preserving nearest-name matching.
+  return closest(`rgb(${r},${g},${b})`).name || "Unknown";
 }
 
 /**
