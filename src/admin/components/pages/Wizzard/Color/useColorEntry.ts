@@ -260,6 +260,13 @@ export function useColorEntry({
     setIsExpanded((prev) => !prev);
   }, []);
 
+  const handleEnableShadesChange = useCallback((checked: boolean) => {
+    setEnableShades(checked);
+    if (typeof updateColorEntry === 'function') {
+      updateColorEntry(entry.id, { enableShades: checked });
+    }
+  }, [entry.id, updateColorEntry]);
+
   // Debounced shade regeneration for slider inputs (shade count, lightness range).
   // Local state updates immediately for responsive UI; the expensive
   // generateColorShades + context update is batched via a short timeout.
@@ -327,7 +334,7 @@ export function useColorEntry({
     maxLightness,
     shadesList,
     enableShades,
-    setEnableShades,
+    setEnableShades: handleEnableShadesChange,
     reverseShades,
     setReverseShades,
 
