@@ -1,0 +1,256 @@
+name: Tailwind CSS Auto-Update
+
+on:
+  schedule:
+    # Daily at 10:17 UTC (off-round-minute to avoid GH Actions congestion)
+    - cron: '17 10 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  check-and-update:
+    name: Check for Tailwind CSS updates
+    runs-on: ubuntu-latest
+    outputs:
+      updated: ${{ steps.push.outputs.done }}
+      new_version: ${{ steps.bump.outputs.new }}
+      tailwind_version: ${{ steps.versions.outputs.latest }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.RELEASE_PAT }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Detect current and latest Tailwind versions
+        id: versions
+        run: |
+          CURRENT_VERSION=$(node -e "
+            const pkg = require('./package.json');
+            const ver = pkg.dependencies['tailwindcss'] || pkg.devDependencies['tailwindcss'];
+            console.log(ver.replace(/^\^|~/, ''));
+          ")
+          LATEST_VERSION=$(npm view tailwindcss version)
+
+          echo "current=$CURRENT_VERSION" >> "$GITHUB_OUTPUT"
+          echo "latest=$LATEST_VERSION" >> "$GITHUB_OUTPUT"
+          echo "Current: $CURRENT_VERSION"
+          echo "Latest:  $LATEST_VERSION"
+
+      - name: Check if update is needed
+        id: check
+        run: |
+          if [ "${{ steps.versions.outputs.current }}" = "${{ steps.versions.outputs.latest }}" ]; then
+            echo "Already on latest Tailwind CSS (${{ steps.versions.outputs.current }}). Exiting."
+            echo "needed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "Update available: ${{ steps.versions.outputs.current }} -> ${{ steps.versions.outputs.latest }}"
+            echo "needed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Check if tag already exists
+        if: steps.check.outputs.needed == 'true'
+        id: tag_check
+        run: |
+          PLUGIN_FILE="winden-dplugins-tailwind-css-compiler.php"
+          PLUGIN_VERSION=$(grep -oP '^\s*\*\s*Version:\s*\K[0-9]+\.[0-9]+\.[0-9]+' "$PLUGIN_FILE")
+          IFS='.' read -r P_MAJOR P_MINOR P_PATCH <<< "$PLUGIN_VERSION"
+          NEXT_VERSION="$P_MAJOR.$P_MINOR.$((P_PATCH + 1))"
+
+          if git ls-remote --tags origin | grep -q "refs/tags/$NEXT_VERSION$"; then
+            echo "Tag $NEXT_VERSION already exists. Skipping."
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Update Tailwind CSS dependencies
+        if: steps.check.outputs.needed == 'true' && steps.tag_check.outputs.exists == 'false'
+        run: |
+          LATEST="${{ steps.versions.outputs.latest }}"
+
+          # Update core Tailwind packages (share same version)
+          npm install --save "tailwindcss@^$LATEST"
+          npm install --save-dev "@tailwindcss/browser@^$LATEST" "@tailwindcss/postcss@^$LATEST"
+
+          # Update official plugins to their latest stable versions
+          npm install --save "@tailwindcss/typography@latest" "@tailwindcss/forms@latest" "@tailwindcss/container-queries@latest"
+
+      - name: Set up PHP with Composer
+        if: steps.check.outputs.needed == 'true' && steps.tag_check.outputs.exists == 'false'
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          tools: composer
+
+      - name: Install Composer dependencies
+        if: steps.check.outputs.needed == 'true' && steps.tag_check.outputs.exists == 'false'
+        run: composer install --no-dev --prefer-dist
+
+      - name: Build all assets
+        if: steps.check.outputs.needed == 'true' && steps.tag_check.outputs.exists == 'false'
+        run: |
+          npm install
+          npm run build
+
+      - name: Run tests
+        if: steps.check.outputs.needed == 'true' && steps.tag_check.outputs.exists == 'false'
+        run: npm run test
+
+      - name: Bump plugin version
+        if: steps.check.outputs.needed == 'true' && steps.tag_check.outputs.exists == 'false'
+        id: bump
+        run: |
+          PLUGIN_FILE="winden-dplugins-tailwind-css-compiler.php"
+
+          # Bump version in plugin header
+          PLUGIN_VERSION=$(grep -oP '^\s*\*\s*Version:\s*\K[0-9]+\.[0-9]+\.[0-9]+' "$PLUGIN_FILE")
+          IFS='.' read -r P_MAJOR P_MINOR P_PATCH <<< "$PLUGIN_VERSION"
+          NEW_PLUGIN_VERSION="$P_MAJOR.$P_MINOR.$((P_PATCH + 1))"
+          sed -i "s/Version: $PLUGIN_VERSION/Version: $NEW_PLUGIN_VERSION/" "$PLUGIN_FILE"
+
+          # Bump Stable tag in readme.txt
+          sed -i "s/Stable tag: $PLUGIN_VERSION/Stable tag: $NEW_PLUGIN_VERSION/" readme.txt
+
+          echo "old=$PLUGIN_VERSION" >> "$GITHUB_OUTPUT"
+          echo "new=$NEW_PLUGIN_VERSION" >> "$GITHUB_OUTPUT"
+          echo "Plugin version: $PLUGIN_VERSION -> $NEW_PLUGIN_VERSION"
+
+      - name: Commit, tag, and push to main
+        if: steps.check.outputs.needed == 'true' && steps.tag_check.outputs.exists == 'false'
+        id: push
+        run: |
+          LATEST="${{ steps.versions.outputs.latest }}"
+          NEW_VER="${{ steps.bump.outputs.new }}"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git add -f package.json package-lock.json winden-dplugins-tailwind-css-compiler.php readme.txt
+          git commit -m "Update Tailwind CSS to v$LATEST
+
+          - Updated tailwindcss, @tailwindcss/browser, @tailwindcss/postcss to $LATEST
+          - Updated @tailwindcss/typography, @tailwindcss/forms, @tailwindcss/container-queries to latest
+          - Bumped plugin version from ${{ steps.bump.outputs.old }} to $NEW_VER
+          - Build and tests verified"
+
+          git tag "$NEW_VER" -m "Release $NEW_VER — Tailwind CSS v$LATEST"
+
+          git push origin main
+          git push origin "$NEW_VER"
+
+          echo "done=true" >> "$GITHUB_OUTPUT"
+          echo "Pushed commit and tag $NEW_VER to main."
+
+  # ───────────────────────────────────────────────────────
+  # Job 2: Create GitHub Release with ZIP
+  # ───────────────────────────────────────────────────────
+  github-release:
+    name: Create GitHub Release
+    needs: check-and-update
+    if: needs.check-and-update.outputs.updated == 'true'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code at new tag
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.check-and-update.outputs.new_version }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Set up PHP with Composer
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          tools: composer
+
+      - name: Install Composer dependencies
+        run: composer install --no-dev --prefer-dist
+
+      - name: Install NPM dependencies and build
+        run: |
+          npm install
+          npm run build
+
+      - name: Create ZIP file using .distignore
+        run: |
+          TAG="${{ needs.check-and-update.outputs.new_version }}"
+          ZIP_NAME="winden-${TAG}.zip"
+          DIR_NAME="winden"
+
+          mkdir -p "$DIR_NAME"
+          rsync -av --exclude="$DIR_NAME" --exclude='.git' ./ "$DIR_NAME/"
+
+          # Remove files listed in .distignore
+          while IFS= read -r entry || [ -n "$entry" ]; do
+            [[ -z "$entry" || "$entry" =~ ^# ]] && continue
+            rm -rf "$DIR_NAME/$entry"
+          done < .distignore
+
+          zip -r "$ZIP_NAME" "$DIR_NAME"
+          rm -rf "$DIR_NAME"
+
+      - name: Upload Release Asset
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.check-and-update.outputs.new_version }}
+          name: ${{ needs.check-and-update.outputs.new_version }}
+          body: "Release ${{ needs.check-and-update.outputs.new_version }} — Tailwind CSS v${{ needs.check-and-update.outputs.tailwind_version }}"
+          files: winden-*.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.WPORG_DEPLOY_KEY }}
+
+  # ───────────────────────────────────────────────────────
+  # Job 3: Deploy to WordPress.org SVN
+  # ───────────────────────────────────────────────────────
+  wporg-deploy:
+    name: Deploy to WordPress.org
+    needs: [check-and-update, github-release]
+    if: needs.check-and-update.outputs.updated == 'true'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code at new tag
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.check-and-update.outputs.new_version }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Set up PHP with Composer
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          tools: composer
+
+      - name: Install Composer dependencies
+        run: composer install --no-dev --prefer-dist
+
+      - name: Install NPM dependencies and build
+        run: |
+          npm install
+          npm run build
+
+      - name: Deploy to WordPress.org
+        uses: 10up/action-wordpress-plugin-deploy@stable
+        with:
+          generate-zip: false
+        env:
+          SVN_USERNAME: ${{ secrets.SVN_USERNAME }}
+          SVN_PASSWORD: ${{ secrets.SVN_PASSWORD }}
+          SLUG: winden-dplugins-tailwind-css-compiler
+          VERSION: ${{ needs.check-and-update.outputs.new_version }}
