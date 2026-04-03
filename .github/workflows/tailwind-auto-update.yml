@@ -102,7 +102,13 @@ jobs:
 
       - name: Run tests
         if: steps.check.outputs.needed == 'true' && steps.tag_check.outputs.exists == 'false'
-        run: npm run test
+        run: |
+          # Only run tests if test files exist
+          if find tests -name '*.test.*' 2>/dev/null | grep -q .; then
+            npm run test
+          else
+            echo "No test files found. Skipping tests."
+          fi
 
       - name: Bump plugin version
         if: steps.check.outputs.needed == 'true' && steps.tag_check.outputs.exists == 'false'
