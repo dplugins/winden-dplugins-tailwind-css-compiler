@@ -5,6 +5,7 @@
  */
 
 import type { WizzardState, ColorEntry } from '@/types/wizzard';
+import { tailwindDefaultColors } from '@/constants/tailwindColors';
 
 /**
  * Process color entries with shades and utility colors
@@ -85,6 +86,15 @@ export function processColors(state: WizzardState | null): Record<string, any> {
       black: "#000",
       auto: "auto",
       inherit: "inherit",
+    });
+  }
+
+  // Include selected Tailwind default colors
+  if (state.includeTailwindColors && state.includeTailwindColors.length > 0) {
+    state.includeTailwindColors.forEach((colorName) => {
+      if (tailwindDefaultColors[colorName]) {
+        colorsConfig[colorName] = tailwindDefaultColors[colorName];
+      }
     });
   }
 

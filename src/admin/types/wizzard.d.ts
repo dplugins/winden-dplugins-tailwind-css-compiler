@@ -112,6 +112,7 @@ interface WizzardState {
   colorsActive: boolean;
   extendColors: boolean;
   includeUtilityColors: boolean;
+  includeTailwindColors?: string[]; // Array of selected Tailwind color names (e.g., ['emerald', 'blue'])
   extendColorsFSE?: boolean;
   extendColorsBricks?: boolean;
   extendColorsOxygen?: boolean;

@@ -5,12 +5,14 @@ import {
   dynamicColorsBricks,
   dynamicColorsOxygen,
 } from "@/dynamicData/colors";
+import { tailwindDefaultColors } from "@/constants/tailwindColors";
+import { oklchToHex } from "@/utils/oklchToHex";
 
 import React, { useState, useCallback, useMemo, useContext } from "react";
 import ColorEntry from "./ColorEntry";
 import { colorPresets } from "./colorPresets";
 import ColorsBuilders from "./ColorsBuilders";
-import ColorsUtility from "./ColorsUtility";
+import TailwindColorSelector from "./TailwindColorSelector";
 // Components
 import { Button } from "@el/Button";
 import { ArrowButton } from "@el/ArrowButton";
@@ -173,6 +175,41 @@ const Color: React.FC<ColorProps> = ({ label }) => {
       );
     }
 
+    // Add selected Tailwind colors if any
+    if (localWizzardState?.includeTailwindColors && localWizzardState.includeTailwindColors.length > 0) {
+      let idCounter = 999500;
+      localWizzardState.includeTailwindColors.forEach((colorName) => {
+        const tailwindColor = tailwindDefaultColors[colorName];
+        if (tailwindColor) {
+          // Convert OKLCH shades to a format similar to custom colors
+          // Keep OKLCH in shades for CSS output
+          const shades = Object.entries(tailwindColor).map(([shadeName, oklchValue]) => ({
+            name: shadeName,
+            hex: oklchValue as string, // Store OKLCH as-is for CSS generation
+            isEnabled: true,
+            isDefault: false,
+          }));
+
+          // Get the 500 shade as the base color (middle/primary shade)
+          const baseColorOklch = tailwindColor['500'] || tailwindColor['600'] || Object.values(tailwindColor)[5];
+
+          // Convert OKLCH to HEX for display (tinycolor can't parse OKLCH)
+          const baseColorHex = oklchToHex(baseColorOklch);
+
+          colors.push({
+            id: idCounter++,
+            name: colorName,
+            hex: baseColorHex, // Use HEX for color display/swatch
+            shades,
+            isTailwind: true,
+            locked: true,
+            enableShades: true,
+            reverseShades: false,
+          });
+        }
+      });
+    }
+
     // Add FSE colors if enabled
     if (localWizzardState?.extendColorsFSE && Object.keys(dynamicColorsFSE)?.length) {
       const fseColors = dynamicColorGroupsFSE && Object.keys(dynamicColorGroupsFSE)?.length
@@ -235,6 +272,7 @@ const Color: React.FC<ColorProps> = ({ label }) => {
   }, [
     localWizzardState?.colorEntries,
     localWizzardState?.includeUtilityColors,
+    localWizzardState?.includeTailwindColors,
     localWizzardState?.extendColorsFSE,
     localWizzardState?.extendColorsBricks,
     localWizzardState?.extendColorsOxygen
@@ -250,20 +288,13 @@ const Color: React.FC<ColorProps> = ({ label }) => {
             </div>
 
             <div className="space-y-4">
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div>
-                    <Checkbox
-                      label="Include Utility Colors"
-                      checked={localWizzardState?.includeUtilityColors}
-                      onCheckedChange={(checked) => toggleFlag('includeUtilityColors', checked as boolean)}
-                    />
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent side="bottom">
-                  white, black, transparent, current, inherit, auto
-                </TooltipContent>
-              </Tooltip>
+              <TailwindColorSelector
+                selectedColors={localWizzardState?.includeTailwindColors ?? []}
+                onSelectionChange={(colors) => toggleFlag('includeTailwindColors', colors)}
+                extendColors={localWizzardState?.extendColors ?? true}
+                includeUtilityColors={localWizzardState?.includeUtilityColors ?? false}
+                onUtilityColorsChange={(checked) => toggleFlag('includeUtilityColors', checked)}
+              />
             </div>
 
             <SidebarSeparator label="Builders integration" />

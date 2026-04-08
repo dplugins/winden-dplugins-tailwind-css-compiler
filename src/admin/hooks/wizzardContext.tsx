@@ -32,6 +32,7 @@ export const defaultWizzardState: WizzardState = {
   colorEntries: [],
   extendColors: true,
   includeUtilityColors: false,
+  includeTailwindColors: [],
   extendColorsFSE: false,
   extendColorsBricks: false,
   extendColorsOxygen: false,
