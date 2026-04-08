@@ -211,6 +211,11 @@ export const handleSave = async (
         durationMs: +(saveEndTime - saveStartTime).toFixed(2),
         updatedAt: result.data?.updated_at,
       });
+
+      // Trigger Style Guide refresh after successful save
+      if (typeof window.refreshStyleGuide === 'function') {
+        window.refreshStyleGuide();
+      }
     } else {
       // Handle stale-write conflict
       if (result.data?.code === 'STALE_SAVE') {
@@ -273,6 +278,11 @@ export const handleWizzardStateUpdate = async (
           wizzard: data.wizzard,
         },
       });
+
+      // Trigger Style Guide refresh after Wizzard update
+      if (typeof window.refreshStyleGuide === 'function') {
+        window.refreshStyleGuide();
+      }
 
       if (typeof callback === 'function') {
         callback();

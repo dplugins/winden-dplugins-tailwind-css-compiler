@@ -26,6 +26,7 @@ import { enhanceErrorMessages } from "@functions/ErrorMapper";
 import { handleSave } from "../../functions/HandleSave";
 import { useEditorContext, type Settings } from "@/contexts/EditorContext";
 import { WizzardContext } from "@hooks/wizzardContext";
+import { generateWizzardConfigWithClamps } from "@/utils/wizzardConfigManager";
 
 interface CacheStatus {
   status: "completed" | "failed" | null;
@@ -200,13 +201,20 @@ const Nav: React.FC = () => {
   }, [cacheStatus?.status, cacheInProgress, fetchGroupedClasses]);
 
   const onSave = useCallback(async () => {
-    wizzardContentRef.current = localWizzardState;
+    // Regenerate config immediately before saving to ensure it's up-to-date
+    // This fixes the Style Guide refresh bug where configCode was stale
+    const freshConfig = generateWizzardConfigWithClamps(localWizzardState);
+    const updatedState = { ...localWizzardState, configCode: freshConfig };
+    wizzardContentRef.current = updatedState;
     await handleSave(jsContentRef, scssContentRef, wizzardContentRef, settings);
   }, [jsContentRef, scssContentRef, wizzardContentRef, settings, localWizzardState]);
 
   const handleSaveAndFetchClasses = useCallback(async () => {
     setLoading(true);
-    wizzardContentRef.current = localWizzardState;
+    // Regenerate config immediately before saving to ensure it's up-to-date
+    const freshConfig = generateWizzardConfigWithClamps(localWizzardState);
+    const updatedState = { ...localWizzardState, configCode: freshConfig };
+    wizzardContentRef.current = updatedState;
     await handleSave(jsContentRef, scssContentRef, wizzardContentRef, settings);
     setLoading(false);
     // Always use v4

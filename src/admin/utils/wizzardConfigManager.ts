@@ -122,6 +122,127 @@ function convertManualValuesToClamps(
 }
 
 /**
+ * Recalculate clamps for a state category (fontSize, spacing, borderRadius)
+ * This is needed when generating config on-demand without the Wizzard component mounted
+ *
+ * @param category - The state category (fontSize, spacing, borderRadius)
+ * @param wizzardState - Current Wizzard state
+ * @returns Clamps for the category
+ */
+function recalculateClamps(
+  category: 'fontSize' | 'spacing' | 'borderRadius',
+  wizzardState: WizzardState | null
+): ClampsState {
+  if (!wizzardState || !wizzardState[category]) {
+    return {};
+  }
+
+  const state = wizzardState[category];
+  if (!state) {
+    return {};
+  }
+
+  // If manual mode, convert manual values to clamps
+  if (state.manualMode) {
+    return convertManualValuesToClamps(
+      state.manualValues || {},
+      state.disableFluid ?? false,
+      state.minScreenSize ?? 320,
+      state.maxScreenSize ?? 1920,
+      state.useRem ?? false,
+      state.remSize ?? 16,
+      state.decimalPlaces ?? 2
+    );
+  }
+
+  // Otherwise, calculate clamps from scale settings
+  // This is a simplified version of useClampCalculator logic
+  const result: ClampsState = {};
+  const steps = state.steps || [];
+
+  steps.forEach((step) => {
+    // Use step values if available, otherwise calculate
+    const minValue = state.minBaseSize || 16;
+    const maxValue = state.maxBaseSize || 19;
+
+    if (state.disableFluid) {
+      result[step] = {
+        enabled: true,
+        value: `${minValue}px`,
+        fluidClamp: '',
+        minBase: `${minValue}px`,
+        maxBase: '',
+      };
+    } else {
+      // Generate basic clamp (simplified calculation)
+      const slope = (maxValue - minValue) / ((state.maxScreenSize || 1200) - (state.minScreenSize || 320));
+      const slopeVi = slope * 100;
+      const intercept = minValue - slope * (state.minScreenSize || 320);
+
+      const clampValue = `clamp(${minValue}px, ${slopeVi.toFixed(2)}vi + ${intercept.toFixed(2)}px, ${maxValue}px)`;
+
+      result[step] = {
+        enabled: true,
+        value: clampValue,
+        fluidClamp: clampValue,
+        minBase: `${minValue}px`,
+        maxBase: `${maxValue}px`,
+      };
+    }
+  });
+
+  return result;
+}
+
+/**
+ * Generate Tailwind @theme configuration from Wizzard state with on-demand clamp calculation
+ *
+ * This function can be called without the Wizzard component being mounted.
+ * It will recalculate clamps from the state if they're not provided.
+ *
+ * @param wizzardState - Current Wizzard state
+ * @param providedClamps - Optional pre-calculated clamps (if available from mounted Wizzard)
+ * @returns CSS string with @theme directive
+ *
+ * @example
+ * ```typescript
+ * // With pre-calculated clamps (when Wizzard is mounted)
+ * const config = generateWizzardConfigWithClamps(localWizzardState, {
+ *   clampsFontSize: fontSize.clamps,
+ *   clampsSpacing: spacing.clamps,
+ *   clampsBorderRadius: borderRadius.clamps,
+ * });
+ *
+ * // Without clamps (when Wizzard is not mounted) - will recalculate
+ * const config = generateWizzardConfigWithClamps(localWizzardState);
+ * ```
+ */
+export function generateWizzardConfigWithClamps(
+  wizzardState: WizzardState | null,
+  providedClamps?: {
+    clampsFontSize?: ClampsState;
+    clampsSpacing?: ClampsState;
+    clampsBorderRadius?: ClampsState;
+  }
+): string {
+  if (!wizzardState) {
+    return '';
+  }
+
+  // Use provided clamps if available, otherwise recalculate
+  const clampsFontSize = providedClamps?.clampsFontSize || recalculateClamps('fontSize', wizzardState);
+  const clampsSpacing = providedClamps?.clampsSpacing || recalculateClamps('spacing', wizzardState);
+  const clampsBorderRadius = providedClamps?.clampsBorderRadius || recalculateClamps('borderRadius', wizzardState);
+
+  return generateWizzardConfig({
+    wizzardState,
+    clampsFontSize,
+    clampsSpacing,
+    clampsBorderRadius,
+  });
+}
+
+/**
  * Generate Tailwind @theme configuration from Wizzard state
  *
  * This is a pure function that takes Wizzard state and clamp calculations

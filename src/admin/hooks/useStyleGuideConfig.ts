@@ -99,17 +99,10 @@ export function useStyleGuideConfig({
                     let wizardContent = '';
                     let windenStylesContent = '';
 
-                    if (window.winden_editor?.scss) {
-                        windenStylesContent = window.winden_editor.scss;
-                    } else {
-                        windenStylesContent = scssContent || '';
-                    }
-
-                    if (window.winden_editor?.wizzard?.configCode) {
-                        wizardContent = window.winden_editor.wizzard.configCode;
-                    } else {
-                        wizardContent = localWizzardState?.configCode || '';
-                    }
+                    // PRIORITY FIX: Use React state first (up-to-date), fall back to window object (stale)
+                    // This ensures Style Guide shows changes immediately after save
+                    windenStylesContent = scssContent || window.winden_editor?.scss || '';
+                    wizardContent = localWizzardState?.configCode || window.winden_editor?.wizzard?.configCode || '';
 
                     const combinedContent = wizardContent + '\n' + windenStylesContent;
 

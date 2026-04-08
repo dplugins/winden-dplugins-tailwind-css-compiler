@@ -57,6 +57,7 @@ class FSEColorPaletteProvider
 
         $colorEntries = $winden_editor['wizzard']['colorEntries'] ?? [];
         $includeUtilityColors = $winden_editor['wizzard']['includeUtilityColors'] ?? false;
+        $includeTailwindColors = $winden_editor['wizzard']['includeTailwindColors'] ?? [];
         $extendColorsFSE = isset($winden_editor['wizzard']['extendColorsFSE']) &&
             $winden_editor['wizzard']['extendColorsFSE'] == 1;
 
@@ -70,10 +71,18 @@ class FSEColorPaletteProvider
             );
         }
 
-        // Process color entries
+        // Process custom color entries
         foreach ($colorEntries as $colorEntry) {
             $colors = $this->processColorEntry($colorEntry, $existing_colors, $extendColorsFSE);
             $editorColors = array_merge($editorColors, $colors);
+        }
+
+        // Process Tailwind default colors
+        if (!empty($includeTailwindColors) && is_array($includeTailwindColors)) {
+            foreach ($includeTailwindColors as $tailwindColorName) {
+                $colors = $this->processTailwindColor($tailwindColorName, $existing_colors, $extendColorsFSE);
+                $editorColors = array_merge($editorColors, $colors);
+            }
         }
 
         return $editorColors;
@@ -169,6 +178,85 @@ class FSEColorPaletteProvider
             'slug' => strtolower(str_replace(' ', '-', $colorEntry['name'] . '-' . $shade['name'])),
             'color' => $shade['hex'],
         ];
+    }
+
+    /**
+     * Process a Tailwind default color (with all its shades)
+     *
+     * @param string $colorName Name of the Tailwind color (e.g., 'red', 'blue')
+     * @param array $existing_colors
+     * @param bool $extendColorsFSE
+     * @return array
+     */
+    private function processTailwindColor($colorName, $existing_colors, $extendColorsFSE)
+    {
+        $colors = [];
+
+        // Tailwind color shades (same as in TypeScript constants)
+        // These are placeholder hex values - the actual OKLCH values are used in CSS
+        // But for Gutenberg color picker, we need hex values
+        $tailwindColors = $this->getTailwindColorShades($colorName);
+
+        if (empty($tailwindColors)) {
+            return $colors;
+        }
+
+        // Add each shade of the Tailwind color
+        foreach ($tailwindColors as $shade => $hex) {
+            $shadeName = $colorName . '-' . $shade;
+            $fullName = ucfirst($colorName) . ' ' . $shade;
+
+            if (!in_array($fullName, $existing_colors) || $extendColorsFSE) {
+                $colors[] = [
+                    'name' => $fullName,
+                    'slug' => strtolower($shadeName),
+                    'color' => $hex,
+                ];
+            }
+        }
+
+        return $colors;
+    }
+
+    /**
+     * Get Tailwind color shades as HEX values
+     * These are converted from OKLCH to HEX for Gutenberg color picker display
+     *
+     * @param string $colorName
+     * @return array
+     */
+    private function getTailwindColorShades($colorName)
+    {
+        static $colorData = null;
+
+        // Load color data from shared JSON file (single source of truth)
+        if ($colorData === null) {
+            $jsonPath = WINDTACS_PLUGIN_DIR . 'shared/tailwind-colors.json';
+
+            if (file_exists($jsonPath)) {
+                $jsonContent = file_get_contents($jsonPath);
+                $colorData = json_decode($jsonContent, true);
+
+                if (json_last_error() !== JSON_ERROR_NONE) {
+                    error_log('[Winden Error] Failed to parse tailwind-colors.json: ' . json_last_error_msg());
+                    $colorData = [];
+                }
+            } else {
+                error_log('[Winden Error] tailwind-colors.json not found at: ' . $jsonPath);
+                $colorData = [];
+            }
+        }
+
+        // Return HEX values for the specified color
+        if (isset($colorData[$colorName])) {
+            $hexMap = [];
+            foreach ($colorData[$colorName] as $shade => $values) {
+                $hexMap[$shade] = $values['hex'];
+            }
+            return $hexMap;
+        }
+
+        return [];
     }
 
     /**
