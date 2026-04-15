@@ -117,20 +117,36 @@ export interface FeatureConfig {
  */
 export function calculateClampsForFeature(config: FeatureConfig): ClampsState {
   const { steps, baseStep = 'base', minBaseSize, maxBaseSize, minScaleRatio, maxScaleRatio } = config;
-  const { minScreenSize, maxScreenSize, useRem, remSize, decimalPlaces, disableFluid = false } = config;
+  const { minScreenSize, maxScreenSize, useRem, remSize, decimalPlaces, disableFluid = false, overrides } = config;
 
   // Calculate the base step index
   const baseIndex = steps.indexOf(baseStep);
   const baseStepIndex = baseIndex >= 0 ? baseIndex : Math.floor(steps.length / 2);
 
   return steps.reduce((acc: ClampsState, step: string, index: number) => {
-    // Calculate min and max base values for each step
+    // Calculate min and max base values for each step using modular scale
     const stepDifference = index - baseStepIndex;
-    const minBase = minBaseSize * Math.pow(minScaleRatio, stepDifference);
-    const maxBase = maxBaseSize * Math.pow(maxScaleRatio, stepDifference);
+    let minBase = minBaseSize * Math.pow(minScaleRatio, stepDifference);
+    let maxBase = maxBaseSize * Math.pow(maxScaleRatio, stepDifference);
+
+    // Apply overrides if provided (user-customized min/max values)
+    const stepOverride = overrides?.[step];
+    if (stepOverride) {
+      if (stepOverride.minBase && stepOverride.minBase !== '') {
+        const overrideMin = parseFloat(stepOverride.minBase);
+        if (!isNaN(overrideMin)) minBase = overrideMin;
+      }
+      if (stepOverride.maxBase && stepOverride.maxBase !== '') {
+        const overrideMax = parseFloat(stepOverride.maxBase);
+        if (!isNaN(overrideMax)) maxBase = overrideMax;
+      }
+    }
 
     let finalValue: string;
     let fluidClamp: string;
+
+    // Check if step is enabled (default true)
+    const isEnabled = stepOverride?.enabled !== false;
 
     if (disableFluid) {
       // Fixed mode: use only the minBase value with proper unit
@@ -154,7 +170,7 @@ export function calculateClampsForFeature(config: FeatureConfig): ClampsState {
     }
 
     acc[step] = {
-      enabled: true,
+      enabled: isEnabled,
       value: finalValue,
       fluidClamp: fluidClamp,
       minBase: minBase.toFixed(decimalPlaces || 2),

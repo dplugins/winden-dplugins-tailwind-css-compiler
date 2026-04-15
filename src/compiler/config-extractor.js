@@ -103,6 +103,12 @@ export function convertJsConfigToCss(jsConfigString) {
  */
 export function extractColors(cssContent) {
     const colors = {};
+    let hasReset = false;
+
+    // Check if there's a color reset (--color-*: initial;)
+    if (cssContent.includes('--color-*: initial;') || cssContent.includes('--color-*:initial;')) {
+        hasReset = true;
+    }
 
     // Match color custom properties
     const colorMatches = cssContent.match(/--color-([^:]+):\s*([^;]+);/g) || [];
@@ -111,7 +117,7 @@ export function extractColors(cssContent) {
         const colorName = match.match(/--color-([^:]+):/)?.[1];
         const colorValue = match.match(/:\s*([^;]+);/)?.[1];
 
-        if (colorName && colorValue && colorValue.trim() !== 'initial') {
+        if (colorName && colorValue && colorName !== '*' && colorValue.trim() !== 'initial') {
             // Handle nested color objects (e.g., red-50, red-100, etc.)
             // Important: Multi-word color names like "blue-light" should stay together
             // Only numeric suffixes (50, 100, 200, etc.) are shade values
@@ -143,11 +149,16 @@ export function extractColors(cssContent) {
     // Clean up colors that only have DEFAULT values
     Object.keys(colors).forEach(colorName => {
         const colorObj = colors[colorName];
-        if (Object.keys(colorObj).length === 1 && colorObj['DEFAULT']) {
+        if (typeof colorObj === 'object' && Object.keys(colorObj).length === 1 && colorObj['DEFAULT']) {
             // If there's only a DEFAULT value, make it the main color
             colors[colorName] = colorObj['DEFAULT'];
         }
     });
+
+    // If there's a reset, mark it so the merge logic clears defaults
+    if (hasReset) {
+        colors.__reset__ = true;
+    }
 
     return colors;
 }
@@ -159,19 +170,33 @@ export function extractColors(cssContent) {
  */
 export function extractSpacing(cssContent) {
     const spacing = {};
-    
+    let hasReset = false;
+
+    // Check if there's a spacing reset (--spacing-*: initial;)
+    if (cssContent.includes('--spacing-*: initial;') || cssContent.includes('--spacing-*:initial;')) {
+        hasReset = true;
+    }
+
     // Match spacing custom properties
     const spacingMatches = cssContent.match(/--spacing-([^:]+):\s*([^;]+);/g) || [];
-    
+
     spacingMatches.forEach(match => {
         const spacingName = match.match(/--spacing-([^:]+):/)?.[1];
         const spacingValue = match.match(/:\s*([^;]+);/)?.[1];
-        
+
         if (spacingName && spacingValue) {
-            spacing[spacingName] = spacingValue.trim();
+            const trimmedValue = spacingValue.trim();
+            // Filter out wildcard names and initial values
+            if (spacingName === '*' || trimmedValue === 'initial') return;
+            spacing[spacingName] = trimmedValue;
         }
     });
-    
+
+    // If there's a reset, mark it so the merge logic clears defaults
+    if (hasReset) {
+        spacing.__reset__ = true;
+    }
+
     return spacing;
 }
 
@@ -182,27 +207,43 @@ export function extractSpacing(cssContent) {
  */
 export function extractFontSizes(cssContent) {
     const fontSizes = {};
-    
+    let hasReset = false;
+
+    // Check if there's a font size reset (--text-*: initial;)
+    if (cssContent.includes('--text-*: initial;') || cssContent.includes('--text-*:initial;')) {
+        hasReset = true;
+    }
+
     // Match text size custom properties
     const textMatches = cssContent.match(/--text-([^:]+):\s*([^;]+);/g) || [];
-    
+
     textMatches.forEach(match => {
         const textName = match.match(/--text-([^:]+):/)?.[1];
         const textValue = match.match(/:\s*([^;]+);/)?.[1];
-        
+
         if (textName && textValue) {
+            const trimmedValue = textValue.trim();
+
+            // Filter out wildcard names and initial values
+            if (textName === '*' || trimmedValue === 'initial') return;
+
             // Filter out line-height and shadow properties
-            const isLineHeight = textName.includes('line-height') || textName.includes('line-height');
+            const isLineHeight = textName.includes('line-height') || textName.includes('--line-height');
             const isShadow = textName.includes('shadow') || textName.startsWith('shadow');
             const hasInvalidChars = textName.includes('(') || textName.includes(')') || textName.includes(';');
-            
+
             // Only include actual font size properties
             if (!isLineHeight && !isShadow && !hasInvalidChars) {
-                fontSizes[textName] = textValue.trim();
+                fontSizes[textName] = trimmedValue;
             }
         }
     });
-    
+
+    // If there's a reset, mark it so the merge logic clears defaults
+    if (hasReset) {
+        fontSizes.__reset__ = true;
+    }
+
     return fontSizes;
 }
 
@@ -520,22 +561,18 @@ export function extractConfigFromSources(sources) {
             Object.keys(merged).forEach(category => {
                 if (configs[sourceName][category]) {
                     const sourceConfig = configs[sourceName][category];
-                    
-                    // Handle reset for breakpoints
-                    if (category === 'breakpoints' && sourceConfig.__reset__) {
-                        // Reset: start fresh and only include new values
+
+                    // Handle wildcard reset (--*: initial;) for any category
+                    if (sourceConfig.__reset__) {
+                        // Reset: clear defaults and only include new custom values
                         const cleanConfig = { ...sourceConfig };
                         delete cleanConfig.__reset__;
                         merged[category] = cleanConfig;
                     } else {
                         // Normal merge
-                        const cleanConfig = { ...sourceConfig };
-                        if (cleanConfig.__reset__) {
-                            delete cleanConfig.__reset__;
-                        }
                         merged[category] = {
                             ...merged[category],
-                            ...cleanConfig
+                            ...sourceConfig
                         };
                     }
                 }

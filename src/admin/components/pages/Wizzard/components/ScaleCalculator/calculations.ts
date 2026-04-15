@@ -5,6 +5,7 @@
  */
 
 import type { ClampOverride, ClampInfo, MinMaxValue, ScaleState } from "./types";
+import { calculateClampValue } from "@/utils/clampCalculations";
 
 /**
  * Round number to specified decimal places
@@ -53,22 +54,7 @@ export function calculateFluidClamp(
   remSize: number = 16,
   decimalPlaces: number = 2
 ): string {
-  // Calculate slope and intercept using pixel values
-  const slope = (maxSize - minSize) / (maxScreen - minScreen);
-  const intercept = minSize - slope * minScreen;
-
-  // Convert slope to vi units (multiply by 100)
-  const slopeVi = slope * 100;
-
-  if (useRem) {
-    const minSizeRem = minSize / remSize;
-    const maxSizeRem = maxSize / remSize;
-    const interceptRem = intercept / remSize;
-
-    return `clamp(${roundNumber(minSizeRem, decimalPlaces)}rem, ${roundNumber(slopeVi, decimalPlaces)}vi + ${roundNumber(interceptRem, decimalPlaces)}rem, ${roundNumber(maxSizeRem, decimalPlaces)}rem)`;
-  } else {
-    return `clamp(${roundNumber(minSize, decimalPlaces)}px, ${roundNumber(slopeVi, decimalPlaces)}vi + ${roundNumber(intercept, decimalPlaces)}px, ${roundNumber(maxSize, decimalPlaces)}px)`;
-  }
+  return calculateClampValue(minSize, maxSize, minScreen, maxScreen, useRem, remSize, decimalPlaces);
 }
 
 /**
@@ -143,7 +129,8 @@ export function calculateAllClamps(
 } {
   const clamps: Record<string, ClampInfo> = {};
   const steps = state?.steps || [];
-  const baseIndex = steps.indexOf(state?.baseStep || "") || 0;
+  const foundIndex = steps.indexOf(state?.baseStep || "");
+  const baseIndex = foundIndex >= 0 ? foundIndex : Math.floor(steps.length / 2);
   const decimalPlaces = state?.decimalPlaces ?? 2;
 
   steps.forEach((step, index) => {

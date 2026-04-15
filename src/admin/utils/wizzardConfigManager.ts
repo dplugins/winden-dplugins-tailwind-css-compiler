@@ -7,6 +7,7 @@
 
 import type { WizzardState, ManualStepValue } from '@/types/wizzard';
 import type { ClampsState } from './clampCalculations';
+import { calculateClampValue, calculateClampsForFeature } from './clampCalculations';
 import { processColors } from './colorProcessor';
 import { getBuilderExtensions } from './builderExtensions';
 import generateTailwindConfig from '@pages/Wizzard/utils/configGenerator';
@@ -95,18 +96,11 @@ function convertManualValuesToClamps(
         return;
       }
 
-      // Calculate slope using pixel values (minNum/maxNum are in px)
-      const slope = (maxNum - minNum) / (maxScreenSize - minScreenSize);
-      const slopeVi = slope * 100;
-      const intercept = minNum - slope * minScreenSize;
-
-      // Convert to display units (rem or px) for output
-      const minDisplay = useRem ? (minNum / remSize).toFixed(decimalPlaces) : minNum.toFixed(decimalPlaces);
-      const maxDisplay = useRem ? (maxNum / remSize).toFixed(decimalPlaces) : maxNum.toFixed(decimalPlaces);
-      const interceptDisplay = useRem ? (intercept / remSize).toFixed(decimalPlaces) : intercept.toFixed(decimalPlaces);
-
-      // Generate clamp() CSS with correct format: clamp(min, slope + intercept, max)
-      const clampValue = `clamp(${minDisplay}${unit}, ${slopeVi.toFixed(2)}vi + ${interceptDisplay}${unit}, ${maxDisplay}${unit})`;
+      // Use shared utility for clamp calculation
+      const clampValue = calculateClampValue(
+        minNum, maxNum, minScreenSize, maxScreenSize,
+        useRem, remSize, decimalPlaces
+      );
 
       result[step] = {
         enabled: true,
@@ -155,43 +149,22 @@ function recalculateClamps(
     );
   }
 
-  // Otherwise, calculate clamps from scale settings
-  // This is a simplified version of useClampCalculator logic
-  const result: ClampsState = {};
-  const steps = state.steps || [];
-
-  steps.forEach((step) => {
-    // Use step values if available, otherwise calculate
-    const minValue = state.minBaseSize || 16;
-    const maxValue = state.maxBaseSize || 19;
-
-    if (state.disableFluid) {
-      result[step] = {
-        enabled: true,
-        value: `${minValue}px`,
-        fluidClamp: '',
-        minBase: `${minValue}px`,
-        maxBase: '',
-      };
-    } else {
-      // Generate basic clamp (simplified calculation)
-      const slope = (maxValue - minValue) / ((state.maxScreenSize || 1200) - (state.minScreenSize || 320));
-      const slopeVi = slope * 100;
-      const intercept = minValue - slope * (state.minScreenSize || 320);
-
-      const clampValue = `clamp(${minValue}px, ${slopeVi.toFixed(2)}vi + ${intercept.toFixed(2)}px, ${maxValue}px)`;
-
-      result[step] = {
-        enabled: true,
-        value: clampValue,
-        fluidClamp: clampValue,
-        minBase: `${minValue}px`,
-        maxBase: `${maxValue}px`,
-      };
-    }
+  // Calculate clamps from scale settings using the proper modular scale algorithm
+  return calculateClampsForFeature({
+    steps: state.steps || [],
+    baseStep: state.baseStep || 'base',
+    minBaseSize: state.minBaseSize || 16,
+    maxBaseSize: state.maxBaseSize || 19,
+    minScaleRatio: state.minScaleRatio || 1.2,
+    maxScaleRatio: state.maxScaleRatio || 1.2,
+    minScreenSize: state.minScreenSize ?? 320,
+    maxScreenSize: state.maxScreenSize ?? 1920,
+    useRem: state.useRem ?? false,
+    remSize: state.remSize ?? 16,
+    decimalPlaces: state.decimalPlaces ?? 2,
+    disableFluid: state.disableFluid ?? false,
+    overrides: state.overrides,
   });
-
-  return result;
 }
 
 /**

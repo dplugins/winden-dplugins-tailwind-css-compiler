@@ -37,6 +37,7 @@ const colorShadeSchema = object().shape({
   hex: string().required(),
   isEnabled: boolean().required(),
   isDefault: boolean().required(),
+  isCustom: boolean().optional(),
 }).strict(true).noUnknown();
 
 /**
@@ -58,6 +59,13 @@ const colorEntrySchema = object().shape({
   reverseShades: boolean().optional(),
   originalGeneratedColors: array().of(string()).optional(),
   isMainColorChange: boolean().optional(),
+  // Builder/utility source flags (set at runtime for display colors)
+  utilityValue: string().optional(),
+  locked: boolean().optional(),
+  isUtility: boolean().optional(),
+  isFSE: boolean().optional(),
+  isBricks: boolean().optional(),
+  isOxygen: boolean().optional(),
   shades: array().of(colorShadeSchema).required(),
 }).strict(true).noUnknown();
 
@@ -69,6 +77,7 @@ const colorSchema = {
   extendColors: boolean().required(),
   colorsActive: boolean().required(),
   includeUtilityColors: boolean().required(),
+  includeTailwindColors: array().of(string()).optional(), // Array of selected Tailwind color names
 };
 
 /**
@@ -77,7 +86,9 @@ const colorSchema = {
 const breakpointSchema = object().shape({
   id: string().required(),
   name: string().optional(),
-  value: mixed().optional(),
+  value: mixed().test('is-string-or-number', 'Value must be a string or number', (value) => {
+    return value === undefined || value === null || typeof value === 'string' || typeof value === 'number';
+  }).optional(),
 }).strict(true).noUnknown();
 
 /**

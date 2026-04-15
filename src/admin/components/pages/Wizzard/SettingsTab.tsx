@@ -17,32 +17,6 @@ const settings: Setting[] = [
   { key: "breakpointsActive", label: "Breakpoints" },
 ];
 
-/**
- * Calculate fluid typography/spacing clamp values
- */
-function calculateClamp(
-  minBase: number,
-  maxBase: number,
-  minScreen: number,
-  maxScreen: number,
-  useRem: boolean,
-  remSize: number,
-  decimalPlaces: number
-): string {
-  const minSize = useRem ? minBase / remSize : minBase;
-  const maxSize = useRem ? maxBase / remSize : maxBase;
-  const unit = useRem ? 'rem' : 'px';
-
-  const slope = (maxSize - minSize) / (maxScreen - minScreen);
-  const intersection = -minScreen * slope + minSize;
-
-  const min = minSize.toFixed(decimalPlaces) + unit;
-  const max = maxSize.toFixed(decimalPlaces) + unit;
-  const preferred = `${intersection.toFixed(decimalPlaces)}${unit} + ${(slope * 100).toFixed(2)}vi`;
-
-  return `clamp(${min}, ${preferred}, ${max})`;
-}
-
 interface SettingsTabProps {
   label: string;
   onStateChange?: () => void;

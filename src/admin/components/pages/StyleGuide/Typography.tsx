@@ -71,9 +71,9 @@ const Typography = (
                 <hr />
                 <p>{className}: {size} / {lineHeight}</p>
                 {isFluid ? (
-                  <div className="flex gap-2 items-center">
-                    <p className='element' style={{ fontSize: minSize, lineHeight: lineHeight }}>The quick brown fox jumps over the lazy dog.</p>
-                    <p className='element-2' style={{ fontSize: maxSize, lineHeight: lineHeight }}>The quick brown fox jumps over the lazy dog.</p>
+                  <div className="flex flex-col gap-2">
+                    <p className='element' style={{ fontSize: minSize, lineHeight: 1, margin: 0 }}>The quick brown fox jumps over the lazy dog.</p>
+                    <p className='element-2' style={{ fontSize: maxSize, lineHeight: 1, margin: 0 }}>The quick brown fox jumps over the lazy dog.</p>
                   </div>
                 ) : (
                   <p className='w-full' style={{ fontSize: size, lineHeight: lineHeight }}>The quick brown fox jumps over the lazy dog.</p>
