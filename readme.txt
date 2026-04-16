@@ -4,7 +4,7 @@ Tags: tailwind, css, compiler, gutenberg, page builder
 Requires at least: 6.2
 Tested up to: 6.9.1
 Requires PHP: 7.4
-Stable tag: 1.2.2
+Stable tag: 1.2.3
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -81,6 +81,9 @@ When you use the `@plugin` directive with an external URL in your CSS configurat
 2. Tailwind classes in Gutenberg
 
 == Changelog ==
+
+= 1.2.3 =
+* Fixed `getBricksThemeFontFamilies()` overwriting global `$post` during `admin_enqueue_scripts`, which prevented custom fields (meta boxes) from saving in Gutenberg for any CPT when Winden was active
 
 = 1.2.2 =
 Hotfix
