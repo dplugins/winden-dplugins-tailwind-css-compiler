@@ -100,16 +100,10 @@ class BuildersIntegration
         $fonts_query = new \WP_Query($args);
 
         if ($fonts_query->have_posts()) {
-            while ($fonts_query->have_posts()) {
-                $fonts_query->the_post();
-                $post_name = get_post_field('post_name');
-                $post_title = get_the_title();
-                $themeFontFamilies[$post_name] = $post_title;
+            foreach ($fonts_query->posts as $font_post) {
+                $themeFontFamilies[$font_post->post_name] = get_the_title($font_post);
             }
         }
-
-        // Reset post data
-        wp_reset_postdata();
 
         return $themeFontFamilies;
     }
