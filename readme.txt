@@ -83,7 +83,43 @@ When you use the `@plugin` directive with an external URL in your CSS configurat
 == Changelog ==
 
 = 1.3.0 =
+Editor Experience
+* Reorder & hide editor tabs - Drag tabs to rearrange or hide unused tabs
+* Unsaved changes protection - Browser warns before leaving with unsaved work
+* Style tab content preservation - Custom CSS now preserved when toggling tabs on/off
+* Improved error visibility - Cache errors highlighted with red color and warning icon
+* Better tab labels - Clearer descriptions for "Main Style" tab, removed confusing lock icon
 
+Wizzard Design Tokens
+* Welcome screen - First-time users get clear instructions and quick Settings access
+* Clearer builder integration labels - "Use Bricks colors" instead of vague "Include Bricks"
+* Simplified scale calculator - Replaced "mega/giga" jargon with familiar Tailwind defaults
+
+Performance & Reliability
+* Fixed cache collisions - Large config files now compile reliably without stale CSS
+* Improved class detection - Removed classes now properly disappear from output
+* CDN plugin loading - Automatic retry on failure with 10-second timeout
+* Security improvements - Added security checks to compilation endpoints
+* Tested with WordPress 7.0
+
+Bug Fixes
+* Fixed Monaco editor autocomplete appearing at wrong times
+* Fixed false "content changed elsewhere" warnings
+* Fixed Bricks Builder autocomplete hover issues
+* Fixed Oxygen Classic integration
+* Fixed color value validation and reset functionality
+* Fixed rare SCSS hang when another plugin already loaded Sass
+* Fixed tab visibility flash on page load
+* Fixed double class instantiation issues
+
+= 1.2.6 =
+* Tailwindcss update to 4.3.0
+
+= 1.2.5 =
+* Tailwindcss update to 4.2.4
+
+= 1.2.4 =
+* Tailwindcss update to 4.2.3
 
 
 = 1.2.3 =
