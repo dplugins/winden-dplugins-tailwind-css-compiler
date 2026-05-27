@@ -31,7 +31,7 @@ jobs:
         run: composer dump-autoload --optimize
 
       - name: Build
-        run: npm ci && npm run build
+        run: npm install && npm run build
 
       - name: WordPress Plugin Deploy
         uses: 10up/action-wordpress-plugin-deploy@stable
