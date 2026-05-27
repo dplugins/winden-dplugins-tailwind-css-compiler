@@ -11,6 +11,8 @@ import { oklchToHex } from "@/utils/oklchToHex";
 import React, { useState, useCallback, useMemo, useContext } from "react";
 import ColorEntry from "./ColorEntry";
 import { colorPresets } from "./colorPresets";
+import { generateColorShades } from "./colorEntryCalculations";
+import { createDefaultCurveHandles, getShadeBaseIndexForColor } from "./shadeCurves";
 import ColorsBuilders from "./ColorsBuilders";
 import TailwindColorSelector from "./TailwindColorSelector";
 // Components
@@ -136,22 +138,21 @@ const Color: React.FC<ColorProps> = ({ label }) => {
 
   const addColorEntry = () => {
     const id = Date.now() * 1000 + Math.floor(Math.random() * 1000);
+    const baseHex = '#06b6d4';
+    const baseIndex = getShadeBaseIndexForColor(baseHex, 11);
+    const lightnessCurve = createDefaultCurveHandles(11, baseIndex);
+    const saturationCurve = createDefaultCurveHandles(11, baseIndex);
+    const hueCurve = createDefaultCurveHandles(11, baseIndex);
     const newEntry: ColorEntryType = {
       id,
       name: '',
-      hex: '#06b6d4',
-      minLightness: 5,
-      maxLightness: 95,
+      hex: baseHex,
       colorFormat: 'hex',
-      shades: [
-        '#e6fbfe', '#b5f2fd', '#83eafb', '#51e2fa', '#20d9f9',
-        '#06c0df', '#0595ae', '#046a7c', '#02404a', '#011519',
-      ].map((hex, index) => ({
-        name: `${(index + 1) * 100}`,
-        hex,
-        isEnabled: true,
-        isDefault: false,
-      })),
+      baseIndex,
+      lightnessCurve,
+      saturationCurve,
+      hueCurve,
+      shades: generateColorShades(baseHex, 11, baseIndex, lightnessCurve, saturationCurve, hueCurve),
       isLocked: false,
       enableShades: true,
       reverseShades: false,
@@ -297,25 +298,25 @@ const Color: React.FC<ColorProps> = ({ label }) => {
               />
             </div>
 
-            <SidebarSeparator label="Builders integration" />
+            <SidebarSeparator label="Use design tokens from page builders" />
 
             {Object.keys(dynamicColorsFSE)?.length ? (
               <Checkbox
-                label="Include FSE Colors"
+                label="Use FSE colors"
                 checked={localWizzardState?.extendColorsFSE}
                 onCheckedChange={(checked) => toggleFlag('extendColorsFSE', checked as boolean)}
               />
             ) : null}
             {Object.keys(dynamicColorsBricks)?.length ? (
               <Checkbox
-                label="Include Bricks Colors"
+                label="Use Bricks colors"
                 checked={localWizzardState?.extendColorsBricks}
                 onCheckedChange={(checked) => toggleFlag('extendColorsBricks', checked as boolean)}
               />
             ) : null}
             {Object.keys(dynamicColorsOxygen)?.length ? (
               <Checkbox
-                label="Include Oxygen Colors"
+                label="Use Oxygen colors"
                 checked={localWizzardState?.extendColorsOxygen}
                 onCheckedChange={(checked) => toggleFlag('extendColorsOxygen', checked as boolean)}
               />

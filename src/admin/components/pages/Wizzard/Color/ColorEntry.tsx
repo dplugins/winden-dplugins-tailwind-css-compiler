@@ -6,7 +6,8 @@
 
 import React from "react";
 import clsx from "clsx";
-import ShadeSliders from "./ShadeSliders";
+import tinycolor from "tinycolor2";
+import ShadeCurveEditor from "./ShadeCurveEditor";
 import ShadesList from "./ShadesList";
 import ColorSwatchEditor from "./ColorSwatchEditor";
 import { useColorEntry } from "./useColorEntry";
@@ -61,8 +62,10 @@ const ColorEntry: React.FC<ColorEntryProps> = ({
 
     // Shade state
     shades,
-    minLightness,
-    maxLightness,
+    baseIndex,
+    lightnessCurve,
+    saturationCurve,
+    hueCurve,
     shadesList,
     enableShades,
     setEnableShades,
@@ -89,8 +92,8 @@ const ColorEntry: React.FC<ColorEntryProps> = ({
     toggleLock,
     toggleExpand,
     handleShadesChange,
-    handleMinLightnessChange,
-    handleMaxLightnessChange,
+    handleCurveChange,
+    handleResetCurve,
 
     // Utilities
     isValidColorInput,
@@ -132,6 +135,7 @@ const ColorEntry: React.FC<ColorEntryProps> = ({
                 title="Main Color"
                 position="left-0"
                 colorFormat={colorFormat}
+                readOnly={isSystemLocked}
               />
             )}
 
@@ -172,7 +176,11 @@ const ColorEntry: React.FC<ColorEntryProps> = ({
                 disabled={isLocked || isSystemLocked}
                 className="!border-none grow"
                 placeholder="Color name"
-                autoComplete="one-time-code"
+                autoComplete="off"
+                data-1p-ignore="true"
+                data-lpignore="true"
+                data-bwignore="true"
+                data-form-type="other"
                 title={isSystemLocked ? `${colorSource} color` : undefined}
               />
               {colorSource && (
@@ -181,7 +189,12 @@ const ColorEntry: React.FC<ColorEntryProps> = ({
                 </span>
               )}
               {!isSystemLocked && (
-                <button onClick={toggleLock} className="absolute right-2">
+                <button
+                  type="button"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={toggleLock}
+                  className="absolute right-2 z-50!"
+                >
                   {isLocked ? (
                     <LockOutlinedIcon style={{ fontSize: "1.2rem" }} />
                   ) : (
@@ -276,13 +289,15 @@ const ColorEntry: React.FC<ColorEntryProps> = ({
 
           {enableShades && (
             <>
-              <ShadeSliders
-                shades={shades}
-                minLightness={minLightness}
-                maxLightness={maxLightness}
-                onShadesChange={handleShadesChange}
-                onMinLightnessChange={handleMinLightnessChange}
-                onMaxLightnessChange={handleMaxLightnessChange}
+              <ShadeCurveEditor
+                baseColor={tinycolor(color).toHexString()}
+                shadeCount={shades}
+                baseIndex={baseIndex}
+                lightnessCurve={lightnessCurve}
+                saturationCurve={saturationCurve}
+                hueCurve={hueCurve}
+                onCurveChange={handleCurveChange}
+                onResetCurve={handleResetCurve}
               />
 
               <div className="border border-input rounded-md p-4">

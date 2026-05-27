@@ -7,6 +7,9 @@
 
 import React from 'react';
 import * as Tabs from "@radix-ui/react-tabs";
+// Tabs.Trigger must live inside Tabs.List (it uses Radix's RovingFocusGroup
+// context). The empty-state CTA below renders outside the list, so it uses
+// a plain button + onSetActiveTab callback instead.
 
 // Tab Components
 import ScaleCalculator from "./components/ScaleCalculator/ScaleCalculator";
@@ -15,6 +18,8 @@ import Color from "./Color/Color";
 import Breakpoints from "./Breakpoints/Breakpoints";
 import FontFamily from "./FontFamily/FontFamily";
 import Backups from "./Backups/Backups";
+import { Button } from "@el/Button";
+import { ReactComponent as TuneIcon } from "@/assets/icons/TuneIcon.svg";
 
 import type { WizzardState } from '@/types/wizzard';
 import type { UseClampCalculatorReturn } from '@hooks/useClampCalculator';
@@ -32,6 +37,7 @@ interface WizzardContentProps {
   onRegenerateConfig: (shouldSave: boolean) => void;
   onExport: () => void;
   getTabLabel: (id: number) => string;
+  onSetActiveTab: (tabId: number) => void;
 }
 
 /**
@@ -53,7 +59,48 @@ export const WizzardContent: React.FC<WizzardContentProps> = ({
   onRegenerateConfig,
   onExport,
   getTabLabel,
+  onSetActiveTab,
 }) => {
+  const hasAnyActiveFeature = !!(
+    wizzardState?.colorsActive ||
+    wizzardState?.fontSizesActive ||
+    wizzardState?.fontFamilyActive ||
+    wizzardState?.spacesActive ||
+    wizzardState?.borderRadiusActive ||
+    wizzardState?.breakpointsActive
+  );
+
+  // First-time / nothing-configured state. Show this whenever no feature
+  // is active and the user isn't intentionally on Settings (7). Backups
+  // has nothing useful to display before any state exists, so the empty
+  // state replaces it too — useActiveTab defaults a fresh visitor to
+  // Backups, which would otherwise look broken. The CTA below is a real
+  // Radix tab trigger so it advances the active tab without prop-drilling
+  // a setter through WizzardContent.
+  if (!hasAnyActiveFeature && activeTab !== 7) {
+    return (
+      <div className="flex w-full items-center justify-center px-6 py-16">
+        <div className="max-w-md text-center">
+          <h2 className="text-2xl font-semibold text-base-foreground">
+            Build your design tokens
+          </h2>
+          <p className="mt-3 text-sm text-foreground/70">
+            Turn on the design tokens you want to manage — colors, type
+            scales, spacing, breakpoints, and more — then come back here
+            to fine-tune them.
+          </p>
+          <Button
+            className="mt-6"
+            icon={<TuneIcon className="h-4 w-4" />}
+            onClick={() => onSetActiveTab(7)}
+          >
+            Open settings
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <>
       {/* Colors Tab */}

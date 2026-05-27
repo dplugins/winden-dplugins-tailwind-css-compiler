@@ -45,7 +45,7 @@
 
   // Check BroadcastChannel support
   if (typeof BroadcastChannel === 'undefined') {
-    console.warn('[Winden Broadcast] BroadcastChannel not supported in this browser');
+    console.warn('[winden:broadcast] BroadcastChannel not supported in this browser');
     return;
   }
 
@@ -56,9 +56,9 @@
   // Initialize channel
   try {
     channel = new BroadcastChannel('winden-updates');
-    if (DEBUG) console.log('[Winden Broadcast] Channel initialized');
+    if (DEBUG) console.log('[winden:broadcast] Channel initialized');
   } catch (error) {
-    console.error('[Winden Broadcast] Failed to initialize:', error);
+    console.error('[winden:broadcast] Failed to initialize:', error);
     return;
   }
 
@@ -66,7 +66,7 @@
    * Debug logger - only logs if DEBUG flag is enabled
    */
   const log = (...args) => {
-    if (DEBUG) console.log('[Winden Broadcast]', ...args);
+    if (DEBUG) console.log('[winden:broadcast]', ...args);
   };
 
   /**
@@ -132,7 +132,7 @@
 
       log('CSS updated, length:', cssContent.length);
     } catch (error) {
-      console.error('[Winden Broadcast] Error updating CSS:', error);
+      console.error('[winden:broadcast] Error updating CSS:', error);
     }
   }
 
@@ -157,7 +157,7 @@
         log('Recompilation requested via window.compile');
         compiled = true;
       } catch (error) {
-        console.error('[Winden Broadcast] Failed to call window.compile:', error);
+        console.error('[winden:broadcast] Failed to call window.compile:', error);
       }
     }
 
@@ -193,19 +193,6 @@
     if (!compiled) {
       log('window.compile not available in window or iframes');
     }
-
-    // Legacy fallback: clear cache directly
-    if (typeof window.loadedData !== 'undefined') {
-      window.loadedData['tailwind.config.js'] = '';
-      window.loadedData['style-tab.css'] = '';
-
-      if (typeof window.hasLoadedData !== 'undefined') {
-        window.hasLoadedData['tailwind.config.js'] = false;
-        window.hasLoadedData['style-tab.css'] = false;
-      }
-
-      log('Legacy watcher cache cleared');
-    }
   }
 
   /**
@@ -217,7 +204,7 @@
       const decoded = atob(value);
       return JSON.parse(decoded);
     } catch (error) {
-      console.error('[Winden Broadcast] Failed to decode wizzard payload:', error);
+      console.error('[winden:broadcast] Failed to decode wizzard payload:', error);
       return null;
     }
   }
@@ -370,7 +357,7 @@
       // forceRecompilation() will find window.compile in current window or iframes
       forceRecompilation();
     } catch (error) {
-      console.error('[Winden Broadcast] Error updating config:', error);
+      console.error('[winden:broadcast] Error updating config:', error);
     }
   }
 

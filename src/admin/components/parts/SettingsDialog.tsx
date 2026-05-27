@@ -11,6 +11,8 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@el/Tabs";
 import { SwitchWithLabel } from "@el/SwitchWithLabel";
 import { SelectWrapper } from "@el/SelectWrapper";
 import { FilesScanTab } from "./FilesScanTab";
+import { EditorTabsControl } from "@el/EditorTabsControl";
+import type { EditorTabSetting } from "@const/settings";
 
 interface Settings {
   autocomplete_gutenberg?: boolean;
@@ -36,6 +38,7 @@ interface Settings {
   scan_file_formats?: string[];
   scan_path?: string | string[];
   autocomplete_mode?: "plain-classes" | "winden-classes";
+  editor_tabs?: EditorTabSetting[];
 }
 
 interface SettingsDialogProps {
@@ -294,6 +297,10 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
 
           {/* Editor Tab */}
           <TabsContent value="editor" className="flex-1 overflow-y-auto px-1">
+            <EditorTabsControl
+              value={settings.editor_tabs}
+              onChange={(next) => onSettingChange("editor_tabs")(next)}
+            />
             <OptionsHeader title="Editor Settings" className="!border-t-0" />
             <SelectWrapper
               label="CSS Preprocessor"

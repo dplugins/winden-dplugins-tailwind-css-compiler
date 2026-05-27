@@ -52,8 +52,12 @@ const colorEntrySchema = object().shape({
   name: string().required(),
   hex: string().optional(),
   isLocked: boolean().optional(),
-  maxLightness: number().optional(),
-  minLightness: number().optional(),
+  maxLightness: number().optional(), // legacy (pre-curve)
+  minLightness: number().optional(), // legacy (pre-curve)
+  baseIndex: number().optional(),
+  lightnessCurve: mixed().optional(),
+  saturationCurve: mixed().optional(),
+  hueCurve: mixed().optional(),
   colorFormat: string().optional(),
   enableShades: boolean().optional(),
   reverseShades: boolean().optional(),

@@ -54,7 +54,7 @@ class DataConverter
                 } catch (\Throwable $e) {
                     if ($logErrors && defined('WP_DEBUG') && WP_DEBUG) {
                         // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- Debug-only logging
-                        error_log('[Winden] Unserialize failed: ' . $e->getMessage());
+                        error_log('[winden:data] Unserialize failed: ' . $e->getMessage());
                     }
                 }
             }

@@ -76,23 +76,62 @@
     }
 
     /**
-     * Trigger recompile via AJAX - crawls classes then compiles
-     * @param {string|number|null} postId - Post ID to crawl
-     * @param {Function} compileCallback - Function to call after successful crawl
+     * Best-effort current-post-id lookup across builder contexts.
+     * Returns 0 when unknown — server falls back to a full crawl.
      */
-    function triggerRecompile(compileCallback) {
+    function getCurrentPostId() {
+        try {
+            if (window.wp && wp.data && typeof wp.data.select === 'function') {
+                const id = wp.data.select('core/editor')?.getCurrentPostId();
+                if (id) return Number(id);
+            }
+        } catch (e) { /* ignore */ }
+        try {
+            if (window.elementor && elementor.config && elementor.config.document) {
+                return Number(elementor.config.document.id) || 0;
+            }
+        } catch (e) { /* ignore */ }
+        try {
+            if (window.bricksData && window.bricksData.postId) {
+                return Number(window.bricksData.postId) || 0;
+            }
+        } catch (e) { /* ignore */ }
+        try {
+            const params = new URLSearchParams(window.location.search);
+            const candidate = params.get('post') || params.get('bricks_post_id') || params.get('ct_builder_post_id');
+            if (candidate) return Number(candidate) || 0;
+        } catch (e) { /* ignore */ }
+        return 0;
+    }
+
+    /**
+     * Trigger recompile via AJAX - crawls classes then compiles
+     * @param {Function} compileCallback - Function to call after successful crawl
+     * @param {number} [postId] - Optional saved-post id; when present the server
+     *                            runs a fast single-post crawl and defers the
+     *                            full crawl to WP-Cron.
+     */
+    function triggerRecompile(compileCallback, postId) {
         if (!window.windenAutoCompile) {
             return;
         }
 
-        // Always trigger full crawl for consistent output across all builders
+        const resolvedPostId = (typeof postId === 'number' && postId > 0)
+            ? postId
+            : getCurrentPostId();
+
+        const body = {
+            action: 'winden_trigger_recompile',
+            _nonce: window.windenAutoCompile.nonce
+        };
+        if (resolvedPostId > 0) {
+            body.post_id = String(resolvedPostId);
+        }
+
         fetch(window.windenAutoCompile.ajaxUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: new URLSearchParams({
-                action: 'winden_trigger_recompile',
-                _nonce: window.windenAutoCompile.nonce
-            })
+            body: new URLSearchParams(body)
         })
         .then(response => response.json())
         .then(data => {
@@ -100,17 +139,17 @@
                 // Crawl is done, now compile with fresh classes
                 if (typeof compileCallback === 'function') {
                     compileCallback().then(() => {
-                        console.log('[Winden] ✅ Compiled successfully');
+                        console.log('[winden:compiler-core] ✅ Compiled successfully');
                     }).catch((err) => {
-                        console.error('[Winden] ❌ Compilation failed:', err);
+                        console.error('[winden:compiler-core] ❌ Compilation failed:', err);
                     });
                 }
             } else {
-                console.error('[Winden] ❌ Crawl failed:', data);
+                console.error('[winden:compiler-core] ❌ Crawl failed:', data);
             }
         })
         .catch((err) => {
-            console.error('[Winden] ❌ AJAX request failed:', err);
+            console.error('[winden:compiler-core] ❌ AJAX request failed:', err);
             // On error, still try to compile (may use stale classes)
             if (typeof compileCallback === 'function') {
                 compileCallback().catch(() => {});
@@ -391,10 +430,10 @@
                 }
 
                 const duration = Math.round(performance.now() - startTime);
-                console.log(`[Winden] ✅ Compiled in ${duration}ms`);
+                console.log(`[winden:compiler-core] ✅ Compiled in ${duration}ms`);
 
             } catch (error) {
-                console.error('[Winden] ❌ Compilation failed:', error);
+                console.error('[winden:compiler-core] ❌ Compilation failed:', error);
 
                 // Store last error for debugging
                 if (window.windenAutoCompile) {

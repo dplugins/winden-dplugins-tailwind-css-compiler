@@ -6,9 +6,25 @@
 
 import tinycolor from "tinycolor2";
 import { closest } from "color-2-name";
-import generateShades from "./generateShades";
+import {
+  generateShadeHexList,
+  createDefaultCurveHandles,
+  normalizeCurveHandles,
+  normalizeShadeBaseIndex,
+  getShadeBaseIndex,
+} from "./shadeCurves";
+import type { ShadeCurveHandles } from "./shadeCurves";
 import { parseColorInput, getColorDisplayString } from "./colorModelsConvert";
 import type { ColorEntry as ColorEntryType, ColorShade } from "@/types/wizzard";
+
+const TAILWIND_SHADE_NAMES = ["50", "100", "200", "300", "400", "500", "600", "700", "800", "900", "950"];
+
+export function getDefaultShadeName(idx: number, total: number): string {
+  if (total === TAILWIND_SHADE_NAMES.length) {
+    return TAILWIND_SHADE_NAMES[idx];
+  }
+  return `${(idx + 1) * 100}`;
+}
 
 export interface RGB {
   r: number;
@@ -62,49 +78,53 @@ export function roundRgbColor(color: RGB): RGB {
 }
 
 /**
- * Generate shades for a color
- * Preserves custom (manually edited) shade hex values
+ * Generate shades for a color using cubic-bezier curves.
+ * Preserves custom (manually edited) shade hex values.
  */
 export function generateColorShades(
   hexColor: string,
   shadesCount: number,
-  minLightness: number,
-  maxLightness: number,
+  baseIndex: number,
+  lightnessCurve: ShadeCurveHandles,
+  saturationCurve: ShadeCurveHandles,
+  hueCurve: ShadeCurveHandles,
   existingShades: ColorShade[] = []
 ): ColorShade[] {
-  const generatedFromAlgo = generateShades(hexColor, shadesCount, minLightness, maxLightness);
-
-  const result = generatedFromAlgo.map(
-    (generatedHex, idx) => {
-      const existingShade = existingShades[idx] || {};
-
-      // Only preserve shades that are explicitly marked as custom (manually edited)
-      // Non-custom shades should regenerate when main color changes
-      const shouldPreserveCustomHex = existingShade.isCustom === true;
-      const finalHex = shouldPreserveCustomHex && existingShade.hex ? existingShade.hex : generatedHex;
-
-      return {
-        name: `${(idx + 1) * 100}`,
-        hex: finalHex,
-        isEnabled: existingShade.isEnabled !== undefined ? existingShade.isEnabled : true,
-        isDefault: existingShade.isDefault !== undefined ? existingShade.isDefault : false,
-        isCustom: existingShade.isCustom || false,
-      };
-    }
+  const generatedFromAlgo = generateShadeHexList(
+    hexColor,
+    shadesCount,
+    baseIndex,
+    lightnessCurve,
+    saturationCurve,
+    hueCurve
   );
 
-  return result;
+  return generatedFromAlgo.map((generatedHex, idx) => {
+    const existingShade = existingShades[idx] || ({} as Partial<ColorShade>);
+    const shouldPreserveCustomHex = existingShade.isCustom === true;
+    const finalHex = shouldPreserveCustomHex && existingShade.hex ? existingShade.hex : generatedHex;
+
+    return {
+      name: getDefaultShadeName(idx, generatedFromAlgo.length),
+      hex: finalHex,
+      isEnabled: existingShade.isEnabled !== undefined ? existingShade.isEnabled : true,
+      isDefault: existingShade.isDefault !== undefined ? existingShade.isDefault : false,
+      isCustom: existingShade.isCustom || false,
+    };
+  });
 }
 
 /**
- * Create updated entry with new shades
+ * Create updated entry with new shades + curves
  */
 export function createUpdatedEntry(
   entry: ColorEntryType,
   newShades: ColorShade[],
   options: {
-    minLightness: number;
-    maxLightness: number;
+    baseIndex: number;
+    lightnessCurve: ShadeCurveHandles;
+    saturationCurve: ShadeCurveHandles;
+    hueCurve: ShadeCurveHandles;
     isLocked: boolean;
     colorFormat: 'hex' | 'rgb' | 'hsl' | 'oklch';
     colorName?: string;
@@ -117,13 +137,40 @@ export function createUpdatedEntry(
     ...entry,
     shades: newShades,
     originalGeneratedColors: newOriginalGeneratedColors,
-    minLightness: options.minLightness,
-    maxLightness: options.maxLightness,
+    baseIndex: options.baseIndex,
+    lightnessCurve: options.lightnessCurve,
+    saturationCurve: options.saturationCurve,
+    hueCurve: options.hueCurve,
     isLocked: options.isLocked,
     colorFormat: options.colorFormat,
     isMainColorChange: true,
     ...(options.colorName && { name: options.colorName }),
     ...(options.hexColor && { hex: options.hexColor }),
+  };
+}
+
+/**
+ * Resolve an entry's curves, falling back to defaults when missing (legacy entries).
+ */
+export function resolveEntryCurves(
+  entry: Partial<ColorEntryType>,
+  shadesCount = 11
+): {
+  baseIndex: number;
+  lightnessCurve: ShadeCurveHandles;
+  saturationCurve: ShadeCurveHandles;
+  hueCurve: ShadeCurveHandles;
+} {
+  const baseIndex = normalizeShadeBaseIndex(
+    entry.baseIndex ?? getShadeBaseIndex(shadesCount),
+    shadesCount
+  );
+  const fallback = createDefaultCurveHandles(shadesCount, baseIndex);
+  return {
+    baseIndex,
+    lightnessCurve: normalizeCurveHandles(entry.lightnessCurve ?? fallback, shadesCount, baseIndex),
+    saturationCurve: normalizeCurveHandles(entry.saturationCurve ?? fallback, shadesCount, baseIndex),
+    hueCurve: normalizeCurveHandles(entry.hueCurve ?? fallback, shadesCount, baseIndex),
   };
 }
 
@@ -196,6 +243,7 @@ export function getPlaceholderText(format: 'hex' | 'rgb' | 'hsl' | 'oklch'): str
  */
 export function getColorSourceLabel(entry: ColorEntryType): string | null {
   if (entry.isUtility) return 'Utility';
+  if (entry.isTailwind) return 'Tailwind';
   if (entry.isFSE) return 'FSE';
   if (entry.isBricks) return 'Bricks';
   if (entry.isOxygen) return 'Oxygen';

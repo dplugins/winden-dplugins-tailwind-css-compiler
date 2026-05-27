@@ -226,18 +226,4 @@ class MonacoEditorProvider
             return $screens;
         }, 10, 1);
     }
-
-    /**
-     * Get Monaco editor configuration for loading
-     *
-     * @return array Configuration array with paths
-     */
-    public static function getMonacoConfig()
-    {
-        return [
-            'paths' => [
-                'vs' => WINDTACS_PLUGIN_URL . 'node_modules/monaco-editor/min/vs'
-            ]
-        ];
-    }
 }

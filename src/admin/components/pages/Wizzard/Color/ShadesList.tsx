@@ -2,9 +2,9 @@ import React, { useState, useEffect, useCallback, memo } from "react";
 import tinycolor from "tinycolor2";
 import InputWithResetButton from "@el/InputWithResetButton";
 import { Checkbox } from "@el/Checkbox";
-import RadioButton from "@el/RadioButton";
 import ColorSwatchEditor from "./ColorSwatchEditor";
 import { parseColorInput, getColorDisplayString } from "./colorModelsConvert";
+import { getDefaultShadeName } from "./colorEntryCalculations";
 
 interface Shade {
   name: string | number;
@@ -49,6 +49,15 @@ const ShadesList: React.FC<ShadesListProps> = memo(({ entry, shadesList, updateC
     return entry.originalGeneratedColors || safeShadesList.map(shade => shade.hex);
   });
 
+  // Persist baseline to entry on mount if missing, so it survives shade edits
+  useEffect(() => {
+    if (!entry.originalGeneratedColors && safeShadesList.length > 0) {
+      const baseline = safeShadesList.map(shade => shade.hex);
+      updateColorEntry(entry.id, { originalGeneratedColors: baseline });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Local state for input values (formatted according to colorFormat)
   const [inputValues, setInputValues] = useState<string[]>(() => {
     const colorFormat = entry.colorFormat || "hex";
@@ -92,10 +101,9 @@ const ShadesList: React.FC<ShadesListProps> = memo(({ entry, shadesList, updateC
       // Update input values when shades list changes (but preserve tracking)
       setInputValues(safeShadesList.map(shade => getColorDisplayString(shade.hex, entry.colorFormat || "hex")));
 
-      // Update original colors if they don't exist
-      if (!entry.originalGeneratedColors) {
-        const newOriginalColors = safeShadesList.map(shade => shade.hex);
-        setOriginalGeneratedColors(newOriginalColors);
+      // Sync local baseline from entry if it was persisted (never from current shades)
+      if (entry.originalGeneratedColors) {
+        setOriginalGeneratedColors(entry.originalGeneratedColors);
       }
     }
   }, [safeShadesList, entry.originalGeneratedColors, entry.isMainColorChange, entry.colorFormat]);
@@ -138,24 +146,13 @@ const ShadesList: React.FC<ShadesListProps> = memo(({ entry, shadesList, updateC
     let shadeList = [...safeShadesList];
     shadeList = shadeList.map((shade, idx) => {
       if (idx === index) {
-        return { ...shade, name: (index + 1) * 100 };
+        return { ...shade, name: getDefaultShadeName(index, safeShadesList.length) };
       }
       return shade;
     });
     updateColorEntry(entry.id, { ...entry, shades: shadeList });
   };
 
-  /**
-   * Handle radio button change for default shade
-   */
-  const handleRadioChange = (index: number): void => {
-    let shadeList = [...safeShadesList];
-    shadeList = shadeList.map((shade, idx) => ({
-      ...shade,
-      isDefault: idx === index
-    }));
-    updateColorEntry(entry.id, { ...entry, shades: shadeList });
-  };
 
   /**
    * Handle checkbox change for enabling/disabling shade
@@ -331,7 +328,6 @@ const ShadesList: React.FC<ShadesListProps> = memo(({ entry, shadesList, updateC
     const currentHex = parseColorInput(currentInputValue)?.toHexString() || safeShadesList[index]?.hex;
     const originalGeneratedHex = originalGeneratedColors[index];
     const actualShadeHex = safeShadesList[index]?.hex;
-    const isBeingEdited = editingInputs[index];
     const wasIndividuallyModified = individuallyModifiedShades[index];
 
     /**
@@ -349,21 +345,15 @@ const ShadesList: React.FC<ShadesListProps> = memo(({ entry, shadesList, updateC
       return rDiff <= tolerance && gDiff <= tolerance && bDiff <= tolerance;
     };
 
-    // A color is modified if:
-    // 1. It was marked as individually modified, OR
-    // 2. Current hex differs significantly from original generated hex, OR
-    // 3. Actual shade hex differs significantly from original generated hex, OR
-    // 4. Currently being edited (to keep reset button visible during editing)
     const isModified = wasIndividuallyModified ||
       !areColorsSimilar(currentHex, originalGeneratedHex) ||
-      !areColorsSimilar(actualShadeHex, originalGeneratedHex) ||
-      isBeingEdited;
+      !areColorsSimilar(actualShadeHex, originalGeneratedHex);
 
     return isModified;
   };
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex w-full gap-2">
       {safeShadesList.map((shade, index) => {
         const isMatched =
           tinycolor(shade.hex).toHexString().toLowerCase() ===
@@ -372,66 +362,62 @@ const ShadesList: React.FC<ShadesListProps> = memo(({ entry, shadesList, updateC
         return (
           <div
             key={index}
-            className="hover:outline-solid flex w-full items-center gap-8 rounded-full hover:outline hover:outline-foreground"
+            className="flex flex-1 min-w-0 flex-col items-stretch gap-2"
           >
-            <div
-              className="rounded-md "
-              style={{
-                ...(isMatched && {
-                  outline: "2px solid #9e9e9e",
-                  outlineOffset: "2px",
-                }),
-              }}>
+            <div className="relative rounded-md w-full aspect-square">
+              {isMatched && (
+                <div
+                  className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center"
+                >
+                  <div
+                    style={{
+                      width: 12,
+                      height: 12,
+                      borderRadius: '50%',
+                      backgroundColor: '#fff',
+                      border: '2px solid #000',
+                      boxSizing: 'border-box',
+                    }}
+                  />
+                </div>
+              )}
               <ColorSwatchEditor
                 color={inputValues[index]}
                 hsl={tinycolor(inputValues[index]).toHsl()}
                 activeTab="HSL"
-                setHsl={() => { }} // Not needed for shade editing
-                setColor={() => { }} // Not needed for shade editing
-                updateColor={() => { }} // Not needed for shade editing
+                setHsl={() => { }}
+                setColor={() => { }}
+                updateColor={() => { }}
                 entry={entry}
                 shadesList={safeShadesList}
                 updateColorEntry={updateColorEntry}
-                title={`Shade ${index + 1}`}
+                title={`Shade ${shade.name}`}
                 position="left-0"
                 onColorChange={(newColor) => handleShadeColorChange(shade, index, newColor)}
                 colorFormat={entry.colorFormat || "hex"}
-              />
-            </div>
-            <div className="flex w-full items-center gap-4 pl-2">
-              <InputWithResetButton
-                className="w-full min-w-[250px]"
-                value={inputValues[index]}
-                onChange={(e) => handleHexInputChange(index, e.target.value)}
-                onReset={() => handleHexReset(index)}
-                onBlur={() => handleHexInputBlur(index)}
-                onFocus={() => handleHexInputFocus(index)}
-                showReset={isColorModified(index)}
-                disabled={!shade.isEnabled}
-                placeholder="HEX, RGB, HSL, OKLCH"
-                title="Enter color in any format: #527C9D, rgb(82 124 157), hsl(206deg 31% 47%), oklch(0.57 0.12 206)"
-              />
-
-              <Checkbox
-                checked={shade.isEnabled}
-                onCheckedChange={() => handleCheckBoxChange(index)}
-              />
-              <RadioButton
-                name="shade-radio"
-                checked={shade.isDefault}
-                onChange={() => handleRadioChange(index)}
+                fullWidth
+                hexInputValue={inputValues[index]}
+                onHexInputChange={(value) => handleHexInputChange(index, value)}
+                onHexInputBlur={() => handleHexInputBlur(index)}
+                onHexInputFocus={() => handleHexInputFocus(index)}
+                onHexInputReset={() => handleHexReset(index)}
+                showHexReset={isColorModified(index)}
               />
             </div>
 
             <InputWithResetButton
-              className="w-full max-w-[150px]"
               value={shade.name.toString()}
               onChange={(e) => handleInputChange(index, e.target.value, "name")}
               onReset={() => handleReset(index)}
               showReset={modifiedShades[index]}
             />
 
-
+            <div className="flex justify-center">
+              <Checkbox
+                checked={shade.isEnabled}
+                onCheckedChange={() => handleCheckBoxChange(index)}
+              />
+            </div>
           </div>
         );
       })}

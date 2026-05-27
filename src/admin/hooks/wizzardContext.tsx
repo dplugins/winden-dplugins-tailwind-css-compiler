@@ -1,5 +1,6 @@
 import { createContext, useState, ReactNode, Dispatch, SetStateAction } from "react";
 import type { WizzardState, WizzardContextType } from "@/types/wizzard";
+import { DEFAULT_WINDEN_STEPS } from "@/const/wizzard";
 
 export const WizzardContext = createContext<WizzardContextType | null>(null);
 
@@ -50,7 +51,7 @@ export const defaultWizzardState: WizzardState = {
     maxBaseSize: 19,
     maxScaleRatio: 1.5,
     maxScreenSize: 1200,
-    steps: ["xs", "sm", "base", "md", "lg", "giga", "mega"],
+    steps: [...DEFAULT_WINDEN_STEPS],
     stepValues: [],
     minMaxValues: [],
     baseStep: "base",
@@ -76,7 +77,7 @@ export const defaultWizzardState: WizzardState = {
     maxBaseSize: 19,
     maxScaleRatio: 1.5,
     maxScreenSize: 1200,
-    steps: ["xs", "sm", "base", "md", "lg", "giga", "mega"],
+    steps: [...DEFAULT_WINDEN_STEPS],
     stepValues: [],
     minMaxValues: [],
     baseStep: "base",
@@ -102,7 +103,7 @@ export const defaultWizzardState: WizzardState = {
     maxBaseSize: 19,
     maxScaleRatio: 1.5,
     maxScreenSize: 1200,
-    steps: ["xs", "sm", "base", "md", "lg", "giga", "mega"],
+    steps: [...DEFAULT_WINDEN_STEPS],
     stepValues: [],
     minMaxValues: [],
     baseStep: "base",

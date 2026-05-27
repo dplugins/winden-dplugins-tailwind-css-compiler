@@ -6,12 +6,6 @@ use Winden\App\Helpers\CacheValidator;
 
 class GetContent
 {
-    private function winden_log($phase, $message, $context = [])
-    {
-        if (!defined('WP_DEBUG') || !WP_DEBUG) return;
-        $ctx = $context ? ' ' . wp_json_encode($context) : '';
-        error_log("[Winden] [{$phase}] {$message}{$ctx}");
-    }
 
     public function __construct()
     {
@@ -117,7 +111,7 @@ class GetContent
                         'maxBaseSize' => 19,
                         'maxScaleRatio' => 1.5,
                         'maxScreenSize' => 1200,
-                        'steps' => ['xs', 'sm', 'base', 'md', 'lg', 'giga', 'mega'],
+                        'steps' => ['xs', 'sm', 'base', 'md', 'lg', 'xl', '2xl'],
                         'baseStep' => 'base',
                         'decimalPlaces' => 2,
                     ],
@@ -135,7 +129,7 @@ class GetContent
                         'maxBaseSize' => 19,
                         'maxScaleRatio' => 1.5,
                         'maxScreenSize' => 1200,
-                        'steps' => ['xs', 'sm', 'base', 'md', 'lg', 'giga', 'mega'],
+                        'steps' => ['xs', 'sm', 'base', 'md', 'lg', 'xl', '2xl'],
                         'baseStep' => 'base',
                         'decimalPlaces' => 2,
                     ],
@@ -153,7 +147,7 @@ class GetContent
                         'maxBaseSize' => 19,
                         'maxScaleRatio' => 1.5,
                         'maxScreenSize' => 1200,
-                        'steps' => ['xs', 'sm', 'base', 'md', 'lg', 'giga', 'mega'],
+                        'steps' => ['xs', 'sm', 'base', 'md', 'lg', 'xl', '2xl'],
                         'baseStep' => 'base',
                         'decimalPlaces' => 2,
                     ],
@@ -209,11 +203,6 @@ class GetContent
             // Normalize lowercase keys to camelCase (fixes old corrupted data)
             $wizzard = Sanitization::normalize_wizzard_keys($wizzard);
 
-            $this->winden_log('Fetch', 'Content loaded', [
-                'has_wizzard' => !empty($wizzard),
-                'updated_at' => isset($configArray['updated_at']) ? $configArray['updated_at'] : null,
-            ]);
-
             $this->handle_json_response([
                 'javascript' => base64_encode($javascript),
                 'scss' => base64_encode($scss), // Include SCSS in the response
@@ -221,7 +210,6 @@ class GetContent
                 'updated_at' => isset($configArray['updated_at']) ? $configArray['updated_at'] : null,
             ], 'Content fetched successfully', 'Invalid JSON structure in the configuration');
         } else {
-            $this->winden_log('Fetch', 'No content found in config');
             wp_send_json_error(['message' => 'No content found in the configuration']);
         }
 
@@ -352,6 +340,3 @@ class GetContent
         wp_send_json_success(['classes' => $classes]);
     }
 }
-
-// Instantiate the GetContent class
-new GetContent();

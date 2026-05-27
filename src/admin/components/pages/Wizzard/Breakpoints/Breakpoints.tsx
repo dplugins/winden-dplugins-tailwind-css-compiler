@@ -164,12 +164,12 @@ const Breakpoints: React.FC<BreakpointsProps> = ({ label }) => {
           </div>
 
           {showBuildersIntegrationHeader() ? (
-            <SidebarSeparator label="Builders integration" />
+            <SidebarSeparator label="Use design tokens from page builders" />
           ) : null}
 
           {Object.keys(dynamicScreensFSE)?.length ? (
             <Checkbox
-              label="Include FSE Breakpoints"
+              label="Use FSE breakpoints"
               checked={localWizzardState?.extendScreensFSE}
               onCheckedChange={(checked) => {
                 const _state = { ...localWizzardState };
@@ -180,7 +180,7 @@ const Breakpoints: React.FC<BreakpointsProps> = ({ label }) => {
           ) : null}
           {Object.keys(dynamicScreensBricks)?.length ? (
             <Checkbox
-              label="Include Bricks Breakpoints"
+              label="Use Bricks breakpoints"
               checked={localWizzardState?.extendScreensBricks}
               onCheckedChange={(checked) => {
                 const _state = { ...localWizzardState };
@@ -191,7 +191,7 @@ const Breakpoints: React.FC<BreakpointsProps> = ({ label }) => {
           ) : null}
           {Object.keys(dynamicScreensOxygen)?.length ? (
             <Checkbox
-              label="Include Oxygen Breakpoints"
+              label="Use Oxygen breakpoints"
               checked={localWizzardState?.extendScreensOxygen}
               onCheckedChange={(checked) => {
                 const _state = { ...localWizzardState };

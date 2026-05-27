@@ -11,6 +11,7 @@ import {
 import { Input } from "@el/Input";
 import { Checkbox } from "@el/Checkbox";
 import SegmentedControl from "@el/SegmentedControl";
+import ScaleValuesGroup from "./ScaleValuesGroup";
 
 import {
   dynamicSpacingFSE,
@@ -71,6 +72,65 @@ export const ScaleCalculatorSidebar: React.FC<ScaleCalculatorSidebarProps> = ({
 
   return (
     <Sidebar label={label}>
+      <div className="mb-12">
+        {!state?.manualMode ? (
+          <div className="flex flex-col gap-8">
+            <ScaleValuesGroup
+              className="mb-0"
+              title={font ? "Font Size" : spacing ? "Space Size" : "Base Size"}
+              minLabel={font ? "Min Font Size" : spacing ? "Min Space Size" : "Min Base Size"}
+              maxLabel={font ? "Max Font Size" : spacing ? "Max Space Size" : "Max Base Size"}
+              minValue={state?.minBaseSize}
+              maxValue={state?.maxBaseSize}
+              onChangeMin={(value) => updateState("minBaseSize", value)}
+              onChangeMax={(value) => updateState("maxBaseSize", value)}
+              hideMax={!!state?.disableFluid}
+            />
+
+            <ScaleValuesGroup
+              className="mb-0"
+              title="Aspect Ratio"
+              minLabel="Min Ratio"
+              maxLabel="Max Ratio"
+              type="select"
+              minValue={state?.minScaleRatio}
+              maxValue={state?.maxScaleRatio}
+              onChangeMin={(value) => updateState("minScaleRatio", value)}
+              onChangeMax={(value) => updateState("maxScaleRatio", value)}
+              hideMax={!!state?.disableFluid}
+            />
+
+            {!state?.disableFluid && (
+              <ScaleValuesGroup
+                className="mb-0"
+                title="Screen Sizes"
+                minLabel="Min Screen"
+                maxLabel="Max Screen"
+                minValue={state?.minScreenSize}
+                maxValue={state?.maxScreenSize}
+                onChangeMin={(value) => updateState("minScreenSize", value)}
+                onChangeMax={(value) => updateState("maxScreenSize", value)}
+              />
+            )}
+          </div>
+        ) : (
+          !state?.disableFluid && (
+            <div className="flex flex-col gap-8">
+              <ScaleValuesGroup
+                className="mb-0"
+                title="Screen Sizes"
+                minLabel="Min Screen"
+                maxLabel="Max Screen"
+                minValue={state?.minScreenSize}
+                maxValue={state?.maxScreenSize}
+                onChangeMin={(value) => updateState("minScreenSize", value)}
+                onChangeMax={(value) => updateState("maxScreenSize", value)}
+              />
+            </div>
+          )
+        )}
+      </div>
+
       {/* Mode Toggle */}
       <div className="flex flex-col gap-2">
         <span className="text-xs font-medium uppercase text-foreground/50">Mode</span>
@@ -127,14 +187,14 @@ export const ScaleCalculatorSidebar: React.FC<ScaleCalculatorSidebarProps> = ({
       )}
 
       {showBuildersIntegrationHeader() && (
-        <SidebarSeparator label="Builders integration" />
+        <SidebarSeparator label="Use design tokens from page builders" />
       )}
 
       {font && (
         <>
           {Object.keys(dynamicFontSizeFSE)?.length > 0 && (
             <Checkbox
-              label="Include FSE Sizes"
+              label="Use FSE sizes"
               checked={localWizzardState?.extendFontSizesFSE ?? false}
               onCheckedChange={(checked) => {
                 if (localWizzardState) {
@@ -148,7 +208,7 @@ export const ScaleCalculatorSidebar: React.FC<ScaleCalculatorSidebarProps> = ({
           )}
           {Object.keys(dynamicFontSizeBricks)?.length > 0 && (
             <Checkbox
-              label="Include Bricks Sizes"
+              label="Use Bricks sizes"
               checked={localWizzardState?.extendFontSizesBricks ?? false}
               onCheckedChange={(checked) => {
                 if (localWizzardState) {
@@ -162,7 +222,7 @@ export const ScaleCalculatorSidebar: React.FC<ScaleCalculatorSidebarProps> = ({
           )}
           {Object.keys(dynamicFontSizeOxygen)?.length > 0 && (
             <Checkbox
-              label="Include Oxygen Sizes"
+              label="Use Oxygen sizes"
               checked={localWizzardState?.extendFontSizesOxygen ?? false}
               onCheckedChange={(checked) => {
                 if (localWizzardState) {
@@ -181,7 +241,7 @@ export const ScaleCalculatorSidebar: React.FC<ScaleCalculatorSidebarProps> = ({
         <>
           {Object.keys(dynamicSpacingFSE)?.length > 0 && (
             <Checkbox
-              label="Include FSE Spacing"
+              label="Use FSE spacing"
               checked={localWizzardState?.extendSpacingFSE ?? false}
               onCheckedChange={(checked) => {
                 if (localWizzardState) {
@@ -195,7 +255,7 @@ export const ScaleCalculatorSidebar: React.FC<ScaleCalculatorSidebarProps> = ({
           )}
           {Object.keys(dynamicSpacingBricks)?.length > 0 && (
             <Checkbox
-              label="Include Bricks Spacing"
+              label="Use Bricks spacing"
               checked={localWizzardState?.extendSpacingBricks ?? false}
               onCheckedChange={(checked) => {
                 if (localWizzardState) {
@@ -209,7 +269,7 @@ export const ScaleCalculatorSidebar: React.FC<ScaleCalculatorSidebarProps> = ({
           )}
           {Object.keys(dynamicSpacingOxygen)?.length > 0 && (
             <Checkbox
-              label="Include Oxygen Spacing"
+              label="Use Oxygen spacing"
               checked={localWizzardState?.extendSpacingOxygen ?? false}
               onCheckedChange={(checked) => {
                 if (localWizzardState) {

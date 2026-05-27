@@ -139,7 +139,7 @@ class ProvidersHelpers
                         window.parent.winden_autocomplete = allClasses;
                     }
                 }).catch(function(error) {
-                    console.error('[Winden] Error generating autocomplete:', error);
+                    console.error('[winden:autocomplete] Error generating autocomplete:', error);
                 });
             }
         }

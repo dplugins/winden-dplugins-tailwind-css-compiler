@@ -46,7 +46,7 @@ function getWindenAjaxUrl() {
       }
     } catch (e) {
       // Cross-origin access blocked - this is expected for cross-origin iframes
-      console.debug('[winden] Cross-origin parent access blocked');
+      console.debug('[winden:compiler] Cross-origin parent access blocked');
     }
   }
 
@@ -60,6 +60,7 @@ import * as Immutable from "immutable";
 import { bundleCSS } from './tailwind-v4.js';
 import { extractConfigFromSources, convertToStyleGuideFormat, convertJsConfigToCss } from './config-extractor.js';
 import {
+  WindenCompilationError,
   WindenSCSSError,
   WindenPluginError,
   WindenTailwindError,
@@ -220,44 +221,77 @@ const compilationCache = {
   }
 };
 
+// In-flight design-system loads, keyed by the same cacheKey the LRU cache
+// uses. Sequential callers always hit the LRU cache. CONCURRENT callers
+// (e.g. tailwindify() and tailwindifyClasses() firing on the same Wizzard
+// update) would otherwise both miss and both compute. This Map ensures the
+// second caller awaits the first caller's promise instead. See #16.
+const inflightDesignSystemLoads = new Map();
+
+/**
+ * Load (or reuse) a Tailwind design system + extract its class list.
+ * Three layers: LRU cache hit → in-flight promise hit → fresh compute.
+ *
+ * Returns `{ designSystem, autocompleteClasses, screens }` where `screens`
+ * is the order-61 extraction. Callers that need a different screen order
+ * (e.g. tailwindifyClasses uses 62) re-run `extractBreakpointsFromDesignSystem`
+ * on the returned designSystem; that call is cheap.
+ */
+async function loadDesignSystem(cacheKey, cssToProcess, configFileString) {
+  // 1. Cache hit — return immediately.
+  if (compilationCache.designSystem.has(cacheKey)) {
+    return compilationCache.designSystem.get(cacheKey);
+  }
+  // 2. In-flight hit — reuse the running promise.
+  if (inflightDesignSystemLoads.has(cacheKey)) {
+    return inflightDesignSystemLoads.get(cacheKey);
+  }
+  // 3. Fresh compute — store the promise so concurrent callers reuse it.
+  const promise = (async () => {
+    try {
+      const designSystem = await tailwindcss.__unstable__loadDesignSystem(cssToProcess, {
+        loadStylesheet,
+        loadModule: async (modulePath, base, resourceHint) => loadModule(modulePath, base, resourceHint, configFileString)
+      });
+      const autocompleteClasses = designSystem.getClassList().flat().filter(c => typeof c === 'string');
+      const screens = extractBreakpointsFromDesignSystem(designSystem, 61);
+      const cached = { designSystem, autocompleteClasses, screens };
+      compilationCache.designSystem.set(cacheKey, cached);
+      return cached;
+    } finally {
+      inflightDesignSystemLoads.delete(cacheKey);
+    }
+  })();
+  inflightDesignSystemLoads.set(cacheKey, promise);
+  return promise;
+}
+
 /**
  * Fast non-cryptographic hash with good distribution
- * Based on FNV-1a algorithm - 60-80% faster than previous implementation for large inputs
+ * Based on FNV-1a algorithm. Hashes the full string — sampling was
+ * dropped because two inputs identical in the sampled regions but
+ * different elsewhere collided and returned stale compiled CSS.
+ * FNV on a 200 KB input completes in well under 10 ms.
  * @param {string} str - String to hash
- * @param {number} maxLength - Max chars to hash for performance (default: 10000)
  * @returns {string} Base-36 hash
  */
-function hashString(str, maxLength = 10000) {
+function hashString(str) {
   if (!str) return '0';
 
-  // FNV-1a constants
   const FNV_OFFSET = 2166136261;
   const FNV_PRIME = 16777619;
 
   let hash = FNV_OFFSET;
+  const len = str.length;
 
-  // For very long inputs, sample intelligently: beginning + middle + end
-  // This prevents hashing 100KB+ CSS files character-by-character
-  if (str.length > maxLength) {
-    const third = Math.floor(maxLength / 3);
-    const sampleStr = str.slice(0, third) +
-      str.slice(Math.floor((str.length - third) / 2), Math.floor((str.length - third) / 2) + third) +
-      str.slice(-third);
-    str = sampleStr;
-  }
-
-  const len = Math.min(str.length, maxLength);
-
-  // FNV-1a hash algorithm
   for (let i = 0; i < len; i++) {
     hash ^= str.charCodeAt(i);
     hash = Math.imul(hash, FNV_PRIME);
   }
 
-  // Mix in string length to differentiate similar prefixes
-  hash ^= str.length;
+  // Mix in length so empty-suffix differences still split the key.
+  hash ^= len;
 
-  // Convert to positive integer and base-36
   return (hash >>> 0).toString(36);
 }
 
@@ -284,6 +318,25 @@ async function initializeDartSass() {
   }
 
   dartSassPromise = new Promise((resolve, reject) => {
+    // Safety net: if neither the reuse path nor the load path resolves
+    // within 15 s, reject with a clear error so callers can fall back
+    // (e.g. skip SCSS preprocessing) instead of hanging forever.
+    // This protects against the multi-plugin race where another DPlugins
+    // plugin (Fancoolo, etc.) loaded `sass.dart.min.js` first but the
+    // shared `_cliPkgExports` global never becomes usable in Winden's
+    // scope. See #41.
+    const INIT_TIMEOUT_MS = 15000;
+    const timeoutId = setTimeout(() => {
+      reject(new Error(
+        '[winden:scss] Dart Sass initialization timed out after 15 s. ' +
+        'Another plugin may have loaded sass.dart.min.js but its ' +
+        '_cliPkgExports never became available to Winden. SCSS ' +
+        'preprocessing will be unavailable in this context.'
+      ));
+    }, INIT_TIMEOUT_MS);
+    const safeResolve = (v) => { clearTimeout(timeoutId); resolve(v); };
+    const safeReject = (e) => { clearTimeout(timeoutId); reject(e); };
+
     // Get the plugin base URL dynamically
     const getPluginUrl = () => {
       // First priority: Use the URL passed from PHP (most reliable)
@@ -319,26 +372,57 @@ async function initializeDartSass() {
     // Also check if the global _cliPkgExports exists (meaning Dart Sass was already initialized)
     const sassGlobalExists = globalThis._cliPkgExports && globalThis._cliPkgExports.length > 0;
 
+    // Helper: pop `_cliPkgExports` and build the dartSass facade.
+    const consumeCliPkgExports = () => {
+      const _cliPkgLibrary = globalThis._cliPkgExports.pop();
+      if (globalThis._cliPkgExports.length === 0) delete globalThis._cliPkgExports;
+      const _cliPkgExports = {};
+      _cliPkgLibrary.load({ immutable: Immutable }, _cliPkgExports);
+      return {
+        compileString: _cliPkgExports.compileString,
+        compile: _cliPkgExports.compile,
+      };
+    };
+
     // If any Dart Sass is already loaded and available, use it
     if ((anySassLoaded || sassGlobalExists) && globalThis._cliPkgExports && globalThis._cliPkgExports.length > 0) {
       try {
-        const _cliPkgLibrary = globalThis._cliPkgExports.pop();
-        if (globalThis._cliPkgExports.length === 0) delete globalThis._cliPkgExports;
-
-        const _cliPkgExports = {};
-        _cliPkgLibrary.load({ immutable: Immutable }, _cliPkgExports);
-
-        dartSass = {
-          compileString: _cliPkgExports.compileString,
-          compile: _cliPkgExports.compile
-        };
-
-        resolve(dartSass);
+        dartSass = consumeCliPkgExports();
+        safeResolve(dartSass);
         return;
       } catch (error) {
-        reject(error);
+        safeReject(error);
         return;
       }
+    }
+
+    // Race case (#41): another plugin (Fancoolo) added the sass.dart.min.js
+    // <script> tag but Winden initializes before _cliPkgExports is populated
+    // (or the other plugin consumed them). Poll the global every 100 ms
+    // for up to 10 s. If it never appears, fall through to the load path
+    // (and rely on the dedup logic at the bottom to skip re-appending).
+    if (anySassLoaded) {
+      let polled = 0;
+      const POLL_INTERVAL_MS = 100;
+      const MAX_POLLS = 100; // 10 s total
+      const pollId = setInterval(() => {
+        if (globalThis._cliPkgExports && globalThis._cliPkgExports.length > 0) {
+          clearInterval(pollId);
+          try {
+            dartSass = consumeCliPkgExports();
+            safeResolve(dartSass);
+          } catch (error) {
+            safeReject(error);
+          }
+          return;
+        }
+        if (++polled >= MAX_POLLS) {
+          clearInterval(pollId);
+          // Let the INIT_TIMEOUT_MS safety net (above) be the final
+          // rejector — keeps a single error path for the caller.
+        }
+      }, POLL_INTERVAL_MS);
+      return;
     }
 
     // WORKAROUND: Temporarily hide any global 'require' from esbuild polyfill
@@ -385,13 +469,13 @@ async function initializeDartSass() {
           globalThis.require = tempRequire;
         }
 
-        resolve(dartSass);
+        safeResolve(dartSass);
       } catch (error) {
         // Restore require even on error
         if (tempRequire) {
           globalThis.require = tempRequire;
         }
-        reject(error);
+        safeReject(error);
       }
     };
     script.onerror = () => {
@@ -399,7 +483,7 @@ async function initializeDartSass() {
       if (tempRequire) {
         globalThis.require = tempRequire;
       }
-      reject(new Error('Failed to load Dart Sass'));
+      safeReject(new Error('Failed to load Dart Sass'));
     };
 
     // Only load if no Dart Sass script has been loaded yet
@@ -585,8 +669,8 @@ async function preprocessSCSS(scss, preprocessor = 'css') {
         verbose: false
       });
     } catch (error) {
-      console.error('[Winden SCSS] Dart Sass compilation error:', error.message);
-      console.error('[Winden SCSS] Content that failed:', scssWithPlaceholders);
+      console.error('[winden:scss] Dart Sass compilation error:', error.message);
+      console.error('[winden:scss] Content that failed:', scssWithPlaceholders);
       throw error;
     }
 
@@ -631,7 +715,7 @@ async function preprocessSCSS(scss, preprocessor = 'css') {
 
     return compiledCss;
   } catch (error) {
-    console.error('[Winden SCSS] Compilation failed:', error.message);
+    console.error('[winden:scss] Compilation failed:', error.message);
 
     // Wrap in typed error with context
     throw new WindenSCSSError(error, {
@@ -662,7 +746,7 @@ async function preprocessSCSS(scss, preprocessor = 'css') {
  */
 function extractBreakpointsFromDesignSystem(designSystem, order = 61) {
   if (!designSystem) {
-    console.warn('[winden] extractBreakpointsFromDesignSystem: No design system provided');
+    console.warn('[winden:compiler] extractBreakpointsFromDesignSystem: No design system provided');
     return [];
   }
 
@@ -692,7 +776,7 @@ function extractBreakpointsFromDesignSystem(designSystem, order = 61) {
     }
 
     // If no breakpoints found, log warning with available info
-    console.warn('[winden] extractBreakpointsFromDesignSystem: Could not extract breakpoints', {
+    console.warn('[winden:compiler] extractBreakpointsFromDesignSystem: Could not extract breakpoints', {
       order,
       hasVariants: !!designSystem?.variants,
       hasNestedVariants: !!designSystem?.variants?.variants,
@@ -701,7 +785,7 @@ function extractBreakpointsFromDesignSystem(designSystem, order = 61) {
 
     return [];
   } catch (error) {
-    console.error('[winden] extractBreakpointsFromDesignSystem: Error extracting breakpoints', {
+    console.error('[winden:compiler] extractBreakpointsFromDesignSystem: Error extracting breakpoints', {
       error: error.message,
       order,
       stack: error.stack
@@ -806,7 +890,7 @@ function executeCommonJsConfig(configString) {
     // Execute with sandbox context
     // Note: require is not fully supported, but available for basic usage
     const requireStub = (moduleName) => {
-      console.warn(`[winden] require('${moduleName}') in config is not fully supported`);
+      console.warn(`[winden:compiler] require('${moduleName}') in config is not fully supported`);
       return {};
     };
 
@@ -821,6 +905,31 @@ function executeCommonJsConfig(configString) {
   }
 }
 
+// Cross-cutting depth guard for the loader pair. Tailwind drives both
+// loadStylesheet and loadModule recursively when it resolves @import /
+// @plugin / @config chains; an off-by-one user config (a.css → b.css →
+// a.css) would otherwise spin without bound. Stack is shared across
+// both functions so a chain that crosses module/stylesheet boundaries
+// still counts toward the limit. See #18.
+const MAX_IMPORT_DEPTH = 5;
+const _importStack = [];
+
+function _enforceImportDepth(id) {
+  if (_importStack.length < MAX_IMPORT_DEPTH) return;
+  const chain = [..._importStack, id];
+  const err = new WindenCompilationError(
+    `Import depth limit (${MAX_IMPORT_DEPTH}) exceeded — likely a circular @import or @plugin chain.`,
+    'IMPORT_DEPTH_EXCEEDED',
+    'bundling',
+    {
+      chain,
+      depth: chain.length,
+      suggestion: 'Check your CSS for circular @import or your config for circular @plugin references. The chain above lists the imports as they nested.',
+    }
+  );
+  throw err;
+}
+
 /**
  * Load stylesheet for @import directives
  * Supports Tailwind core imports, CDN stylesheets, and relative imports
@@ -829,6 +938,8 @@ function executeCommonJsConfig(configString) {
  * @returns {Promise<Object>} Stylesheet object with path, base, and content
  */
 async function loadStylesheet(id, base) {
+  _enforceImportDepth(id);
+  _importStack.push(id);
   try {
     // Handle Tailwind core imports - check multiple patterns
     // The id might come as 'tailwindcss/...' or as a resolved path like '/test/tailwindcss/...'
@@ -875,10 +986,50 @@ async function loadStylesheet(id, base) {
         };
       }
 
-      const response = await fetch(id);
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status} ${response.statusText}`);
+      // Fetch with a 10 s timeout + one retry. Without these, a slow / hung
+      // CDN would block compilation indefinitely. See #17. Mirrors the retry
+      // logic loadModule() uses for plugin fetches.
+      const FETCH_TIMEOUT_MS = 10000;
+      const MAX_RETRIES = 1;
+      let response = null;
+      let lastError = null;
+
+      for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => {
+          controller.abort(new Error(`timed out after ${FETCH_TIMEOUT_MS} ms`));
+        }, FETCH_TIMEOUT_MS);
+
+        try {
+          if (attempt > 0) await new Promise(r => setTimeout(r, 500));
+          const r = await fetch(id, { signal: controller.signal });
+          if (!r.ok) {
+            throw new Error(`HTTP ${r.status} ${r.statusText}`);
+          }
+          response = r;
+          break;
+        } catch (error) {
+          lastError = error.name === 'AbortError'
+            ? new Error(`Stylesheet fetch timed out after ${FETCH_TIMEOUT_MS} ms`)
+            : error;
+          if (attempt < MAX_RETRIES) {
+            console.warn(`[winden:compiler] Stylesheet fetch failed (attempt ${attempt + 1}/${MAX_RETRIES + 1}), retrying...`, {
+              url: id,
+              error: lastError.message,
+            });
+          }
+        } finally {
+          clearTimeout(timeoutId);
+        }
       }
+
+      if (!response) {
+        // All retries exhausted — outer catch wraps in WindenStylesheetError
+        // which carries phase='bundling', the URL in details, and a
+        // suggestion for the UI.
+        throw lastError ?? new Error(`Stylesheet fetch failed: ${id}`);
+      }
+
       const content = await response.text();
 
       // Cache the fetched stylesheet
@@ -903,12 +1054,26 @@ async function loadStylesheet(id, base) {
 
     throw new Error(`Unknown stylesheet format: ${id}`);
   } catch (error) {
-    // Wrap in typed error with context
+    // Re-throw typed errors as-is so the depth-limit chain survives
+    // formatError() at the top level. Plain errors get wrapped.
+    if (error instanceof WindenCompilationError) throw error;
     throw new WindenStylesheetError(id, error, { base });
+  } finally {
+    _importStack.pop();
   }
 }
 
 async function loadModule(modulePath, base, resourceHint, configFileString) {
+  _enforceImportDepth(modulePath);
+  _importStack.push(modulePath);
+  try {
+    return await _loadModuleInner(modulePath, base, resourceHint, configFileString);
+  } finally {
+    _importStack.pop();
+  }
+}
+
+async function _loadModuleInner(modulePath, base, resourceHint, configFileString) {
   let module;
 
   // Handle virtual config path (winden://config) - uses config content from Config tab
@@ -955,7 +1120,7 @@ async function loadModule(modulePath, base, resourceHint, configFileString) {
 
       return result;
     } catch (error) {
-      console.error('[winden] Config loading failed', {
+      console.error('[winden:compiler] Config loading failed', {
         error: error.message,
         hint: resourceHint,
         isCommonJS: isCommonJsConfig(configFileString),
@@ -1046,7 +1211,7 @@ async function loadModule(modulePath, base, resourceHint, configFileString) {
       } catch (error) {
         lastError = error;
         if (attempt < maxRetries) {
-          console.warn(`[winden] Plugin fetch failed (attempt ${attempt + 1}/${maxRetries + 1}), retrying...`, {
+          console.warn(`[winden:compiler] Plugin fetch failed (attempt ${attempt + 1}/${maxRetries + 1}), retrying...`, {
             url: resolvedPath,
             error: error.message
           });
@@ -1054,19 +1219,20 @@ async function loadModule(modulePath, base, resourceHint, configFileString) {
       }
     }
 
-    // All retries failed
-    console.error('[winden] Plugin fetch failed after retries', {
+    // All retries failed — throw typed error so the top-level catch can
+    // formatError() it with phase='plugin' + suggestion for the UI.
+    console.error('[winden:compiler] Plugin fetch failed after retries', {
       url: resolvedPath,
       error: lastError.message,
       attempts: maxRetries + 1
     });
-    throw new Error(`Failed to load plugin from ${resolvedPath}: ${lastError.message}. Check your internet connection and verify the plugin URL is correct.`);
+    throw new WindenPluginError(resolvedPath, lastError, { attempts: maxRetries + 1 });
   }
 
   // Handle relative imports (resolve against base if provided)
   if (modulePath.startsWith('./') || modulePath.startsWith('../')) {
     if (!base) {
-      console.error('[winden] Relative import without base URL', { modulePath });
+      console.error('[winden:compiler] Relative import without base URL', { modulePath });
       throw new Error(`Cannot resolve relative import '${modulePath}' without a base URL`);
     }
 
@@ -1076,7 +1242,7 @@ async function loadModule(modulePath, base, resourceHint, configFileString) {
       // Recursively load the resolved path
       return loadModule(resolvedPath, base, resourceHint, configFileString);
     } catch (error) {
-      console.error('[winden] Failed to resolve relative import', {
+      console.error('[winden:compiler] Failed to resolve relative import', {
         modulePath,
         base,
         error: error.message
@@ -1092,6 +1258,33 @@ async function loadModule(modulePath, base, resourceHint, configFileString) {
   return { module, base };
 }
 
+/**
+ * Public compiler entry points (exposed on `window`)
+ * ---------------------------------------------------
+ *
+ * `window.tailwindify(html, customCss, configFileString, preprocessor?)`
+ *   - Full compile path. Produces final CSS for a given list of class
+ *     names + custom CSS. Use this when you need the compiled CSS to
+ *     inject into a page (frontend, builder iframe, save handler).
+ *   - Resolves to `{ css, classes, screens, error?, errorDetails?, success? }`:
+ *       css           string   Compiled Tailwind CSS ('' on error)
+ *       classes       string[] Class list from the design system
+ *       screens       object[] Breakpoint metadata (order 61)
+ *       error         string   Plain-English message; error path only
+ *       errorDetails  object   { phase, code, details, ... } from formatError
+ *       success       false    Sentinel on the error path
+ *
+ * `window.tailwindifyClasses(customCss, configFileString?)`
+ *   - Metadata-only path. Returns the same class list + screens without
+ *     compiling. Use this for autocomplete and breakpoint extraction
+ *     where producing CSS would be wasted work.
+ *   - Resolves to the same shape as `tailwindify`. `css` is always ''
+ *     (kept for parity); `screens` uses order 62 instead of 61.
+ *
+ * Callers should branch on `result.error` once, then consume the keys
+ * uniformly. The error path produces the same typed-error contract from
+ * `formatError()` — see src/compiler/errors.js (#14).
+ */
 function main() {
   async function tailwindify(html, customCss, configFileString, preprocessorOverride) {
     try {
@@ -1141,10 +1334,14 @@ function main() {
         return { css: '', classes: [], screens: [] };
       }
 
-      // OPTIMIZATION: Generate cache keys (use preprocessed CSS for hash)
+      // OPTIMIZATION: Generate cache keys (use preprocessed CSS for hash).
+      // The preprocessor mode goes into the key as well: when a user toggles
+      // SCSS ↔ CSS, `preprocessedCss` is *usually* different (Sass reformats
+      // the input), but on inputs Sass renders byte-identically the hashes
+      // collide and a cached result from the other mode would be served. See #15.
       const cssHash = hashString(preprocessedCss);
       const configHash = hashString(configFileString ?? '');
-      const cacheKey = `${cssHash}-${configHash}`;
+      const cacheKey = `${cssHash}-${configHash}-${preprocessor}`;
       const classesKey = [...classes].sort().join('|');
       const classesHash = hashString(classesKey);
       const fullCacheKey = `${cacheKey}-${classesHash}`;
@@ -1154,44 +1351,45 @@ function main() {
         return compilationCache.compiled.get(fullCacheKey);
       }
 
-      // OPTIMIZATION: Check bundleCSS cache
+      // OPTIMIZATION: Check bundleCSS cache. Wrap so non-typed errors get a
+      // bundling phase tag for the UI. Errors already typed (e.g. a nested
+      // WindenStylesheetError thrown by loadStylesheet) re-throw as-is.
       let cssToProcess;
       if (compilationCache.bundled.has(cssHash)) {
         cssToProcess = compilationCache.bundled.get(cssHash);
       } else {
-        cssToProcess = await bundleCSS(preprocessedCss);
+        try {
+          cssToProcess = await bundleCSS(preprocessedCss);
+        } catch (error) {
+          if (error?.phase) throw error;
+          throw new WindenBundlingError(error);
+        }
         compilationCache.bundled.set(cssHash, cssToProcess);
       }
 
-      // OPTIMIZATION: Check design system cache
-      let designSystem;
-      let autocompleteClasses;
-      let screens;
-
-      if (compilationCache.designSystem.has(cacheKey)) {
-        const cached = compilationCache.designSystem.get(cacheKey);
-        designSystem = cached.designSystem;
-        autocompleteClasses = cached.autocompleteClasses;
-        screens = cached.screens;
-      } else {
-        designSystem = await tailwindcss.__unstable__loadDesignSystem(cssToProcess, {
-          loadStylesheet,
-          loadModule: async (modulePath, base, resourceHint) => loadModule(modulePath, base, resourceHint, configFileString)
-        });
-
-        // Extract metadata ONCE and cache it
-        autocompleteClasses = designSystem.getClassList().flat().filter(c => typeof c === 'string');
-        screens = extractBreakpointsFromDesignSystem(designSystem, 61);
-
-        compilationCache.designSystem.set(cacheKey, { designSystem, autocompleteClasses, screens });
+      // OPTIMIZATION: Load design system with dedup across concurrent callers
+      // (LRU cache for sequential, in-flight Map for concurrent). See #16.
+      let designSystem, autocompleteClasses, screens;
+      try {
+        ({ designSystem, autocompleteClasses, screens } =
+          await loadDesignSystem(cacheKey, cssToProcess, configFileString));
+      } catch (error) {
+        if (error?.phase) throw error;
+        throw new WindenTailwindError(error);
       }
 
       // Compile with cached design system
       // Lightning CSS (built into Tailwind v4) handles autoprefixing automatically
-      let compiledCss = (await tailwindcss.compile(cssToProcess, {
-        loadStylesheet,
-        loadModule: async (modulePath, base, resourceHint) => loadModule(modulePath, base, resourceHint, configFileString)
-      })).build(classes);
+      let compiledCss;
+      try {
+        compiledCss = (await tailwindcss.compile(cssToProcess, {
+          loadStylesheet,
+          loadModule: async (modulePath, base, resourceHint) => loadModule(modulePath, base, resourceHint, configFileString)
+        })).build(classes);
+      } catch (error) {
+        if (error?.phase) throw error;
+        throw new WindenTailwindError(error);
+      }
 
       const result = { css: compiledCss, classes: autocompleteClasses, screens };
 
@@ -1200,7 +1398,14 @@ function main() {
 
       return result;
     } catch (error) {
-      return { css: "", error };
+      // Format the caught error through the typed-error contract:
+      //   { success: false, error: <user-string>, errorDetails: { phase, code, details, ... } }
+      // Inner code paths throw WindenSCSSError / WindenStylesheetError /
+      // WindenConfigError; everything else gets wrapped into a generic
+      // shape by formatError. Callers should read `errorDetails.phase` +
+      // `errorDetails.details.suggestion` for UI display.
+      console.error('[winden:compiler]', error);
+      return { css: "", classes: [], screens: [], ...formatError(error) };
     }
   }
   return tailwindify;
@@ -1236,10 +1441,11 @@ function classes() {
       // Preprocess SCSS to CSS (if preprocessor is 'scss')
       const preprocessedCss = await preprocessSCSS(cssWithConfig, preprocessor);
 
-      // OPTIMIZATION: Generate cache keys (use preprocessed CSS for hash)
+      // OPTIMIZATION: Generate cache keys (use preprocessed CSS for hash).
+      // Include preprocessor mode to avoid SCSS↔CSS cache collision (#15).
       const cssHash = hashString(preprocessedCss);
       const configHash = hashString(configFileString);
-      const cacheKey = `${cssHash}-${configHash}`;
+      const cacheKey = `${cssHash}-${configHash}-${preprocessor}`;
 
       // OPTIMIZATION: Check bundleCSS cache
       let cssToProcess;
@@ -1250,39 +1456,35 @@ function classes() {
         compilationCache.bundled.set(cssHash, cssToProcess);
       }
 
-      // OPTIMIZATION: Reuse cached design system from tailwindify
-      let designSystem;
-      let autocompleteClasses;
-      let screens;
+      // OPTIMIZATION: Reuse the dedup'd design-system loader. tailwindifyClasses
+      // uses screen order 62 (vs 61 the loader caches), so re-extract on the
+      // returned design system — cheap once we have it. See #16.
+      const cached = await loadDesignSystem(cacheKey, cssToProcess, configFileString);
+      const designSystem = cached.designSystem;
+      const autocompleteClasses = cached.autocompleteClasses;
+      const screens = extractBreakpointsFromDesignSystem(designSystem, 62);
 
-      if (compilationCache.designSystem.has(cacheKey)) {
-        const cached = compilationCache.designSystem.get(cacheKey);
-        designSystem = cached.designSystem;
-        autocompleteClasses = cached.autocompleteClasses;
-        // Note: tailwindifyClasses uses order 62, not 61
-        screens = extractBreakpointsFromDesignSystem(designSystem, 62);
-      } else {
-        designSystem = await tailwindcss.__unstable__loadDesignSystem(cssToProcess, {
-          loadStylesheet,
-          loadModule: async (modulePath, base, resourceHint) => loadModule(modulePath, base, resourceHint, configFileString)
-        });
-
-        autocompleteClasses = designSystem.getClassList().flat().filter(c => typeof c === 'string');
-        screens = extractBreakpointsFromDesignSystem(designSystem, 62);
-
-        // Cache with screen order 61 for tailwindify compatibility
-        const screensFor61 = extractBreakpointsFromDesignSystem(designSystem, 61);
-
-        compilationCache.designSystem.set(cacheKey, {
-          designSystem,
-          autocompleteClasses,
-          screens: screensFor61
-        });
-      }
-
-      return { classes: autocompleteClasses, screens };
+      return { css: '', classes: autocompleteClasses, screens };
     } catch (error) {
-      return { classes: [], error };
+      // Match tailwindify's error contract: { success: false, error, errorDetails }.
+      // css:'' kept for shape parity with tailwindify (#19).
+      // tailwindifyClasses is the autocomplete pipeline — it runs every
+      // ~500 ms while the user types. "Cannot apply unknown utility class"
+      // and "Unknown word" / "At-rule without name" PostCSS failures are
+      // expected mid-edit noise and should not log as errors. Real
+      // compilation failures still surface through tailwindify().
+      const msg = String(error?.message ?? error ?? '');
+      const isMidEditNoise =
+        /Cannot apply unknown utility class/.test(msg) ||
+        /Unknown word/.test(msg) ||
+        /At-rule without name/.test(msg);
+      if (!isMidEditNoise) {
+        console.error('[winden:compiler]', error);
+      }
+      // Mid-edit noise is silently swallowed — autocomplete pipeline reruns
+      // every ~500 ms while typing, so a partial @apply / dangling decl
+      // would otherwise pollute the console once per keystroke.
+      return { css: '', classes: [], screens: [], ...formatError(error) };
     }
   }
   return tailwindifyClasses;
@@ -1412,7 +1614,7 @@ async function autoExtractBreakpoints() {
 
           if (!ajaxUrl) {
             // AJAX URL not available - this means wp_localize_script wasn't called properly
-            console.warn('[winden] autoExtractBreakpoints: AJAX URL not available, skipping backend fetch');
+            console.warn('[winden:compiler] autoExtractBreakpoints: AJAX URL not available, skipping backend fetch');
             break;
           }
 
@@ -1431,7 +1633,7 @@ async function autoExtractBreakpoints() {
             break; // Success, exit retry loop
           } else {
             // On fresh install, no content exists yet - this is expected
-            console.warn('[winden] autoExtractBreakpoints: No content in database yet, using empty values');
+            console.warn('[winden:compiler] autoExtractBreakpoints: No content in database yet, using empty values');
             wizardContent = '';
             windenStylesContent = '';
             break; // Exit retry loop, no need to retry
@@ -1439,7 +1641,7 @@ async function autoExtractBreakpoints() {
         } catch (error) {
           lastError = error;
           if (attempt < maxRetries) {
-            console.warn(`[winden] autoExtractBreakpoints: Fetch failed (attempt ${attempt + 1}/${maxRetries + 1}), retrying...`, {
+            console.warn(`[winden:compiler] autoExtractBreakpoints: Fetch failed (attempt ${attempt + 1}/${maxRetries + 1}), retrying...`, {
               error: error.message
             });
           }
@@ -1449,7 +1651,7 @@ async function autoExtractBreakpoints() {
       // Log error if all retries failed
       if (lastError && !wizardContent) {
         const ajaxUrl = getWindenAjaxUrl();
-        console.error('[winden] autoExtractBreakpoints: Failed to fetch breakpoints after retry', {
+        console.error('[winden:compiler] autoExtractBreakpoints: Failed to fetch breakpoints after retry', {
           error: lastError.message,
           attempts: maxRetries + 1,
           url: ajaxUrl ? ajaxUrl + '?action=winden_get_content' : 'AJAX URL not configured'
@@ -1461,7 +1663,7 @@ async function autoExtractBreakpoints() {
     const result = await window.extractStyleGuideConfig('', wizardContent, windenStylesContent);
 
     if (!result.success) {
-      console.warn('[winden] autoExtractBreakpoints: Extraction failed, using empty array', {
+      console.warn('[winden:compiler] autoExtractBreakpoints: Extraction failed, using empty array', {
         error: result.error
       });
       // Set empty array as fallback
@@ -1469,7 +1671,7 @@ async function autoExtractBreakpoints() {
       window.parent.winden_autocomplete_screens = [];
     }
   } catch (error) {
-    console.error('[winden] autoExtractBreakpoints: Unexpected error', {
+    console.error('[winden:compiler] autoExtractBreakpoints: Unexpected error', {
       error: error.message,
       stack: error.stack
     });

@@ -1,4 +1,4 @@
-import { DEFAULT_CSS_CONTENT, DEFAULT_CSS_CONTENT_V4, DEFAULT_JS_CONTENT } from "../const/contentDefaults";
+import { DEFAULT_CSS_CONTENT, DEFAULT_CSS_CONTENT_V4, DEFAULT_JS_CONTENT, MINIMAL_BASE_CSS } from "../const/contentDefaults";
 import { fetchSettings } from '@functions/Settings';
 import type { WizzardState } from '@/types/wizzard';
 import { windenBroadcast } from '@/utils/broadcastChannel';
@@ -10,8 +10,18 @@ import { log } from '@/utils/logger';
  * Updated on successful save and initial fetch.
  */
 let _serverUpdatedAt: string | null = null;
+let _advancedBySave = false;
 
+/**
+ * Prime the stale-write guard from the initial content fetch.
+ * No-op if a save has already advanced the value: Nav's auto-fix
+ * branch can fire an auto-save in parallel with the initial fetch,
+ * and the fetch's response carries the *pre-auto-save* timestamp.
+ * Letting the fetch overwrite the save's fresher value caused every
+ * subsequent manual save to be rejected as stale.
+ */
 export function setServerUpdatedAt(ts: string | null) {
+  if (_advancedBySave) return;
   _serverUpdatedAt = ts;
 }
 
@@ -86,14 +96,22 @@ export const handleSave = async (
       settingsRes = await fetchSettings(() => { }, true);
     }
 
+    // Style tab can be hidden via Settings → editor_tabs. When hidden, the
+    // user's saved scss is preserved in the DB but compile uses a minimum
+    // baseline that skips preflight, so Gutenberg's own reset survives.
+    // Re-enabling the Style tab restores the user's original content.
+    const styleTabVisible = !Array.isArray(settingsRes?.editor_tabs)
+      || settingsRes.editor_tabs.find((t: any) => t?.value === 'style')?.visible !== false;
+    const effectiveScss = styleTabVisible ? scssContentRef.current : MINIMAL_BASE_CSS;
+
     // Always use Tailwind v4 bundling
-    if (typeof window.tailwindV4BundleCSS === 'function' && scssContentRef?.current?.length) {
+    if (typeof window.tailwindV4BundleCSS === 'function' && effectiveScss?.length) {
       const bundleStartTime = performance.now();
-      log.debug('Save', 'Preparing CSS bundle');
+      log.debug('Save', 'Preparing CSS bundle', { styleTabVisible });
 
       // Include Wizard theme configuration in Tailwind v4 compilation
       const wizzardConfig = wizzardContentRef?.current;
-      let combinedCSS = scssContentRef.current;
+      let combinedCSS = effectiveScss;
 
       if (wizzardConfig?.configCode && wizzardConfig.configCode.trim().length > 0) {
         // Insert @theme block AFTER @layer and @import statements (Tailwind v4 requirement)
@@ -147,6 +165,10 @@ export const handleSave = async (
     const scssWithoutComments = scssContentRef?.current?.replace(/\/\*[^*]*\*+(?:[^/*][^*]*\*+)*\//g, '').trim();
     const isScssEmpty = scssWithoutComments.length < 1;
 
+    // User's scss stays in the DB untouched so re-enabling the Style tab
+    // restores their content. The PHP save handler reads editor_tabs and
+    // swaps MINIMAL_BASE_CSS into input.css (the compile pipeline's source
+    // of truth) when the tab is hidden.
     const data: Record<string, string> = {
       javascript: utf8ToBase64(JSON.stringify(isJsEmpty ? DEFAULT_JS_CONTENT : jsContentRef.current)),
       scss: utf8ToBase64(JSON.stringify(isScssEmpty ? DEFAULT_CSS_CONTENT : scssContentRef.current)),
@@ -184,9 +206,12 @@ export const handleSave = async (
     });
 
     if (result.success) {
-      // Track the new server timestamp for stale-write detection
+      // Track the new server timestamp for stale-write detection.
+      // Flag _advancedBySave so a late-arriving fetch (raced by Nav's
+      // auto-fix auto-save) cannot downgrade this fresher value.
       if (result.data?.updated_at) {
         _serverUpdatedAt = result.data.updated_at;
+        _advancedBySave = true;
       }
 
       // Broadcast changes to all open tabs (admin, editors, frontend)
@@ -212,6 +237,11 @@ export const handleSave = async (
         updatedAt: result.data?.updated_at,
       });
 
+      // Reset the unsaved-changes guard baseline (#13). Fired here
+      // rather than inside useUnsavedChangesGuard so the moment of
+      // truth is "server accepted" — not "save was attempted".
+      window.dispatchEvent(new CustomEvent('winden:save-success'));
+
       // Trigger Style Guide refresh after successful save
       if (typeof window.refreshStyleGuide === 'function') {
         window.refreshStyleGuide();
@@ -224,8 +254,24 @@ export const handleSave = async (
         });
         if (result.data.server_updated_at) {
           _serverUpdatedAt = result.data.server_updated_at;
+          _advancedBySave = true;
         }
-        alert('Another save occurred since you last loaded. Your changes were not saved. Please reload the page.');
+        // Dispatch a custom event the StaleSaveBanner listens for —
+        // non-blocking, gives the user two real recovery actions
+        // (Reload, Copy changes) instead of a modal alert that drops
+        // their work on the floor. See #4.
+        window.dispatchEvent(new CustomEvent('winden:stale-write', {
+          detail: {
+            pending: {
+              javascript: jsContentRef?.current ?? '',
+              scss: scssContentRef?.current ?? '',
+              wizzard: wizzardContentRef?.current ?? null,
+              serverUpdatedAt: result.data.server_updated_at ?? null,
+              clientUpdatedAt: _serverUpdatedAt,
+              capturedAt: new Date().toISOString(),
+            },
+          },
+        }));
       } else {
         log.error('Save', 'Save failed', { response: result.data });
       }

@@ -19,14 +19,30 @@ interface ColorShade {
   isCustom?: boolean;
 }
 
+interface ShadeCurvePoint {
+  t: number;
+  value: number;
+}
+
+interface ShadeCurveHandles {
+  startValue: number;
+  leftHandle1: ShadeCurvePoint;
+  leftHandle2: ShadeCurvePoint;
+  rightHandle1: ShadeCurvePoint;
+  rightHandle2: ShadeCurvePoint;
+  endValue: number;
+}
+
 interface ColorEntry {
   id: number;
   name: string;
   hex: string;
-  minLightness: number;
-  maxLightness: number;
   colorFormat: 'hex' | 'rgb' | 'hsl' | 'oklch';
   shades: ColorShade[];
+  baseIndex?: number;
+  lightnessCurve?: ShadeCurveHandles;
+  saturationCurve?: ShadeCurveHandles;
+  hueCurve?: ShadeCurveHandles;
   isLocked?: boolean;
   enableShades?: boolean;
   reverseShades?: boolean;
@@ -36,6 +52,7 @@ interface ColorEntry {
   utilityValue?: string;
   locked?: boolean;
   isUtility?: boolean;
+  isTailwind?: boolean;
   isFSE?: boolean;
   isBricks?: boolean;
   isOxygen?: boolean;
@@ -163,6 +180,8 @@ export type {
   BreakpointEntry,
   FontFamilyEntry,
   ColorShade,
+  ShadeCurvePoint,
+  ShadeCurveHandles,
   ColorEntry,
   StepOverride,
   ManualStepValue,

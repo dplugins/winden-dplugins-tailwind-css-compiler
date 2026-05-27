@@ -25,5 +25,3 @@ class SettingsPageBodyClass
         return $classes;
     }
 }
-
-new SettingsPageBodyClass();

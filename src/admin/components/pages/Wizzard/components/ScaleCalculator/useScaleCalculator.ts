@@ -4,14 +4,21 @@
  * Manages state and wires up calculations to UI
  */
 
-import { useState, useEffect, useCallback, useContext } from "react";
+import { useEffect, useCallback, useContext } from "react";
 import { WizzardContext } from "@hooks/wizzardContext";
 import {
   calculateAllClamps,
-  parseSteps,
-  initializeClampOverrides,
+  createEmptyClampOverride,
+  createEmptyManualValue,
+  generateUniqueStepName,
   updateClampOverride,
   clearClampOverrideField,
+  renameStepInList,
+  insertStepInList,
+  moveStepToIndex,
+  removeStepFromList,
+  renameStepRecord,
+  removeStepRecord,
   appendUnit,
 } from "./calculations";
 import type { ClampOverride, ClampInfo, ScaleState, StateUpdate, ScaleStateValue } from "./types";
@@ -36,14 +43,6 @@ export function useScaleCalculator({
   setClamps,
 }: UseScaleCalculatorProps) {
   const { localWizzardState, setLocalWizzardState } = useContext(WizzardContext);
-
-  // Local state for raw steps input (before parsing)
-  const [rawStepsInput, setRawStepsInput] = useState(state?.steps?.join(", ") || "");
-
-  // Sync raw input when steps change externally
-  useEffect(() => {
-    setRawStepsInput(state?.steps?.join(", ") || "");
-  }, [state?.steps]);
 
   // Recalculate clamps when relevant state changes
   useEffect(() => {
@@ -75,20 +74,53 @@ export function useScaleCalculator({
     updateStates,
   ]);
 
+  const syncStepCollections = useCallback(({
+    steps,
+    overrides,
+    manualValues,
+    baseStep,
+  }: {
+    steps: string[];
+    overrides: Record<string, ClampOverride>;
+    manualValues: NonNullable<ScaleState["manualValues"]>;
+    baseStep: string;
+  }) => {
+    const nextUpdates: StateUpdate[] = [
+      { key: "steps", value: steps },
+      { key: "overrides", value: overrides },
+      { key: "manualValues", value: manualValues },
+      { key: "baseStep", value: baseStep },
+    ];
+
+    if (!state?.manualMode) {
+      const nextState: ScaleState = {
+        ...state,
+        steps,
+        overrides,
+        manualValues,
+        baseStep,
+      };
+      const {
+        clamps: nextClamps,
+        stepValues,
+        minMaxValues,
+      } = calculateAllClamps(nextState, overrides);
+
+      setClampOverrides(overrides);
+      setClamps(nextClamps);
+      nextUpdates.push(
+        { key: "stepValues", value: stepValues },
+        { key: "minMaxValues", value: minMaxValues }
+      );
+    } else {
+      setClampOverrides(overrides);
+      setClamps({});
+    }
+
+    updateStates(nextUpdates);
+  }, [state, setClampOverrides, setClamps, updateStates]);
+
   // --- Event Handlers ---
-
-  const handleStepsChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    setRawStepsInput(e.target.value);
-  }, []);
-
-  const handleStepsBlur = useCallback(() => {
-    const newSteps = parseSteps(rawStepsInput);
-    updateState("steps", newSteps);
-
-    // Initialize overrides for new steps
-    setClampOverrides((prev) => initializeClampOverrides(newSteps, prev));
-    setClamps((prev) => initializeClampOverrides(newSteps, prev) as Record<string, ClampInfo>);
-  }, [rawStepsInput, updateState, setClampOverrides, setClamps]);
 
   const handleBaseStepChange = useCallback((value: string) => {
     updateState("baseStep", value);
@@ -110,11 +142,23 @@ export function useScaleCalculator({
     updateState("overrides", newOverrides);
   }, [clampOverrides, setClampOverrides, updateState]);
 
-  const handleClampEnabledChange = useCallback((step: string, enabled: boolean) => {
+  const handleStepEnabledChange = useCallback((step: string, enabled: boolean) => {
+    if (state?.manualMode) {
+      const newManualValues = {
+        ...state?.manualValues,
+        [step]: {
+          ...createEmptyManualValue(state?.manualValues?.[step]),
+          enabled,
+        },
+      };
+      updateState("manualValues", newManualValues);
+      return;
+    }
+
     const newOverrides = updateClampOverride(clampOverrides, step, "enabled", enabled);
     setClampOverrides(newOverrides);
     updateState("overrides", newOverrides);
-  }, [clampOverrides, setClampOverrides, updateState]);
+  }, [clampOverrides, setClampOverrides, state?.manualMode, state?.manualValues, updateState]);
 
   const clearMinBase = useCallback((step: string) => {
     const newOverrides = clearClampOverrideField(clampOverrides, step, "minBase");
@@ -140,25 +184,124 @@ export function useScaleCalculator({
     updateState("manualValues", newManualValues);
   }, [state?.manualValues, updateState]);
 
+  const handleStepRename = useCallback((currentStep: string, nextStepName: string) => {
+    const trimmedStepName = nextStepName.trim();
+    const currentSteps = state?.steps || [];
+
+    if (!trimmedStepName || trimmedStepName === currentStep) {
+      return false;
+    }
+
+    if (currentSteps.includes(trimmedStepName)) {
+      return false;
+    }
+
+    const nextSteps = renameStepInList(currentSteps, currentStep, trimmedStepName);
+    const nextOverrides = renameStepRecord(clampOverrides, currentStep, trimmedStepName);
+    const nextManualValues = renameStepRecord(state?.manualValues || {}, currentStep, trimmedStepName);
+    const nextBaseStep = state?.baseStep === currentStep
+      ? trimmedStepName
+      : (state?.baseStep || trimmedStepName);
+
+    syncStepCollections({
+      steps: nextSteps,
+      overrides: nextOverrides,
+      manualValues: nextManualValues,
+      baseStep: nextBaseStep,
+    });
+
+    return true;
+  }, [clampOverrides, state?.baseStep, state?.manualValues, state?.steps, syncStepCollections]);
+
+  const handleAddStep = useCallback((referenceStep?: string, position: "above" | "below" = "below") => {
+    const currentSteps = state?.steps || [];
+    const fallbackName = referenceStep ? generateUniqueStepName(currentSteps, referenceStep) : generateUniqueStepName(currentSteps);
+    const referenceIndex = referenceStep ? currentSteps.indexOf(referenceStep) : currentSteps.length - 1;
+    const insertIndex = referenceIndex < 0
+      ? currentSteps.length
+      : position === "above"
+        ? referenceIndex
+        : referenceIndex + 1;
+    const nextSteps = insertStepInList(currentSteps, insertIndex, fallbackName);
+    const nextOverrides = {
+      ...clampOverrides,
+      [fallbackName]: createEmptyClampOverride(),
+    };
+    const nextManualValues = {
+      ...state?.manualValues,
+      [fallbackName]: createEmptyManualValue(),
+    };
+    const nextBaseStep = state?.baseStep || fallbackName;
+
+    syncStepCollections({
+      steps: nextSteps,
+      overrides: nextOverrides,
+      manualValues: nextManualValues,
+      baseStep: nextBaseStep,
+    });
+  }, [clampOverrides, state?.baseStep, state?.manualValues, state?.steps, syncStepCollections]);
+
+  const handleDeleteStep = useCallback((targetStep: string) => {
+    const currentSteps = state?.steps || [];
+    const targetIndex = currentSteps.indexOf(targetStep);
+
+    if (targetIndex < 0) {
+      return;
+    }
+
+    const nextSteps = removeStepFromList(currentSteps, targetStep);
+    const nextOverrides = removeStepRecord(clampOverrides, targetStep);
+    const nextManualValues = removeStepRecord(state?.manualValues || {}, targetStep);
+
+    let nextBaseStep = state?.baseStep || "";
+    if (!nextSteps.length) {
+      nextBaseStep = "";
+    } else if (state?.baseStep === targetStep) {
+      nextBaseStep = nextSteps[Math.max(0, targetIndex - 1)] || nextSteps[0];
+    }
+
+    syncStepCollections({
+      steps: nextSteps,
+      overrides: nextOverrides,
+      manualValues: nextManualValues,
+      baseStep: nextBaseStep,
+    });
+  }, [clampOverrides, state?.baseStep, state?.manualValues, state?.steps, syncStepCollections]);
+
+  const handleStepReorder = useCallback((sourceStep: string, targetIndex: number) => {
+    const currentSteps = state?.steps || [];
+    const nextSteps = moveStepToIndex(currentSteps, sourceStep, targetIndex);
+
+    if (nextSteps === currentSteps) {
+      return;
+    }
+
+    syncStepCollections({
+      steps: nextSteps,
+      overrides: clampOverrides,
+      manualValues: state?.manualValues || {},
+      baseStep: state?.baseStep || "",
+    });
+  }, [clampOverrides, state?.baseStep, state?.manualValues, state?.steps, syncStepCollections]);
+
   return {
     // Context
     localWizzardState,
     setLocalWizzardState,
 
-    // Local state
-    rawStepsInput,
-
     // Handlers
-    handleStepsChange,
-    handleStepsBlur,
     handleBaseStepChange,
     handleRemSizeChange,
     handleMinBaseChange,
     handleMaxBaseChange,
-    handleClampEnabledChange,
+    handleStepEnabledChange,
     clearMinBase,
     clearMaxBase,
     handleManualValueChange,
+    handleStepRename,
+    handleAddStep,
+    handleDeleteStep,
+    handleStepReorder,
 
     // Re-export utility for UI
     appendUnit,

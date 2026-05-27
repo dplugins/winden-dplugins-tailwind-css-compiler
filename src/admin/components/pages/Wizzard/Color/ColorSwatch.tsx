@@ -17,6 +17,26 @@ const ColorSwatch: React.FC<ColorSwatchProps> = ({ color, onChange }) => {
     <Swatch
       color={tinycolor(color).toHexString()}
       onChange={onChange}
+      rectRender={({ title, checked, style, onClick }) => (
+        <div
+          title={title}
+          onClick={onClick}
+          style={{ ...style, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+        >
+          {checked && (
+            <div
+              style={{
+                width: 10,
+                height: 10,
+                borderRadius: '50%',
+                backgroundColor: '#fff',
+                border: '2px solid #000',
+                boxSizing: 'border-box',
+              }}
+            />
+          )}
+        </div>
+      )}
       colors={[
         '#D32F2F', '#C2185B', '#7B1FA2', '#512DA8', '#303F9F',
         '#1976D2', '#0288D1', '#0097A7', '#00796B', '#388E3C',

@@ -39,6 +39,55 @@ class Admin
     {
         // Use wp_enqueue_scripts for proper script registration
         add_action('admin_enqueue_scripts', [$this, 'enqueue_inline_scripts']);
+
+        // On the Winden settings page only, dequeue scripts from other plugins
+        // / WP core packages we don't need. Each registered handle is a 304
+        // round-trip on reload even when cached; on busy sites this stacks to
+        // hundreds of requests and seconds of validation time. Priority 9999
+        // runs after every other plugin has had its turn to enqueue.
+        add_action('admin_enqueue_scripts', [$this, 'dequeue_unneeded_scripts'], 9999);
+    }
+
+    /**
+     * Strip noise on the Winden settings page (`toplevel_page_winden`).
+     *
+     * Allowlist approach: keep WP core essentials (jQuery, admin bar, common),
+     * keep React + wp-element (Winden's hard deps), keep anything Winden owns
+     * (handles starting with `winden`). Dequeue everything else.
+     *
+     * Reversible: comment out the add_action above and the noise comes back.
+     */
+    public function dequeue_unneeded_scripts($hook)
+    {
+        if ($hook !== 'toplevel_page_winden') {
+            return;
+        }
+
+        global $wp_scripts;
+        if (!isset($wp_scripts) || empty($wp_scripts->queue)) {
+            return;
+        }
+
+        $keep = [
+            // jQuery family — admin UI bits (notices, screen options) still need it
+            'jquery', 'jquery-core', 'jquery-migrate', 'jquery-ui-core',
+            // WordPress core admin essentials
+            'common', 'admin-bar', 'wp-pointer', 'utils',
+            // React + Winden's declared deps from index.asset.php
+            'react', 'react-dom', 'wp-element',
+            // wp-element's transitive deps (WordPress hands these out anyway)
+            'wp-polyfill', 'wp-hooks', 'wp-i18n', 'wp-dom-ready', 'wp-escape-html',
+        ];
+
+        foreach ((array) $wp_scripts->queue as $handle) {
+            if (in_array($handle, $keep, true)) {
+                continue;
+            }
+            if (strpos($handle, 'winden') === 0) {
+                continue; // any winden-*
+            }
+            wp_dequeue_script($handle);
+        }
     }
 
     /**

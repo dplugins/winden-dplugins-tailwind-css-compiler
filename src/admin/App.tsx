@@ -8,6 +8,7 @@ import type { WizzardState } from '@/types/wizzard';
 import { WizzardContext } from '@hooks/wizzardContext';
 import { useWizzardContent } from '@hooks/wizzard';
 import { useAutocomplete } from '@hooks/useAutocomplete';
+import { useUnsavedChangesGuard } from '@hooks/useUnsavedChangesGuard';
 
 // Contexts
 import { useEditorContext } from '@/contexts/EditorContext';
@@ -19,6 +20,7 @@ import { setupMonaco } from '@/config/monacoSetup';
 import Header from '@parts/Header';
 import License from '@pages/License';
 import { TabContent } from '@parts/TabContent';
+import StaleSaveBanner from '@parts/StaleSaveBanner';
 
 // Import global type declarations
 import '@/types/global.d.ts';
@@ -83,6 +85,15 @@ function App() {
         }
     }, [contentData, setLocalWizzardState, setJsContent, setScssContent]);
 
+    // Warn the user before closing the tab / navigating away with
+    // unsaved edits. See dplugins/winden-pro#13.
+    useUnsavedChangesGuard({
+        jsContent,
+        scssContent,
+        wizzard: localWizzardState,
+        contentLoaded: !!contentData,
+    });
+
     // Set Tailwind version
     useEffect(() => {
         window.settings_tailwind_version = 'v4';
@@ -142,6 +153,7 @@ function App() {
                 <License setLicenseState={setLicenseState} />
             ) : (
                 <>
+                    <StaleSaveBanner />
                     <Header
                         onTabClick={onTabClick}
                         tabPostfix={(settings as any)?.css_preprocessor === 'scss' ? "(SCSS)" : "(CSS)"}

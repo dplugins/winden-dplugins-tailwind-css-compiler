@@ -238,7 +238,7 @@ export function waitForAutocomplete(
     if (retries < maxRetries) {
       setTimeout(check, interval);
     } else {
-      console.warn('[Winden] Autocomplete not available after max retries');
+      console.warn('[winden:classes-core] Autocomplete not available after max retries');
     }
   };
 

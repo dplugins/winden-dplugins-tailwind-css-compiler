@@ -185,6 +185,7 @@ interface ScaleValuesGroupProps {
   type?: "number" | "select";
   hideMax?: boolean;
   disabled?: boolean;
+  className?: string;
 }
 
 /**
@@ -211,6 +212,7 @@ const ScaleValuesGroup: React.FC<ScaleValuesGroupProps> = ({
   type = "number",
   hideMax = false,
   disabled = false,
+  className = "",
 }) => {
   const fieldClassName = [
     "grid w-full gap-1 p-1 bg-base-2 border border-border rounded-md",
@@ -218,8 +220,7 @@ const ScaleValuesGroup: React.FC<ScaleValuesGroupProps> = ({
   ].join(" ");
 
   return (
-    <div className="mb-12 flex w-full flex-col gap-6">
-      <h2 className="text-xl font-bold">{title}</h2>
+    <div className={`flex w-full flex-col gap-6 ${className}`.trim()}>
       <div className={fieldClassName}>
         {type === "select" ? (
           <RatioField

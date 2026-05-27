@@ -14,6 +14,7 @@ import { ClassSourceList } from "./ClassSourceList";
 import { ReactComponent as HelpIcon } from "@/assets/icons/helpIcon.svg";
 import { ReactComponent as CogIcon } from "@/assets/icons/GearIcon.svg";
 import { ReactComponent as ShadowIcon } from "@/assets/icons/ShadowIcon.svg";
+import { MINIMAL_BASE_CSS } from "@/const/contentDefaults";
 import { useSaveShortcut } from "../../functions/Shortcuts";
 import { formatDate } from "../../functions/Helpers";
 import {
@@ -217,12 +218,22 @@ const Nav: React.FC = () => {
     wizzardContentRef.current = updatedState;
     await handleSave(jsContentRef, scssContentRef, wizzardContentRef, settings);
     setLoading(false);
+    // When the Style tab is hidden via Settings → editor_tabs, the actual
+    // cache-producing compile (handleFetchedClasses → tailwindify) must
+    // also see the minimum baseline. Without this swap the React-side
+    // scssContent (user's olive rule) leaks back into output.css even
+    // though HandleSave wrote the minimum to input.css.
+    const styleTabVisible = !Array.isArray((settings as any)?.editor_tabs)
+      || (settings as any).editor_tabs.find((t: any) => t?.value === 'style')?.visible !== false;
+    const effectiveScss = styleTabVisible
+      ? (scssContentRef?.current ?? scssContent)
+      : MINIMAL_BASE_CSS;
     // Always use v4
     fetchClasses(setCacheInProgress, (classes) =>
       handleFetchedClasses(
         classes,
         scriptLoaded,
-        scssContentRef?.current ?? scssContent,
+        effectiveScss,
         jsContent,
         setCacheInProgress,
         fetchCacheStatus,
@@ -234,6 +245,15 @@ const Nav: React.FC = () => {
       )
     );
   }, [jsContentRef, scssContentRef, wizzardContentRef, settings, scriptLoaded, scssContent, jsContent, localWizzardState]);
+
+  // Listen for the StaleSaveBanner "Apply my changes" action. HandleSave
+  // already advanced _serverUpdatedAt to the server's value when the
+  // conflict was detected, so this retry passes the stale-guard check.
+  useEffect(() => {
+    const onApply = () => handleSaveAndFetchClasses();
+    window.addEventListener('winden:apply-stale-save', onApply);
+    return () => window.removeEventListener('winden:apply-stale-save', onApply);
+  }, [handleSaveAndFetchClasses]);
 
   useSaveShortcut(
     handleSaveAndFetchClasses,
@@ -307,11 +327,12 @@ const Nav: React.FC = () => {
         ) : cacheStatus?.status === "failed" ? (
           <Button
             variant="outline"
-            className="!border-[#991b1b] !gap-1 !border-[1px] !shadow-none !border-solid !text-[#991b1b] !bg-[#fef2f2]"
+            className="!border-danger !text-danger !bg-danger/10 !font-semibold !gap-2 hover:!bg-danger/15"
             onClick={openModal}
+            aria-label="Cache error — open details"
           >
+            <span aria-hidden="true" className="text-base leading-none">⚠</span>
             Cache Error
-            <HelpIcon style={{ width: '18px', height: '18px' }} />
           </Button>
         ) : (
           <Button variant="outline">No Cache</Button>

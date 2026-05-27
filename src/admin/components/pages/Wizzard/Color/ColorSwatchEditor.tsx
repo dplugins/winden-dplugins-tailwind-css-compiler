@@ -5,6 +5,7 @@ import RgbSliders from "./SlidersRGB";
 import HslSliders from "./SlidersHSL";
 import OklchSliders from "./SlidersOKLCH";
 import ColorSwatch from "./ColorSwatch";
+import InputWithResetButton from "@el/InputWithResetButton";
 import { colorModeChangeRGB, handleHslChange, parseColorInput } from "./colorModelsConvert";
 
 interface RGB {
@@ -87,6 +88,14 @@ interface ColorSwatchEditorProps {
   position?: string;
   onColorChange?: ((hex: string) => void) | null;
   colorFormat?: string;
+  readOnly?: boolean;
+  fullWidth?: boolean;
+  hexInputValue?: string;
+  onHexInputChange?: (value: string) => void;
+  onHexInputBlur?: () => void;
+  onHexInputFocus?: () => void;
+  onHexInputReset?: () => void;
+  showHexReset?: boolean;
 }
 
 /**
@@ -118,7 +127,15 @@ const ColorSwatchEditor: React.FC<ColorSwatchEditorProps> = ({
   title = "Edit Color",
   position = "right-0",
   onColorChange = null,
-  colorFormat = "hex"
+  colorFormat = "hex",
+  readOnly = false,
+  fullWidth = false,
+  hexInputValue,
+  onHexInputChange,
+  onHexInputBlur,
+  onHexInputFocus,
+  onHexInputReset,
+  showHexReset = false
 }) => {
   const [showColorEdit, setShowColorEdit] = useState(false);
   const editorRef = useRef<HTMLDivElement>(null);
@@ -360,18 +377,14 @@ const ColorSwatchEditor: React.FC<ColorSwatchEditorProps> = ({
   };
 
   return (
-    <div className="relative" ref={editorRef}>
+    <div className={`relative ${fullWidth ? 'w-full h-full' : ''}`} ref={editorRef}>
       <div
-        className="h-10 w-12 min-w-12 rounded-md cursor-pointer hover:scale-105 transition-transform"
+        className={`${fullWidth ? 'w-full h-full' : 'h-10 w-12 min-w-12'} rounded-md ${readOnly ? '' : 'cursor-pointer hover:scale-105 transition-transform'}`}
         style={{
           backgroundColor: getBackgroundColor(),
-          ...(isMatched && {
-            outline: "2px solid #9e9e9e",
-            outlineOffset: "2px",
-          }),
         }}
-        onClick={() => setShowColorEdit(!showColorEdit)}
-        title={`Click to edit ${title.toLowerCase()}`}
+        onClick={readOnly ? undefined : () => setShowColorEdit(!showColorEdit)}
+        title={readOnly ? `${title} (read-only)` : `Click to edit ${title.toLowerCase()}`}
       />
       {showColorEdit && (
         <div className={`absolute top-[100%] ${position} z-50 bg-base-1 border border-input rounded-md shadow-lg p-4 min-w-[300px]`}>
@@ -400,6 +413,20 @@ const ColorSwatchEditor: React.FC<ColorSwatchEditorProps> = ({
 
             {/* Show other sliders for non-HEX formats */}
             {colorFormat.toLowerCase() !== 'hex' && renderSliders()}
+
+            {/* Hex/color value input (inside popup for shade editing) */}
+            {onHexInputChange && hexInputValue !== undefined && (
+              <InputWithResetButton
+                value={hexInputValue}
+                onChange={(e) => onHexInputChange(e.target.value)}
+                onBlur={onHexInputBlur}
+                onFocus={onHexInputFocus}
+                onReset={onHexInputReset ?? (() => { })}
+                showReset={showHexReset}
+                placeholder="HEX, RGB, HSL, OKLCH"
+                title="Enter color in any format: #527C9D, rgb(82 124 157), hsl(206deg 31% 47%), oklch(0.57 0.12 206)"
+              />
+            )}
           </div>
         </div>
       )}

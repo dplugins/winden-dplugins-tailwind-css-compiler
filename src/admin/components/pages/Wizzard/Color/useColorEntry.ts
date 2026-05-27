@@ -1,7 +1,7 @@
 /**
  * useColorEntry Hook
- * Thin React wrapper around pure calculation functions
- * Manages state and wires up calculations to UI
+ * Thin React wrapper around pure calculation functions.
+ * Manages state and wires up shade generation (curve-based) to UI.
  */
 
 import { useState, useEffect, useCallback, useContext, useRef } from "react";
@@ -12,6 +12,7 @@ import {
   roundRgbColor,
   generateColorShades,
   createUpdatedEntry,
+  resolveEntryCurves,
   getColorNameFromHex,
   parseAndValidateColor,
   getColorDisplayString,
@@ -23,6 +24,13 @@ import {
   getSpecialUtilityAbbreviation,
 } from "./colorEntryCalculations";
 import type { RGB, HSL } from "./colorEntryCalculations";
+import {
+  createDefaultCurveHandles,
+  normalizeCurveHandles,
+  getShadeBaseIndexForColor,
+  type CurveProperty,
+  type ShadeCurveHandles,
+} from "./shadeCurves";
 import type { ColorEntry as ColorEntryType, ColorShade } from "@/types/wizzard";
 
 interface UseColorEntryProps {
@@ -48,9 +56,14 @@ export function useColorEntry({
   );
 
   // Shade state
-  const [shades, setShades] = useState<number>(entry?.shades?.length ?? 10);
-  const [minLightness, setMinLightness] = useState<number>(entry.minLightness ?? 5);
-  const [maxLightness, setMaxLightness] = useState<number>(entry.maxLightness ?? 95);
+  const initialShadeCount = entry?.shades?.length ?? 11;
+  const initialCurves = resolveEntryCurves(entry, initialShadeCount);
+
+  const [shades, setShades] = useState<number>(initialShadeCount);
+  const [baseIndex, setBaseIndex] = useState<number>(initialCurves.baseIndex);
+  const [lightnessCurve, setLightnessCurve] = useState<ShadeCurveHandles>(initialCurves.lightnessCurve);
+  const [saturationCurve, setSaturationCurve] = useState<ShadeCurveHandles>(initialCurves.saturationCurve);
+  const [hueCurve, setHueCurve] = useState<ShadeCurveHandles>(initialCurves.hueCurve);
   const [shadesList, setShadesList] = useState<ColorShade[]>(entry.shades || []);
   const [enableShades, setEnableShades] = useState<boolean>(
     entry.enableShades !== undefined ? entry.enableShades : true
@@ -74,27 +87,20 @@ export function useColorEntry({
   const isSpecialUtility = isSpecialUtilityColor(entry);
   const activeTab = colorFormat === "rgb" ? "RGB" : "HSL";
 
-  // Sync HSL when entry hex changes
   useEffect(() => {
     setHsl(parseHexToHsl(entry.hex));
   }, [entry.hex]);
 
-  // Update input value when entry hex or color format changes
   useEffect(() => {
     setInputValue(getColorDisplayString(entry.hex, colorFormat));
   }, [entry.hex, colorFormat]);
 
-  // Keep local shades list in sync with entry from context/store
   useEffect(() => {
     if (entry.shades) {
       setShadesList(entry.shades);
     }
   }, [entry.shades]);
 
-  // NOTE: Removed auto-sync useEffect that was causing infinite loop
-  // Individual handlers (toggleLock, handleColorNameChange, etc.) already call updateColorEntry when needed
-
-  // Update input value when color format changes
   useEffect(() => {
     if (color) {
       const hexColor = tinycolor(color).toHexString();
@@ -108,37 +114,42 @@ export function useColorEntry({
     (
       hexColor: string,
       shadesCount: number,
-      minLight: number,
-      maxLight: number,
+      nextBaseIndex: number,
+      nextLightnessCurve: ShadeCurveHandles,
+      nextSaturationCurve: ShadeCurveHandles,
+      nextHueCurve: ShadeCurveHandles,
       additionalUpdates: Partial<ColorEntryType> | null = null
     ) => {
       const generatedShades = generateColorShades(
         hexColor,
         shadesCount,
-        minLight,
-        maxLight,
+        nextBaseIndex,
+        nextLightnessCurve,
+        nextSaturationCurve,
+        nextHueCurve,
         shadesList
       );
 
       setShadesList(generatedShades);
 
       const entryUpdate = createUpdatedEntry(entry, generatedShades, {
-        minLightness: minLight,
-        maxLightness: maxLight,
+        baseIndex: nextBaseIndex,
+        lightnessCurve: nextLightnessCurve,
+        saturationCurve: nextSaturationCurve,
+        hueCurve: nextHueCurve,
         isLocked,
         colorFormat,
         ...(additionalUpdates?.name && { colorName: additionalUpdates.name }),
         ...(additionalUpdates?.hex && { hexColor: additionalUpdates.hex }),
       });
 
-      // Prevent callers from accidentally overriding freshly generated shade data.
       const finalUpdate = additionalUpdates
         ? (() => {
-            const { shades: _ignoredShades, originalGeneratedColors: _ignoredOriginal, ...safeAdditionalUpdates } = additionalUpdates as Partial<ColorEntryType> & {
+            const { shades: _s, originalGeneratedColors: _o, ...safe } = additionalUpdates as Partial<ColorEntryType> & {
               shades?: ColorShade[];
               originalGeneratedColors?: string[];
             };
-            return { ...entryUpdate, ...safeAdditionalUpdates };
+            return { ...entryUpdate, ...safe };
           })()
         : entryUpdate;
 
@@ -158,7 +169,6 @@ export function useColorEntry({
       const hasHexChanged = hexColor !== currentEntryHex;
       const hasNameChanged = entry.name !== nextColorName;
 
-      // Ignore duplicate updates from drag/mouse events that resolve to the same color.
       if (!hasHexChanged && !hasNameChanged) {
         return;
       }
@@ -170,14 +180,17 @@ export function useColorEntry({
         setColorName(nextColorName);
       }
 
-      updateShades(hexColor, shades, minLightness, maxLightness, {
+      const nextBaseIndex = getShadeBaseIndexForColor(hexColor, shades);
+      setBaseIndex(nextBaseIndex);
+
+      updateShades(hexColor, shades, nextBaseIndex, lightnessCurve, saturationCurve, hueCurve, {
         name: nextColorName,
         hex: hexColor,
         isLocked,
         colorFormat,
       });
     },
-    [entry, shades, minLightness, maxLightness, isLocked, colorFormat, updateShades]
+    [entry, shades, lightnessCurve, saturationCurve, hueCurve, isLocked, colorFormat, updateShades]
   );
 
   // --- Event Handlers ---
@@ -226,7 +239,6 @@ export function useColorEntry({
   const handleColorNameChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const newName = e.target.value;
     setColorName(newName);
-    // Sync to parent
     if (typeof updateColorEntry === 'function') {
       updateColorEntry(entry.id, { name: newName });
     }
@@ -248,7 +260,6 @@ export function useColorEntry({
   const toggleLock = useCallback(() => {
     setIsLocked((prev) => {
       const newValue = !prev;
-      // Sync to parent
       if (typeof updateColorEntry === 'function') {
         updateColorEntry(entry.id, { isLocked: newValue });
       }
@@ -267,24 +278,28 @@ export function useColorEntry({
     }
   }, [entry.id, updateColorEntry]);
 
-  // Debounced shade regeneration for slider inputs (shade count, lightness range).
-  // Local state updates immediately for responsive UI; the expensive
-  // generateColorShades + context update is batched via a short timeout.
+  // Debounced regeneration (curve drag fires many updates)
   const shadeDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const debouncedUpdateShades = useCallback(
-    (hexColor: string, count: number, minL: number, maxL: number) => {
+    (
+      hexColor: string,
+      count: number,
+      nextBaseIndex: number,
+      nextLightness: ShadeCurveHandles,
+      nextSaturation: ShadeCurveHandles,
+      nextHue: ShadeCurveHandles
+    ) => {
       if (shadeDebounceRef.current) {
         clearTimeout(shadeDebounceRef.current);
       }
       shadeDebounceRef.current = setTimeout(() => {
-        updateShades(hexColor, count, minL, maxL);
-      }, 150);
+        updateShades(hexColor, count, nextBaseIndex, nextLightness, nextSaturation, nextHue);
+      }, 60);
     },
     [updateShades]
   );
 
-  // Clean up pending debounce on unmount
   useEffect(() => {
     return () => {
       if (shadeDebounceRef.current) clearTimeout(shadeDebounceRef.current);
@@ -294,33 +309,58 @@ export function useColorEntry({
   const handleShadesChange = useCallback(
     (value: number) => {
       setShades(value);
-      debouncedUpdateShades(tinycolor(color).toHexString(), value, minLightness, maxLightness);
+      debouncedUpdateShades(
+        tinycolor(color).toHexString(),
+        value,
+        baseIndex,
+        lightnessCurve,
+        saturationCurve,
+        hueCurve
+      );
     },
-    [color, minLightness, maxLightness, debouncedUpdateShades]
+    [color, baseIndex, lightnessCurve, saturationCurve, hueCurve, debouncedUpdateShades]
   );
 
-  const handleMinLightnessChange = useCallback(
-    (value: number) => {
-      setMinLightness(value);
-      debouncedUpdateShades(tinycolor(color).toHexString(), shades, value, maxLightness);
+  const handleCurveChange = useCallback(
+    (property: CurveProperty, curve: ShadeCurveHandles) => {
+      const normalized = normalizeCurveHandles(curve, shades, baseIndex);
+      let nextLightness = lightnessCurve;
+      let nextSaturation = saturationCurve;
+      let nextHue = hueCurve;
+      if (property === "lightness") {
+        nextLightness = normalized;
+        setLightnessCurve(normalized);
+      } else if (property === "saturation") {
+        nextSaturation = normalized;
+        setSaturationCurve(normalized);
+      } else {
+        nextHue = normalized;
+        setHueCurve(normalized);
+      }
+      debouncedUpdateShades(
+        tinycolor(color).toHexString(),
+        shades,
+        baseIndex,
+        nextLightness,
+        nextSaturation,
+        nextHue
+      );
     },
-    [color, shades, maxLightness, debouncedUpdateShades]
+    [color, shades, baseIndex, lightnessCurve, saturationCurve, hueCurve, debouncedUpdateShades]
   );
 
-  const handleMaxLightnessChange = useCallback(
-    (value: number) => {
-      setMaxLightness(value);
-      debouncedUpdateShades(tinycolor(color).toHexString(), shades, minLightness, value);
+  const handleResetCurve = useCallback(
+    (property: CurveProperty) => {
+      const defaults = createDefaultCurveHandles(shades, baseIndex);
+      handleCurveChange(property, defaults);
     },
-    [color, shades, minLightness, debouncedUpdateShades]
+    [shades, baseIndex, handleCurveChange]
   );
 
   return {
-    // Context
     localWizzardState,
     setLocalWizzardState,
 
-    // Color state
     color,
     setColor,
     hsl,
@@ -328,17 +368,17 @@ export function useColorEntry({
     inputValue,
     setInputValue,
 
-    // Shade state
     shades,
-    minLightness,
-    maxLightness,
+    baseIndex,
+    lightnessCurve,
+    saturationCurve,
+    hueCurve,
     shadesList,
     enableShades,
     setEnableShades: handleEnableShadesChange,
     reverseShades,
     setReverseShades,
 
-    // UI state
     colorName,
     isEditing,
     isLocked,
@@ -346,13 +386,11 @@ export function useColorEntry({
     colorFormat,
     setColorFormat,
 
-    // Derived values
     isSystemLocked,
     colorSource,
     isSpecialUtility,
     activeTab,
 
-    // Handlers
     updateColor,
     handleColorInputChange,
     handleInputBlur,
@@ -365,10 +403,9 @@ export function useColorEntry({
     toggleLock,
     toggleExpand,
     handleShadesChange,
-    handleMinLightnessChange,
-    handleMaxLightnessChange,
+    handleCurveChange,
+    handleResetCurve,
 
-    // Utilities
     isValidColorInput,
     getPlaceholderText,
     getSpecialUtilityAbbreviation,

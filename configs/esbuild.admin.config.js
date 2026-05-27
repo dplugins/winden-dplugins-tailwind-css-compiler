@@ -65,11 +65,12 @@ async function build() {
   try {
     console.log('🔨 Building admin UI...');
 
-    // Build Monaco workers (only CSS/SCSS)
+    // Build Monaco workers - only CSS/SCSS/LESS and fallback
+    // Winden only uses CSS/SCSS editing, not HTML/JSON/TypeScript
     await esbuild.build({
       entryPoints: {
-        'admin/css.worker': 'node_modules/monaco-editor/esm/vs/language/css/css.worker.js',
-        'admin/editor.worker': 'node_modules/monaco-editor/esm/vs/editor/editor.worker.js',
+        'admin/css.worker': './node_modules/monaco-editor/esm/vs/language/css/css.worker.js',
+        'admin/editor.worker': './node_modules/monaco-editor/esm/vs/editor/editor.worker.js',
       },
       bundle: true,
       outdir: 'build',
@@ -77,7 +78,7 @@ async function build() {
       minify: process.env.NODE_ENV === 'production',
       target: ['es2020'],
     });
-    console.log('  ✓ Built Monaco workers (CSS/SCSS only)');
+    console.log('  ✓ Built Monaco workers (css, editor)');
 
     // Then build the main application
     const result = await esbuild.build(buildOptions);
@@ -115,11 +116,12 @@ async function watch() {
   try {
     console.log('🔨 Building admin UI (watch mode)...');
 
-    // Build Monaco workers (only CSS/SCSS)
+    // Build Monaco workers - only CSS/SCSS/LESS and fallback
+    // Winden only uses CSS/SCSS editing, not HTML/JSON/TypeScript
     await esbuild.build({
       entryPoints: {
-        'admin/css.worker': 'node_modules/monaco-editor/esm/vs/language/css/css.worker.js',
-        'admin/editor.worker': 'node_modules/monaco-editor/esm/vs/editor/editor.worker.js',
+        'admin/css.worker': './node_modules/monaco-editor/esm/vs/language/css/css.worker.js',
+        'admin/editor.worker': './node_modules/monaco-editor/esm/vs/editor/editor.worker.js',
       },
       bundle: true,
       outdir: 'build',
@@ -127,7 +129,7 @@ async function watch() {
       minify: process.env.NODE_ENV === 'production',
       target: ['es2020'],
     });
-    console.log('  ✓ Built Monaco workers (CSS/SCSS only)');
+    console.log('  ✓ Built Monaco workers (css, editor)');
 
     // Create context with onRebuild callback
     const context = await esbuild.context({

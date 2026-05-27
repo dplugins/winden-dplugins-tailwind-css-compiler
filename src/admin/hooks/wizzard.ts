@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import type { WizzardState, WizzardContentResponse } from '@/types/wizzard'
 import { buildAjaxUrl } from '@/utils/ajaxUrl'
+import { setServerUpdatedAt } from '@functions/HandleSave'
 import '@/types/global.d.ts'
 
 /**
@@ -22,13 +23,22 @@ export function useWizzardContent() {
 
             if (!dbData.success) {
                 console.warn('No content found in database, using defaults');
-                // Return defaults on fresh install
+                // Fresh install — no server timestamp yet; treat the next save
+                // as the seed (HandleSave passes null and PHP skips the
+                // stale-write check when neither side has an updated_at).
+                setServerUpdatedAt(null);
                 return {
                     javascript: DEFAULT_JS_CONTENT,
                     scss: DEFAULT_CSS_CONTENT,
                     wizzard: null
                 };
             }
+
+            // Initialize the stale-write timestamp from the server response.
+            // HandleSave reads this on save so PHP can reject if anyone else
+            // saved between fetch and save. Missing this call (regression
+            // from the React-Query migration) made every save look stale.
+            setServerUpdatedAt(dbData.data.updated_at ?? null);
 
             const result = {
                 javascript: '',
@@ -78,6 +88,14 @@ export function useWizzardContent() {
         queryKey: ['wizzard-content'],
         queryFn: fetchContent,
         retry: 2,
-        staleTime: 1000 * 60 * 5, // 5 minutes
+        // The admin user is the only one editing — there's no out-of-band
+        // change to chase. Disable React Query's default refetch behaviours
+        // so the endpoint hits the server exactly once per page load
+        // (instead of 3–5× from mount + focus + reconnect events).
+        staleTime: Infinity,
+        gcTime: Infinity,
+        refetchOnMount: false,
+        refetchOnWindowFocus: false,
+        refetchOnReconnect: false,
     });
 }

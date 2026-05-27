@@ -11,6 +11,35 @@ use Winden\App\Helpers\FileWriter;
 
 class SaveContent
 {
+    /**
+     * 3-line minimum baseline used when the Style tab is hidden from
+     * the editor. Skips preflight on purpose so Gutenberg's own reset
+     * survives. Kept in sync with src/admin/const/contentDefaults.ts's
+     * MINIMAL_BASE_CSS.
+     */
+    const MINIMAL_BASE_CSS = "@layer theme, base, components, utilities;\n@import \"tailwindcss/theme.css\" layer(theme);\n@import \"tailwindcss/utilities.css\" layer(utilities);\n";
+
+    /**
+     * Returns false when the user has hidden the Style tab via
+     * Settings → editor_tabs. Used by the compile pipeline to swap
+     * the user's scss for MINIMAL_BASE_CSS without touching the
+     * stored content.
+     */
+    public static function isStyleTabVisible()
+    {
+        $options = get_option('winden_dplugins_options', []);
+        $tabs = isset($options['editor_tabs']) ? $options['editor_tabs'] : null;
+        if (!is_array($tabs)) {
+            return true;
+        }
+        foreach ($tabs as $tab) {
+            if (is_array($tab) && isset($tab['value']) && $tab['value'] === 'style') {
+                return !isset($tab['visible']) || $tab['visible'] !== false;
+            }
+        }
+        return true;
+    }
+
     public function __construct()
     {
         // Add AJAX action for saving content
@@ -25,7 +54,8 @@ class SaveContent
     {
         if (!defined('WP_DEBUG') || !WP_DEBUG) return;
         $ctx = $context ? ' ' . wp_json_encode($context) : '';
-        error_log("[Winden] [{$phase}] {$message}{$ctx}");
+        $scope = strtolower((string) $phase);
+        error_log("[winden:{$scope}] {$message}{$ctx}");
     }
 
     public function save_winden_content()
@@ -121,13 +151,31 @@ class SaveContent
             $default_style_tab_path = $winden_dir . '/style-tab.css';
             $default_input_path = $winden_dir . '/input.css';
 
-            // Build input.css content
-            $input_content = $scss;
+            // Build input.css content. When the user has hidden the Style
+            // tab via Settings → editor_tabs, the compile pipeline must
+            // not see the saved scss — otherwise leftover rules (e.g. a
+            // forgotten body { background: red }) keep producing output.
+            // We substitute MINIMAL_BASE_CSS only here; the user's scss
+            // stays in the DB and on style-tab.css so re-enabling the tab
+            // restores their content.
+            $style_tab_visible = self::isStyleTabVisible();
+            $base_scss = $style_tab_visible ? $scss : self::MINIMAL_BASE_CSS;
+            $input_content = $base_scss;
             if (isset($wizzard['configCode']) && !empty($wizzard['configCode'])) {
                 $input_content .= "\n\n" . $wizzard['configCode'];
             }
 
-            // Always save to default locations in uploads dir
+            // Always save to default locations in uploads dir.
+            // style-tab.css preserves the user's pure scss so React's
+            // useWizzardContent (which prefers the file over the DB)
+            // restores it correctly when the Style tab is re-enabled.
+            // input.css is what the compile-from-crawled fallback reads,
+            // so that one gets the substituted base when the tab is
+            // hidden. The hot-reload watcher still reads style-tab.css
+            // for in-editor previews — its preview may momentarily show
+            // the user's css while the tab is disabled, but the actual
+            // output.css for the frontend is correct because it goes
+            // through compile-from-crawled's setting check.
             file_put_contents($default_config_path, $javascript);
             file_put_contents($default_style_tab_path, $scss);
             file_put_contents($default_input_path, $input_content);
@@ -152,8 +200,6 @@ class SaveContent
                 \wp_mkdir_p(dirname($filtered_input_path));
                 file_put_contents($filtered_input_path, $input_content);
             }
-
-            $this->winden_log('Save', 'Content saved', ['updated_at' => $now]);
 
             // Respond with success and the new timestamp for stale-write tracking
             wp_send_json_success([

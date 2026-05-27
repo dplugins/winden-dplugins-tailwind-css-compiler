@@ -57,7 +57,7 @@ export class WindenSCSSError extends WindenCompilationError {
     const line = originalError.line || context.line;
     const column = originalError.column || context.column;
 
-    let message = `SCSS compilation failed: ${originalError.message}`;
+    let message = `The SCSS couldn't be compiled: ${originalError.message}`;
     if (line) {
       message += ` (line ${line}${column ? `, column ${column}` : ''})`;
     }
@@ -69,7 +69,7 @@ export class WindenSCSSError extends WindenCompilationError {
       {
         line,
         column,
-        suggestion: 'Check your SCSS syntax. Common issues: missing semicolons, unmatched braces, invalid nesting.',
+        suggestion: 'Look in the Style tab for a missing semicolon, an unclosed `{` or `}`, or an extra comma.',
         ...context
       }
     );
@@ -83,13 +83,13 @@ export class WindenSCSSError extends WindenCompilationError {
 export class WindenPluginError extends WindenCompilationError {
   constructor(pluginUrl, originalError, context = {}) {
     super(
-      `Failed to load plugin from ${pluginUrl}`,
+      `Couldn't load the plugin "${pluginUrl}"`,
       'PLUGIN_ERROR',
       'plugin',
       {
         pluginUrl,
         originalError: originalError.message,
-        suggestion: 'Check your internet connection and verify the plugin URL is correct. Ensure the URL points to a valid JavaScript module.',
+        suggestion: 'Check the spelling of the plugin name in your `@plugin` line, then try again.',
         ...context
       }
     );
@@ -103,11 +103,11 @@ export class WindenPluginError extends WindenCompilationError {
 export class WindenTailwindError extends WindenCompilationError {
   constructor(originalError, context = {}) {
     super(
-      `Tailwind compilation failed: ${originalError.message}`,
+      `Tailwind couldn't compile: ${originalError.message}`,
       'TAILWIND_ERROR',
       'tailwind',
       {
-        suggestion: 'Check your @theme directive syntax and ensure all custom properties are valid.',
+        suggestion: 'Look in your `@theme { ... }` block for a malformed value or property name.',
         ...context
       }
     );
@@ -121,11 +121,11 @@ export class WindenTailwindError extends WindenCompilationError {
 export class WindenBundlingError extends WindenCompilationError {
   constructor(originalError, context = {}) {
     super(
-      `CSS bundling failed: ${originalError.message}`,
+      `Couldn't bundle the CSS: ${originalError.message}`,
       'BUNDLING_ERROR',
       'bundling',
       {
-        suggestion: 'Check your @import directives and ensure all referenced files exist.',
+        suggestion: 'An `@import` path can\'t be found. Check the spelling and make sure the file exists.',
         ...context
       }
     );
@@ -139,12 +139,12 @@ export class WindenBundlingError extends WindenCompilationError {
 export class WindenConfigError extends WindenCompilationError {
   constructor(originalError, configPreview = '', context = {}) {
     super(
-      `Configuration loading failed: ${originalError.message}`,
+      `Couldn't load the Config: ${originalError.message}`,
       'CONFIG_ERROR',
       'config',
       {
         configPreview: configPreview.substring(0, 200) + (configPreview.length > 200 ? '...' : ''),
-        suggestion: 'Check your JavaScript config for syntax errors. Ensure exports are valid.',
+        suggestion: 'Look in the Config tab for a missing comma, bracket, or quote.',
         ...context
       }
     );
@@ -158,13 +158,13 @@ export class WindenConfigError extends WindenCompilationError {
 export class WindenStylesheetError extends WindenCompilationError {
   constructor(stylesheetId, originalError, context = {}) {
     super(
-      `Failed to load stylesheet: ${stylesheetId}`,
+      `Couldn't load the stylesheet "${stylesheetId}"`,
       'STYLESHEET_ERROR',
       'bundling',
       {
         stylesheetId,
         originalError: originalError.message,
-        suggestion: 'Verify the stylesheet path or URL is correct and accessible.',
+        suggestion: 'Check the file path or URL in the `@import` line.',
         ...context
       }
     );
@@ -181,7 +181,11 @@ export function formatError(error) {
   if (error instanceof WindenCompilationError) {
     return {
       success: false,
-      error: error.toString(),
+      // Single clean line for the message field — no embedded newlines.
+      // Rich, multi-line structured info lives in errorDetails so the UI
+      // can render it properly (title, message, hint, etc.) instead of
+      // dumping the whole toString() as one runtext blob.
+      error: error.message,
       errorDetails: error.toJSON()
     };
   }

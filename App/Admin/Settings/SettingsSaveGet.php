@@ -44,6 +44,8 @@ class SettingsSaveGet
         'css_preprocessor',
         'disable_dev_mode',
         'inline_compiled_css',
+
+        'editor_tabs',
     ];
 
     public function __construct()
@@ -107,5 +109,3 @@ class SettingsSaveGet
         wp_send_json_success($settings);
     }
 }
-
-new SettingsSaveGet();

@@ -1,264 +1,256 @@
 /**
  * Scale Step Row
- * Individual step row with inputs and preview
+ * Editable step row for calculator tables
  */
 
-import React from "react";
+import React, { useEffect, useState } from "react";
+import { Button } from "@el/Button";
 import { Input } from "@el/Input";
 import InputWithResetButton from "@el/InputWithResetButton";
 import { Switch } from "@el/Switch";
 import RadioButton from "@el/RadioButton";
+import { ReactComponent as DeleteOutlineOutlinedIcon } from "@/assets/icons/DeleteOutlineOutlinedIcon.svg";
 
-import type { ClampInfo, ClampOverride, ScaleState, ManualValue } from "./types";
+import type { ClampInfo, ScaleState } from "./types";
 
 interface ScaleStepRowProps {
   step: string;
-  stepIndex: number;
-  isLastStep: boolean;
+  isDragging: boolean;
+  showTopBorder?: boolean;
   font?: boolean;
   spacing?: boolean;
   borderRadius?: boolean;
   state: ScaleState;
   clamps: Record<string, ClampInfo>;
-  clampOverrides: Record<string, ClampOverride>;
   isStepEnabled: boolean;
-  minFontSizeValue: string | null;
-  maxFontSizeValue: string | null;
   onBaseStepChange: (value: string) => void;
+  onStepRename: (currentStep: string, nextStepName: string) => boolean;
   onMinBaseChange: (step: string, value: string) => void;
   onMaxBaseChange: (step: string, value: string) => void;
-  onClampEnabledChange: (step: string, enabled: boolean) => void;
+  onStepEnabledChange: (step: string, enabled: boolean) => void;
   onManualValueChange: (step: string, field: string, value: string) => void;
   onClearMinBase: (step: string) => void;
   onClearMaxBase: (step: string) => void;
+  onDeleteStep: (step: string) => void;
+  onStepDragStart: (step: string) => void;
+  onStepDragEnd: () => void;
 }
 
-export const ScaleStepRow: React.FC<ScaleStepRowProps> = ({
+const ScaleStepRowImpl: React.FC<ScaleStepRowProps> = ({
   step,
-  stepIndex,
-  isLastStep,
+  isDragging,
+  showTopBorder = false,
   font,
   spacing,
   borderRadius,
   state,
   clamps,
-  clampOverrides,
   isStepEnabled,
-  minFontSizeValue,
-  maxFontSizeValue,
   onBaseStepChange,
+  onStepRename,
   onMinBaseChange,
   onMaxBaseChange,
-  onClampEnabledChange,
+  onStepEnabledChange,
   onManualValueChange,
   onClearMinBase,
   onClearMaxBase,
+  onDeleteStep,
+  onStepDragStart,
+  onStepDragEnd,
 }) => {
+  const [draftStepName, setDraftStepName] = useState(step);
+
+  useEffect(() => {
+    setDraftStepName(step);
+  }, [step]);
+
+  const commitStepName = () => {
+    const didRename = onStepRename(step, draftStepName);
+    if (!didRename) {
+      setDraftStepName(step);
+    }
+  };
+
+  const sizeLabel = font
+    ? "Font Size"
+    : spacing
+      ? "Space Size"
+      : borderRadius
+        ? "Radius"
+        : "Value";
+
+  const valueLabel = state?.disableFluid ? sizeLabel : "MIN";
+  const showMaxField = !state?.disableFluid;
+
   return (
     <div
-      className={`flex items-center gap-4 border-b border-border border-opacity-30 pb-4 overflow-hidden min-h-[100px] ${
-        isLastStep ? "border-b-0 pb-0" : ""
+      className={`group relative bg-base-2 px-4 py-4 transition-colors ${
+        showTopBorder ? "border-t border-border" : ""
+      } ${
+        isDragging ? "opacity-60" : ""
       }`}
     >
-      {!state?.manualMode && (
-        <RadioButton
-          name="baseStep"
-          checked={state?.baseStep === step}
-          onChange={() => onBaseStepChange(step)}
-          label=""
-        />
-      )}
-      <div className="rounded-md border border-border bg-base-2 p-1 !max-w-[350px] !min-w-[350px] !w-[350px] flex items-center gap-1">
-        <div
-          className={`flex w-full gap-1 ${isStepEnabled ? "" : "opacity-50"}`}
+      <div
+        role="button"
+        tabIndex={0}
+        draggable
+        onDragStart={(e) => {
+          e.dataTransfer.effectAllowed = "move";
+          e.dataTransfer.setData("text/plain", step);
+          onStepDragStart(step);
+        }}
+        onDragEnd={() => {
+          onStepDragEnd();
+        }}
+        className="absolute -left-[12px]! top-1/2 z-10 flex h-10 w-6 -translate-y-1/2 cursor-grab items-center justify-center rounded-md border border-input bg-base-1 text-foreground/60 opacity-0 shadow-sm transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 active:cursor-grabbing"
+        aria-label={`Drag to reorder ${step}`}
+        title="Drag to reorder"
+      >
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 16 16"
+          fill="currentColor"
+          aria-hidden="true"
         >
-          <div className="relative flex w-full flex-col gap-1">
-            <label className="absolute -top-6 text-xs font-medium text-foreground/50">
-              {state?.disableFluid ? step.toUpperCase() : `MIN: ${step.toUpperCase()}`}
-            </label>
-            {state?.manualMode ? (
-              <Input
-                type="number"
-                value={state?.disableFluid
-                  ? (state?.manualValues?.[step]?.value || "")
-                  : (state?.manualValues?.[step]?.minValue || "")}
-                onChange={(e) => onManualValueChange(
-                  step,
-                  state?.disableFluid ? 'value' : 'minValue',
-                  e.target.value
-                )}
-                disabled={!isStepEnabled}
-                placeholder="Enter min value"
-                className="w-full"
-              />
-            ) : (
-              <InputWithResetButton
-                value={clamps[step]?.minBase || ""}
-                disabled={!isStepEnabled}
-                onChange={(e) => onMinBaseChange(step, e.target.value)}
-                onReset={() => onClearMinBase(step)}
-                showReset={!!clamps[step]?.hasCustomMin}
-                className="w-full"
-                placeholder={`${clamps[step]?.minBase}px`}
-              />
-            )}
-          </div>
-          {!state?.disableFluid && (
-            <div className="relative flex w-full flex-col gap-1">
-              <label className="absolute -top-6 text-xs font-medium text-foreground/50">
-                MAX: {step.toUpperCase()}
-              </label>
-              {state?.manualMode ? (
-                <Input
-                  type="number"
-                  value={state?.manualValues?.[step]?.maxValue || ""}
-                  onChange={(e) => onManualValueChange(step, 'maxValue', e.target.value)}
-                  disabled={!isStepEnabled}
-                  placeholder="Enter max value"
-                  className="w-full"
-                />
-              ) : (
-                <InputWithResetButton
-                  value={clamps[step]?.maxBase || ""}
-                  disabled={!isStepEnabled}
-                  onChange={(e) => onMaxBaseChange(step, e.target.value)}
-                  onReset={() => onClearMaxBase(step)}
-                  showReset={!!clamps[step]?.hasCustomMax}
-                  className="w-full"
-                  placeholder={`${clamps[step]?.maxBase}px`}
-                />
-              )}
-            </div>
-          )}
-        </div>
-        {!state?.manualMode && (
-          <Switch
-            checked={clampOverrides?.[step]?.enabled ?? true}
-            className="ml-4"
-            onCheckedChange={(checked) => onClampEnabledChange(step, checked)}
-            aria-label={`Enable ${step} clamp`}
-          />
-        )}
+          <circle cx="6" cy="4" r="1.5" />
+          <circle cx="10" cy="4" r="1.5" />
+          <circle cx="6" cy="8" r="1.5" />
+          <circle cx="10" cy="8" r="1.5" />
+          <circle cx="6" cy="12" r="1.5" />
+          <circle cx="10" cy="12" r="1.5" />
+        </svg>
       </div>
 
-      {/* Font Preview */}
-      {font && (
-        <div className="relative min-w-0 flex-1 overflow-hidden">
-          {!state?.disableFluid && maxFontSizeValue ? (
-            <>
-              <div
-                className="flex items-baseline opacity-10"
-                style={{ minHeight: `calc(${maxFontSizeValue} + 0.5rem)` }}
-              >
-                <p
-                  className="!m-0 text-contrast"
-                  style={{
-                    fontSize: maxFontSizeValue,
-                    lineHeight: 1,
-                    whiteSpace: 'nowrap',
-                  }}
-                >
-                  MAX: The quick brown fox jumps over the lazy dog.
-                </p>
-              </div>
-              <div
-                className="absolute top-0 flex items-baseline"
-                style={{ minHeight: `calc(${maxFontSizeValue} + 1rem)` }}
-              >
-                <p
-                  className="!m-0 text-contrast"
-                  style={{
-                    fontSize: maxFontSizeValue,
-                    lineHeight: 1,
-                    textIndent: '-99999px',
-                    whiteSpace: 'nowrap',
-                  }}
-                >
-                  M
-                </p>
-                <p
-                  className="!m-0 text-contrast"
-                  style={{
-                    fontSize: minFontSizeValue || undefined,
-                    lineHeight: 1,
-                    whiteSpace: 'nowrap',
-                    paddingLeft: `calc(${maxFontSizeValue} / 20)`
-                  }}
-                >
-                  MIN: The quick brown fox jumps over the lazy dog.
-                </p>
-              </div>
-            </>
-          ) : (
-            <div className="flex items-baseline">
-              <p
-                className="!m-0 text-element"
-                style={{
-                  fontSize: minFontSizeValue || undefined,
-                  lineHeight: 1,
-                  whiteSpace: 'nowrap',
+      <div className="flex items-center gap-4">
+        {!state?.manualMode ? (
+          <div className="flex w-16 shrink-0 items-center justify-center">
+            <RadioButton
+              name="baseStep"
+              checked={state?.baseStep === step}
+              onChange={() => onBaseStepChange(step)}
+              label=""
+            />
+          </div>
+        ) : null}
+
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-4 overflow-x-auto">
+            <div className="min-w-[220px] flex-1">
+              <Input
+                type="text"
+                value={draftStepName}
+                onChange={(e) => setDraftStepName(e.target.value)}
+                onBlur={commitStepName}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    commitStepName();
+                    (e.target as HTMLInputElement).blur();
+                  }
+
+                  if (e.key === "Escape") {
+                    setDraftStepName(step);
+                    (e.target as HTMLInputElement).blur();
+                  }
                 }}
-              >
-                The quick brown fox jumps over the lazy dog.
-              </p>
+                aria-label={`${step} name`}
+              />
             </div>
-          )}
+
+            <div className="min-w-[180px] flex-1">
+              <div className={`flex w-full flex-col gap-2 ${!isStepEnabled ? "opacity-50" : ""}`}>
+                {state?.manualMode ? (
+                  <Input
+                    type="number"
+                    value={
+                      state?.disableFluid
+                        ? (state?.manualValues?.[step]?.value || "")
+                        : (state?.manualValues?.[step]?.minValue || "")
+                    }
+                    onChange={(e) => onManualValueChange(
+                      step,
+                      state?.disableFluid ? "value" : "minValue",
+                      e.target.value
+                    )}
+                    disabled={!isStepEnabled}
+                    placeholder={`Enter ${valueLabel.toLowerCase()}`}
+                    className="w-full"
+                    aria-label={`${step} ${valueLabel.toLowerCase()}`}
+                  />
+                ) : (
+                  <InputWithResetButton
+                    value={clamps[step]?.minBase || ""}
+                    disabled={!isStepEnabled}
+                    onChange={(e) => onMinBaseChange(step, e.target.value)}
+                    onReset={() => onClearMinBase(step)}
+                    showReset={!!clamps[step]?.hasCustomMin}
+                    className="w-full"
+                    placeholder={clamps[step]?.minBase || ""}
+                    ariaLabel={`${step} ${valueLabel.toLowerCase()}`}
+                  />
+                )}
+              </div>
+            </div>
+
+            {showMaxField && (
+              <div className="min-w-[180px] flex-1">
+                <div className={`flex w-full flex-col gap-2 ${!isStepEnabled ? "opacity-50" : ""}`}>
+                  {state?.manualMode ? (
+                    <Input
+                      type="number"
+                      value={state?.manualValues?.[step]?.maxValue || ""}
+                      onChange={(e) => onManualValueChange(step, "maxValue", e.target.value)}
+                      disabled={!isStepEnabled}
+                      placeholder="Enter max"
+                      className="w-full"
+                      aria-label={`${step} max`}
+                    />
+                  ) : (
+                    <InputWithResetButton
+                      value={clamps[step]?.maxBase || ""}
+                      disabled={!isStepEnabled}
+                      onChange={(e) => onMaxBaseChange(step, e.target.value)}
+                      onReset={() => onClearMaxBase(step)}
+                      showReset={!!clamps[step]?.hasCustomMax}
+                      className="w-full"
+                      placeholder={clamps[step]?.maxBase || ""}
+                      ariaLabel={`${step} max`}
+                    />
+                  )}
+                </div>
+              </div>
+            )}
+
+            <div className="flex w-20 shrink-0 items-center justify-center">
+              <Switch
+                checked={isStepEnabled}
+                onCheckedChange={(checked) => onStepEnabledChange(step, checked)}
+                aria-label={`Enable ${step}`}
+              />
+            </div>
+
+            <div className="flex w-16 shrink-0 items-center justify-center">
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                onClick={() => onDeleteStep(step)}
+                className="!text-danger"
+                aria-label={`Delete ${step}`}
+                title="Delete step"
+              >
+                <DeleteOutlineOutlinedIcon className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
         </div>
-      )}
-
-      {/* Spacing Preview */}
-      {spacing && (
-        <>
-          <span className="text-base-foreground text-xs font-medium">{step}</span>
-          <div className="relative flex items-end">
-            {!state?.disableFluid && (
-              <div
-                className="aspect-square bg-element opacity-50"
-                style={{ width: maxFontSizeValue || undefined }}
-              />
-            )}
-            <div
-              className="aspect-square bg-element opacity-50"
-              style={{
-                width: minFontSizeValue || undefined,
-                position: !state?.disableFluid ? 'absolute' : 'relative',
-                bottom: 0,
-                left: 0,
-              }}
-            />
-          </div>
-        </>
-      )}
-
-      {/* Border Radius Preview */}
-      {borderRadius && (
-        <>
-          <span className="text-base-foreground text-xs font-medium">{step}</span>
-          <div className="relative flex items-end">
-            {!state?.disableFluid && (
-              <div
-                className="aspect-square bg-element opacity-50"
-                style={{
-                  width: maxFontSizeValue || undefined,
-                  borderTopRightRadius: maxFontSizeValue || undefined,
-                }}
-              />
-            )}
-            <div
-              className="aspect-square bg-element opacity-50"
-              style={{
-                width: minFontSizeValue || undefined,
-                borderTopRightRadius: minFontSizeValue || undefined,
-                position: !state?.disableFluid ? 'absolute' : 'relative',
-                bottom: 0,
-                left: 0,
-              }}
-            />
-          </div>
-        </>
-      )}
+      </div>
     </div>
   );
 };
+
+export const ScaleStepRow = React.memo(ScaleStepRowImpl);
+ScaleStepRow.displayName = "ScaleStepRow";
 
 export default ScaleStepRow;

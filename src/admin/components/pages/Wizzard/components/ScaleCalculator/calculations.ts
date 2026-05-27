@@ -4,7 +4,13 @@
  * No React dependencies - just math and data transformations
  */
 
-import type { ClampOverride, ClampInfo, MinMaxValue, ScaleState } from "./types";
+import type {
+  ClampOverride,
+  ClampInfo,
+  ManualValue,
+  MinMaxValue,
+  ScaleState,
+} from "./types";
 import { calculateClampValue } from "@/utils/clampCalculations";
 
 /**
@@ -91,6 +97,175 @@ export function appendUnit(value: string | number | undefined | null): string | 
 export function parseSteps(input: string): string[] {
   const trimmed = input.replace(/,\s*$/, "");
   return trimmed.split(",").map((step) => step.trim()).filter(Boolean);
+}
+
+/**
+ * Create a blank clamp override entry.
+ */
+export function createEmptyClampOverride(
+  existingOverride?: Partial<ClampOverride>
+): ClampOverride {
+  return {
+    enabled: existingOverride?.enabled ?? true,
+    value: existingOverride?.value || "",
+    fluidClamp: existingOverride?.fluidClamp || "",
+    minBase: existingOverride?.minBase || "",
+    maxBase: existingOverride?.maxBase || "",
+  };
+}
+
+/**
+ * Create a blank manual value entry.
+ */
+export function createEmptyManualValue(
+  existingValue?: Partial<ManualValue>
+): ManualValue {
+  return {
+    enabled: existingValue?.enabled ?? true,
+    value: existingValue?.value || "",
+    minValue: existingValue?.minValue || "",
+    maxValue: existingValue?.maxValue || "",
+  };
+}
+
+/**
+ * Generate a unique step name based on a preferred base label.
+ */
+export function generateUniqueStepName(
+  steps: string[],
+  preferredBase: string = "step"
+): string {
+  const normalizedBase = preferredBase.trim() || "step";
+
+  if (!steps.includes(normalizedBase)) {
+    return normalizedBase;
+  }
+
+  let suffix = 2;
+  let candidate = `${normalizedBase}-${suffix}`;
+
+  while (steps.includes(candidate)) {
+    suffix += 1;
+    candidate = `${normalizedBase}-${suffix}`;
+  }
+
+  return candidate;
+}
+
+/**
+ * Replace a step name in the ordered steps array.
+ */
+export function renameStepInList(
+  steps: string[],
+  currentStep: string,
+  nextStep: string
+): string[] {
+  return steps.map((step) => (step === currentStep ? nextStep : step));
+}
+
+/**
+ * Insert a step at a specific index.
+ */
+export function insertStepInList(
+  steps: string[],
+  index: number,
+  nextStep: string
+): string[] {
+  const nextSteps = [...steps];
+  nextSteps.splice(index, 0, nextStep);
+  return nextSteps;
+}
+
+/**
+ * Move a step from one position to another.
+ */
+export function moveStepInList(
+  steps: string[],
+  sourceStep: string,
+  targetStep: string
+): string[] {
+  if (sourceStep === targetStep) {
+    return steps;
+  }
+
+  const nextSteps = [...steps];
+  const sourceIndex = nextSteps.indexOf(sourceStep);
+  const targetIndex = nextSteps.indexOf(targetStep);
+
+  if (sourceIndex < 0 || targetIndex < 0) {
+    return steps;
+  }
+
+  const [movedStep] = nextSteps.splice(sourceIndex, 1);
+  nextSteps.splice(targetIndex, 0, movedStep);
+
+  return nextSteps;
+}
+
+/**
+ * Move a step to a specific insertion index.
+ */
+export function moveStepToIndex(
+  steps: string[],
+  sourceStep: string,
+  targetIndex: number
+): string[] {
+  const sourceIndex = steps.indexOf(sourceStep);
+
+  if (sourceIndex < 0) {
+    return steps;
+  }
+
+  const boundedTargetIndex = Math.max(0, Math.min(targetIndex, steps.length));
+  const adjustedTargetIndex = boundedTargetIndex > sourceIndex
+    ? boundedTargetIndex - 1
+    : boundedTargetIndex;
+
+  if (adjustedTargetIndex === sourceIndex) {
+    return steps;
+  }
+
+  const nextSteps = [...steps];
+  const [movedStep] = nextSteps.splice(sourceIndex, 1);
+  nextSteps.splice(adjustedTargetIndex, 0, movedStep);
+
+  return nextSteps;
+}
+
+/**
+ * Remove a step from the ordered steps array.
+ */
+export function removeStepFromList(steps: string[], targetStep: string): string[] {
+  return steps.filter((step) => step !== targetStep);
+}
+
+/**
+ * Rename a key in a keyed record while preserving the value.
+ */
+export function renameStepRecord<T>(
+  record: Record<string, T> = {},
+  currentStep: string,
+  nextStep: string
+): Record<string, T> {
+  const nextRecord: Record<string, T> = {};
+
+  Object.entries(record).forEach(([step, value]) => {
+    nextRecord[step === currentStep ? nextStep : step] = value;
+  });
+
+  return nextRecord;
+}
+
+/**
+ * Remove a step entry from a keyed record.
+ */
+export function removeStepRecord<T>(
+  record: Record<string, T> = {},
+  targetStep: string
+): Record<string, T> {
+  return Object.fromEntries(
+    Object.entries(record).filter(([step]) => step !== targetStep)
+  );
 }
 
 /**

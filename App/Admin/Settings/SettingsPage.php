@@ -16,6 +16,22 @@ class SettingsPage
         add_action('admin_post_winden_generate_classes', [$this, 'generate_classes_file']);
         add_action('wp_ajax_winden_get_classes', [$this, 'get_classes']); // Register the AJAX action
         add_action('wp_ajax_winden_get_classes_grouped', [$this, 'get_classes_grouped']); // Grouped classes with sources
+        // Preload Monaco's CSS + editor workers in <head> so they're fetched in
+        // parallel with the admin bundle instead of after the editor mounts.
+        // Page-scoped: only fires on toplevel_page_winden.
+        add_action('admin_head-toplevel_page_winden', [$this, 'preload_monaco_workers']);
+    }
+
+    /**
+     * Print `<link rel="preload">` tags for Monaco's workers. Same-origin,
+     * same cache as the regular enqueue — the browser just starts fetching
+     * earlier so the workers are ready by the time the Style Editor mounts.
+     */
+    public function preload_monaco_workers()
+    {
+        $build_url = esc_url(WINDTACS_PLUGIN_URL . 'build/admin/');
+        echo '<link rel="preload" as="script" crossorigin="anonymous" href="' . $build_url . 'css.worker.js">' . "\n";
+        echo '<link rel="preload" as="script" crossorigin="anonymous" href="' . $build_url . 'editor.worker.js">' . "\n";
     }
 
     public function modify_script_loader_tag($tag, $handle, $src)
@@ -126,10 +142,17 @@ class SettingsPage
         // Enqueue the script and asset file
         $asset_file = include WINDTACS_PLUGIN_DIR . 'build/admin/index.asset.php';
 
+        $dependencies = array_unique(array_merge(
+            $asset_file['dependencies'],
+            ['wp-data', 'wp-commands']
+        ));
+
+        wp_enqueue_style('wp-commands');
+
         wp_enqueue_script(
             'winden-admin-script',
             WINDTACS_PLUGIN_URL . 'build/admin/index.js',
-            $asset_file['dependencies'], // Add dependencies if any
+            $dependencies, // Add dependencies if any
             $asset_file['version'], // Add version if any
             true // Load in footer
         );

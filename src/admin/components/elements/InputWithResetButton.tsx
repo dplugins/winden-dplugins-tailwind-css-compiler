@@ -42,6 +42,8 @@ interface InputWithResetButtonProps {
   placeholder?: string;
   /** Title attribute */
   title?: string;
+  /** Accessible label */
+  ariaLabel?: string;
 }
 
 const InputWithResetButton: React.FC<InputWithResetButtonProps> = ({
@@ -57,6 +59,7 @@ const InputWithResetButton: React.FC<InputWithResetButtonProps> = ({
   disabled = false,
   placeholder = "",
   title = "",
+  ariaLabel = "",
 }) => {
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const inputValue = e.target.value;
@@ -82,13 +85,15 @@ const InputWithResetButton: React.FC<InputWithResetButtonProps> = ({
           disabled={disabled}
           placeholder={placeholder}
           title={title}
-          className="flex w-full h-10 px-3 py-2 rounded-md text-sm border focus:outline-ring focus:outline-offset-2 relative focus:z-10 text-black focus:text-indigo-600 focus:ring-indigo-200 border-input bg-base-1 pr-8"
+          aria-label={ariaLabel}
+          className="flex w-full h-10 px-3 py-2 rounded-md text-sm border focus:outline-ring focus:outline-offset-2 text-black focus:text-indigo-600 focus:ring-indigo-200 border-input bg-base-1 pr-8"
         />
         {showReset && (
           <button
             type="button"
+            onMouseDown={(e) => e.preventDefault()}
             onClick={onReset}
-            className="text-black hover:text-red-600 absolute right-2 top-1/2 transform -translate-y-1/2"
+            className="text-black hover:text-red-600 absolute right-2 top-1/2 transform -translate-y-1/2 z-50!"
             disabled={disabled}
             title="Reset to original color"
           >

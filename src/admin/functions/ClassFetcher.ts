@@ -137,11 +137,33 @@ export const handleFetchedClasses = async (
         const tw = await window.tailwindify(classesArray, scssContent, getConfigFileString, css_preprocessor);
 
         if ('error' in tw && tw.error) {
-          console.error('[ClassFetcher] Compilation error:', tw.error);
-          const errorMessage = tw.error.message || 'Compilation failed';
+          // Compiler returns the typed-error contract (#14):
+          //   { success: false, error: <single-line message>,
+          //     errorDetails: { phase, code, message, details: {...}, stack } }
+          // Legacy shape (pre-#14) had `error` as the Error object with `.message`.
+          // Handle both safely.
+          const rawError: any = tw.error;
+          const details = (tw as any).errorDetails;
+          const phase: string | undefined = details?.phase;
+          // Take the cleanest single line we can find.
+          const baseMessage =
+            details?.message ||
+            (typeof rawError === 'string' ? rawError : rawError?.message) ||
+            'Compilation failed';
+          const suggestion: string | undefined = details?.details?.suggestion;
+          // Compose a tidy 1-2 line toast message. Suggestion gets a 💡 prefix
+          // and lives on its own line so it never collides with the URL/path
+          // in baseMessage.
+          const composed = suggestion
+            ? `${baseMessage}\n💡 ${suggestion}`
+            : baseMessage;
+          const title = phase
+            ? `Compilation Error (${String(phase).toUpperCase()})`
+            : 'Compilation Error';
+          console.error('[ClassFetcher] Compilation error:', baseMessage, details ?? '');
           errors.push({
-            title: 'Compilation Error',
-            message: errorMessage
+            title,
+            message: composed,
           });
           payload.status = 'failed';
         } else if (tw.css) {

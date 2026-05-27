@@ -105,5 +105,3 @@ class TopBar
         ));
     }
 }
-
-new TopBar();

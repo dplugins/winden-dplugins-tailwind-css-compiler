@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Button } from '@el/Button';
 import {
     Dialog,
@@ -12,6 +12,10 @@ import { Input } from '@el/Input';
 import { SelectWrapper } from '@el/SelectWrapper';
 import type { StyleTab, LayerType } from '@/types/styleTabs';
 import { DEFAULT_LAYER_OPTIONS, createStyleTab } from '@/types/styleTabs';
+
+// Window during which a just-removed tab can still be restored via the
+// inline undo bar. 8 s matches Friedman's "Undo > Confirm" guidance.
+const UNDO_WINDOW_MS = 8000;
 
 interface StyleTabsProps {
     tabs: StyleTab[];
@@ -34,6 +38,28 @@ export const StyleTabs: React.FC<StyleTabsProps> = ({
     const [editingTab, setEditingTab] = useState<string | null>(null);
     const [tabName, setTabName] = useState('');
     const [tabLayer, setTabLayer] = useState<LayerType>('none');
+    // Track whether the user has typed in the name field so we don't flash
+    // a validation error on first open (Silver: validate as the user moves,
+    // not before they've started). Empty string disables submit either way.
+    const [nameDirty, setNameDirty] = useState(false);
+    const trimmedName = tabName.trim();
+    const nameInvalid = !trimmedName;
+    const showNameError = nameDirty && nameInvalid;
+
+    // Soft-delete state. When a tab is removed, snapshot it here and show
+    // an inline undo bar above the tabs. The timeout commits the removal
+    // (just clears the snapshot — the parent already removed the tab).
+    // If Undo fires first, we re-add the snapshot via onTabAdd.
+    const [pendingRemoval, setPendingRemoval] = useState<StyleTab | null>(null);
+    const undoTimerRef = useRef<number | null>(null);
+
+    useEffect(() => {
+        return () => {
+            if (undoTimerRef.current !== null) {
+                window.clearTimeout(undoTimerRef.current);
+            }
+        };
+    }, []);
 
     const handleOpenDialog = (tabId?: string) => {
         if (tabId) {
@@ -47,12 +73,16 @@ export const StyleTabs: React.FC<StyleTabsProps> = ({
                 setEditingTab(tabId);
                 setTabName(tab.name);
                 setTabLayer(tab.layer);
+                // Editing → name is already populated, so any subsequent
+                // edit counts as a real interaction.
+                setNameDirty(true);
             }
         } else {
             // Create new tab
             setEditingTab(null);
             setTabName('');
             setTabLayer('none');
+            setNameDirty(false);
         }
         setIsDialogOpen(true);
     };
@@ -62,20 +92,24 @@ export const StyleTabs: React.FC<StyleTabsProps> = ({
         setEditingTab(null);
         setTabName('');
         setTabLayer('none');
+        setNameDirty(false);
     };
 
     const handleSaveTab = () => {
-        if (!tabName.trim()) {
-            alert('Please enter a tab name');
+        // Inline validation guards the button (disabled when invalid),
+        // but keep this as a defensive backstop so a keyboard "Enter"
+        // path can't bypass the check.
+        if (nameInvalid) {
+            setNameDirty(true);
             return;
         }
 
         if (editingTab) {
             // Update existing tab
-            onTabUpdate(editingTab, { name: tabName, layer: tabLayer });
+            onTabUpdate(editingTab, { name: trimmedName, layer: tabLayer });
         } else {
             // Create new tab
-            const newTab = createStyleTab(tabName, tabLayer, '');
+            const newTab = createStyleTab(trimmedName, tabLayer, '');
             onTabAdd(newTab);
             onTabChange(newTab.id);
         }
@@ -88,17 +122,42 @@ export const StyleTabs: React.FC<StyleTabsProps> = ({
 
         // Don't allow removing locked tabs
         if (tab?.isLocked) {
-            alert('Cannot remove the main styles tab');
+            alert('The main styles tab is always required — you can add another tab next to it.');
             return;
         }
 
         if (tabs.length === 1) {
-            alert('Cannot remove the last tab');
+            alert('Keep at least one tab — add a new one before removing this last one.');
             return;
         }
 
-        if (confirm('Are you sure you want to remove this tab? This action cannot be undone.')) {
-            onTabRemove(tabId);
+        // Friedman: Undo > Confirm. Remove immediately, then offer an
+        // 8-second undo via the inline bar above the tab strip. If a
+        // previous removal is still pending, commit it (no double-undo).
+        if (pendingRemoval) {
+            if (undoTimerRef.current !== null) window.clearTimeout(undoTimerRef.current);
+        }
+        setPendingRemoval(tab ?? null);
+        onTabRemove(tabId);
+
+        if (undoTimerRef.current !== null) {
+            window.clearTimeout(undoTimerRef.current);
+        }
+        undoTimerRef.current = window.setTimeout(() => {
+            setPendingRemoval(null);
+            undoTimerRef.current = null;
+        }, UNDO_WINDOW_MS);
+    };
+
+    const handleUndoRemoval = () => {
+        if (!pendingRemoval) return;
+        // onTabAdd will re-append; sortedTabs places it by order, so the
+        // restored tab returns to its original slot in the strip.
+        onTabAdd(pendingRemoval);
+        setPendingRemoval(null);
+        if (undoTimerRef.current !== null) {
+            window.clearTimeout(undoTimerRef.current);
+            undoTimerRef.current = null;
         }
     };
 
@@ -112,8 +171,10 @@ export const StyleTabs: React.FC<StyleTabsProps> = ({
             utilities: 'text-orange-700',
         };
 
+        // Note: colour is decorative; the @<layer> text below is the
+        // non-colour differentiator (WCAG 1.4.1).
         return (
-            <span className={`text-xs ${colorMap[layer]}`}>
+            <span className={`text-xs ${colorMap[layer]}`} aria-label={`Layer: ${layer}`}>
                 @{layer}
             </span>
         );
@@ -123,7 +184,22 @@ export const StyleTabs: React.FC<StyleTabsProps> = ({
     const sortedTabs = [...tabs].sort((a, b) => a.order - b.order);
 
     return (
-        <div className="flex items-center gap-2 bg-base-2 border-b border-border pt-2 pl-2">
+        <div className="flex flex-col">
+            {pendingRemoval && (
+                <div
+                    role="status"
+                    aria-live="polite"
+                    className="flex items-center justify-between gap-3 border-b border-border bg-base-2 px-3 py-2 text-sm"
+                >
+                    <span className="text-foreground/80">
+                        Removed <strong>{pendingRemoval.name}</strong>.
+                    </span>
+                    <Button variant="outline" size="sm" onClick={handleUndoRemoval}>
+                        Undo
+                    </Button>
+                </div>
+            )}
+            <div className="flex items-center gap-2 bg-base-2 border-b border-border pt-2 pl-2">
             <div className="flex items-stretch gap-1 overflow-x-auto">
                 {sortedTabs.map(tab => (
                     <div
@@ -199,10 +275,26 @@ export const StyleTabs: React.FC<StyleTabsProps> = ({
                             <Input
                                 id="tab-name"
                                 value={tabName}
-                                onChange={(e) => setTabName(e.target.value)}
+                                onChange={(e) => {
+                                    setTabName(e.target.value);
+                                    if (!nameDirty) setNameDirty(true);
+                                }}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter' && !nameInvalid) {
+                                        e.preventDefault();
+                                        handleSaveTab();
+                                    }
+                                }}
                                 placeholder="e.g., Typography, Colors, Layout"
+                                aria-invalid={showNameError || undefined}
+                                aria-describedby={showNameError ? 'tab-name-error' : undefined}
                                 autoFocus
                             />
+                            {showNameError && (
+                                <p id="tab-name-error" className="text-xs text-danger">
+                                    Tab name is required.
+                                </p>
+                            )}
                         </div>
 
                         <div className="space-y-2">
@@ -227,12 +319,13 @@ export const StyleTabs: React.FC<StyleTabsProps> = ({
                         <Button variant="ghost" onClick={handleCloseDialog}>
                             Cancel
                         </Button>
-                        <Button onClick={handleSaveTab}>
+                        <Button onClick={handleSaveTab} disabled={nameInvalid}>
                             {editingTab ? 'Save Changes' : 'Add Tab'}
                         </Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+            </div>
         </div>
     );
 };

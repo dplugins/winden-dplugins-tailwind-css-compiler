@@ -22,6 +22,40 @@ interface UseAutocompleteReturn {
 }
 
 /**
+ * Cheap "user is mid-typing" check used to skip autocomplete compiles
+ * that would otherwise log CssSyntaxError / "unknown utility class"
+ * every keystroke. Returns true when:
+ *   - braces are unbalanced, or
+ *   - a bare identifier sits inside a rule body without a `:` or `;`
+ *     (e.g. typing `p` before the `:`), or
+ *   - an `@apply` clause has no terminating `;` on its line yet, so
+ *     the candidate it ships is partial (`bg-`, `bg-e`, ...). Tailwind
+ *     rejects partials with "Cannot apply unknown utility class".
+ */
+function looksLikeMidEdit(css: string): boolean {
+  if (!css) return false;
+  // Strip block comments and string literals so we count actual code.
+  const stripped = css
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/"(?:[^"\\]|\\.)*"/g, '""')
+    .replace(/'(?:[^'\\]|\\.)*'/g, "''");
+  let opens = 0;
+  for (let i = 0; i < stripped.length; i++) {
+    const ch = stripped.charCodeAt(i);
+    if (ch === 123 /* { */) opens++;
+    else if (ch === 125 /* } */) opens--;
+    if (opens < 0) return true;
+  }
+  if (opens !== 0) return true;
+  // Inside a rule body, a bare identifier with no `:` is a partial decl.
+  const tail = stripped.trimEnd();
+  if (/[{;][^{};:]*[A-Za-z][A-Za-z0-9_-]*\s*$/.test(tail)) return true;
+  // `@apply` line not yet terminated by `;` on the same line.
+  if (/@apply\b[^;}\n]*$/m.test(stripped)) return true;
+  return false;
+}
+
+/**
  * Hook for managing Monaco Editor autocomplete functionality
  */
 export function useAutocomplete({
@@ -87,14 +121,32 @@ export function useAutocomplete({
                 }
 
                 const configContent = jsContentRef?.current ?? '';
+                // Skip the compile when the CSS is obviously mid-typing.
+                // PostCSS hard-throws on unbalanced braces / dangling
+                // identifiers, which would flood the console with
+                // CssSyntaxError every keystroke. The 500 ms debounce
+                // upstream covers most slow typists; this catches the
+                // remaining cases where they paused inside an open rule.
+                if (looksLikeMidEdit(custom_css)) {
+                  return;
+                }
                 response = await window.tailwindifyClasses!(custom_css, configContent);
             } catch (error: any) {
-                console.error('[Winden] Compilation error:', error);
-                alert(`SCSS Compilation Error:\n\n${error.message}\n\nCheck the browser console for details.`);
+                console.error('[winden:autocomplete] Compilation error:', error);
                 return;
             }
         }
 
+        // The compiler returns an error envelope rather than throwing
+        // (typed-error contract from #14). If compilation failed — usually
+        // because the user is mid-typing and the CSS is temporarily
+        // invalid — keep the previous autocomplete list instead of wiping
+        // it to []. Otherwise typing a single character would erase all
+        // Tailwind suggestions until the next valid compile.
+        if (response && (response as any).error) {
+          console.debug('[winden:autocomplete] keeping previous classes — compile errored mid-edit', (response as any).error);
+          return;
+        }
         const classes = [...new Set(response?.classes?.length ? response.classes : [])];
         setAutocompleteClasses(classes);
     }, [scssContentRef, jsContentRef, wizzardContentRef]);

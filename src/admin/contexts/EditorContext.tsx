@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useRef, useEffect, useCallback } from 'react';
 import type { WizzardState } from '@/types/wizzard';
-import { initialSettings } from '@const/settings';
+import { initialSettings, normalizeEditorTabs, type EditorTabSetting } from '@const/settings';
 
 /**
  * Settings interface for application configuration
@@ -24,6 +24,7 @@ export interface Settings {
   enable_files_scan?: boolean;
   scan_file_formats?: string[];
   scan_path?: string | string[];
+  editor_tabs?: EditorTabSetting[];
 }
 
 /**
@@ -92,8 +93,36 @@ export function EditorProvider({
   const [jsContent, setJsContent] = useState('');
   const [scssContent, setScssContent] = useState('');
 
-  // Settings state
-  const [settings, setSettings] = useState<Settings>(initialSettings);
+  // Settings state — lazy-init editor_tabs from localStorage so the Header
+  // doesn't render the default order/visibility on first paint and then
+  // re-shuffle once fetchSettings() lands. Other fields still come from the
+  // server.
+  const [settings, setSettings] = useState<Settings>(() => {
+    try {
+      const cached = localStorage.getItem('winden_editor_tabs');
+      if (cached) {
+        return {
+          ...initialSettings,
+          editor_tabs: normalizeEditorTabs(JSON.parse(cached)),
+        };
+      }
+    } catch {
+      // corrupted localStorage falls back to defaults
+    }
+    return initialSettings;
+  });
+
+  // Mirror resolved editor_tabs back to localStorage on every change (user
+  // edits or server-loaded). Keeps the lazy-init cache fresh.
+  useEffect(() => {
+    try {
+      if (settings.editor_tabs) {
+        localStorage.setItem('winden_editor_tabs', JSON.stringify(settings.editor_tabs));
+      }
+    } catch {
+      // localStorage quota or disabled — non-fatal
+    }
+  }, [settings.editor_tabs]);
 
   // UI state
   const [darkMode, setDarkMode] = useState(false);
@@ -142,6 +171,18 @@ export function EditorProvider({
     setActiveTab(tab);
     localStorage.setItem('activeTab', tab);
   }, []);
+
+  // If the active tab gets hidden via Settings → Editor, fall back to the
+  // first visible tab so the editor never lands on an empty surface.
+  useEffect(() => {
+    const visible = normalizeEditorTabs(settings.editor_tabs).filter((t) => t.visible);
+    if (visible.length === 0) return;
+    if (!visible.some((t) => t.value === activeTab)) {
+      const fallback = visible[0].value;
+      setActiveTab(fallback);
+      localStorage.setItem('activeTab', fallback);
+    }
+  }, [settings.editor_tabs, activeTab]);
 
   const value: EditorContextValue = {
     jsContent,

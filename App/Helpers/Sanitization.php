@@ -344,6 +344,28 @@ class Sanitization
             } elseif ($key === 'autocomplete_mode') {
                 // Whitelist: plain-classes or winden-classes
                 $sanitized[$key] = in_array($value, ['plain-classes', 'winden-classes'], true) ? $value : 'plain-classes';
+            } elseif ($key === 'editor_tabs') {
+                // Array of { value: <known tab key>, visible: bool }, ordered. Drop unknown keys, dedupe.
+                $allowed = ['style', 'javascript', 'wizzard', 'styleguide'];
+                $seen = [];
+                $clean = [];
+                if (is_array($value)) {
+                    foreach ($value as $item) {
+                        if (!is_array($item) || !isset($item['value'])) {
+                            continue;
+                        }
+                        $tab_value = sanitize_text_field($item['value']);
+                        if (!in_array($tab_value, $allowed, true) || in_array($tab_value, $seen, true)) {
+                            continue;
+                        }
+                        $seen[] = $tab_value;
+                        $clean[] = [
+                            'value' => $tab_value,
+                            'visible' => isset($item['visible']) ? (bool) $item['visible'] : true,
+                        ];
+                    }
+                }
+                $sanitized[$key] = $clean;
             } else {
                 $sanitized[$key] = sanitize_text_field($value);
             }

@@ -288,6 +288,7 @@ const Wizzard = () => {
           onRegenerateConfig={regenerateConfig}
           onExport={exportWizzardConfig}
           getTabLabel={getTabLabelById}
+          onSetActiveTab={setActiveTab}
         />
       </Tabs.Root>
     </div>

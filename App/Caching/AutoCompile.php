@@ -145,11 +145,18 @@ class AutoCompile
                 // This is much faster than crawling all 10,000+ posts
                 $classes = ClassCrawler::crawlSinglePost($post_id);
 
-                // Merge with existing global class list to prevent shrinking output.css
-                $existing_classes = DataConverter::getOptionAsArray('winden_crawled_classes');
-
-                if (!empty($existing_classes)) {
-                    $classes = array_values(array_unique(array_merge($existing_classes, $classes)));
+                // Only merge with the existing global list when the per-post
+                // index doesn't exist yet (fresh install / pre-3.3.0 site).
+                // When the index is populated, crawlSinglePost has already
+                // rebuilt the full list from every post — re-merging here
+                // would resurrect classes the user just removed and stop
+                // output.css from ever shrinking (#44).
+                $post_classes_index = DataConverter::getOptionAsArray('winden_post_classes_index');
+                if (empty($post_classes_index)) {
+                    $existing_classes = DataConverter::getOptionAsArray('winden_crawled_classes');
+                    if (!empty($existing_classes)) {
+                        $classes = array_values(array_unique(array_merge($existing_classes, $classes)));
+                    }
                 }
             } else {
                 // Full crawl: Scan all posts (used for initial crawl or manual refresh)
@@ -200,13 +207,28 @@ class AutoCompile
             return;
         }
 
-        // Force full crawl for all builders to match Winden's full cache compilation
-        // This ensures consistent output across Gutenberg, Bricks, Oxygen, Elementor, Fancoolo, etc.
-        $this->crawl_and_flag(0);
+        // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.MissingUnslash,WordPress.Security.NonceVerification.Missing -- nonce verified above
+        $post_id = isset($_POST['post_id']) ? (int) $_POST['post_id'] : 0;
+
+        if ($post_id > 0) {
+            // Fast path: incremental crawl of the just-saved post.
+            // Schedule a deferred full crawl so other posts converge within
+            // one WP-Cron cycle without blocking the editor save.
+            $this->crawl_and_flag($post_id);
+
+            if (!wp_next_scheduled('winden_async_crawl', [0])) {
+                wp_schedule_single_event(time() + 30, 'winden_async_crawl', [0]);
+            }
+        } else {
+            // Caller didn't identify a post — fall back to the original
+            // synchronous full crawl (manual refresh, unknown builder context).
+            $this->crawl_and_flag(0);
+        }
 
         wp_send_json_success([
             'message' => 'Crawl completed, ready to compile',
-            'needs_recompile' => true
+            'needs_recompile' => true,
+            'incremental' => $post_id > 0,
         ]);
     }
 
@@ -240,13 +262,15 @@ class AutoCompile
             return;
         }
 
+        // Check nonce — JS callers already send `_nonce` via windenAutoCompile.nonce
+        if (!isset($_POST['_nonce']) || !wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['_nonce'])), 'winden_nonce')) {
+            wp_send_json_error('Invalid nonce');
+            return;
+        }
+
         // Get crawled classes with safe unserialization and normalization
         $classes = DataConverter::getOptionAsArray('winden_crawled_classes');
-        error_log('[Winden Compile] Raw crawled classes count: ' . count($classes));
-        error_log('[Winden Compile] Classes include bg-yellow-400: ' . (in_array('bg-yellow-400', $classes) ? 'YES' : 'NO'));
         $classes = DataConverter::normalizeClasses($classes);
-        error_log('[Winden Compile] After normalize - count: ' . count($classes));
-        error_log('[Winden Compile] After normalize - includes bg-yellow-400: ' . (in_array('bg-yellow-400', $classes) ? 'YES' : 'NO'));
 
         // Return classes and config to browser for compilation
         // Even with empty classes, we still need to compile (for @apply directives, custom components, etc.)
@@ -274,21 +298,31 @@ class AutoCompile
             $wizzard_config = $wizzard_state['configCode'];
         }
 
-        // ALWAYS read from input.css file as the source of truth
-        // input.css contains the combined styles + wizzard @theme config
-        // This ensures Gutenberg save matches Winden admin save
-        $upload_dir = wp_upload_dir();
-        $input_file = $upload_dir['basedir'] . '/winden/input.css';
-        $styles = '';
-        if (file_exists($input_file)) {
-            // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- Reading local input file
-            $styles = file_get_contents($input_file);
-            // input.css already contains styles + wizzard config combined
-            // Clear wizzard_config since it's already in styles
-            $wizzard_config = '';
+        // Check the editor_tabs setting on every compile so toggling
+        // Style off → recompile picks up the minimum immediately, without
+        // waiting for a manual Save to rewrite input.css.
+        if (!\Winden\App\Admin\SaveContent::isStyleTabVisible()) {
+            // Style tab hidden: skip input.css entirely and ship the
+            // 3-line minimum. Wizzard's @theme stays in wizzard_config
+            // so the compiler still merges it in.
+            $styles = \Winden\App\Admin\SaveContent::MINIMAL_BASE_CSS;
         } else {
-            // Fallback to database values if file doesn't exist
-            $styles = $editor_content['scss'] ?? '';
+            // ALWAYS read from input.css file as the source of truth
+            // input.css contains the combined styles + wizzard @theme config
+            // This ensures Gutenberg save matches Winden admin save
+            $upload_dir = wp_upload_dir();
+            $input_file = $upload_dir['basedir'] . '/winden/input.css';
+            $styles = '';
+            if (file_exists($input_file)) {
+                // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- Reading local input file
+                $styles = file_get_contents($input_file);
+                // input.css already contains styles + wizzard config combined
+                // Clear wizzard_config since it's already in styles
+                $wizzard_config = '';
+            } else {
+                // Fallback to database values if file doesn't exist
+                $styles = $editor_content['scss'] ?? '';
+            }
         }
 
         wp_send_json_success([
@@ -310,6 +344,12 @@ class AutoCompile
     {
         if (!current_user_can('edit_posts')) {
             wp_send_json_error('Unauthorized');
+            return;
+        }
+
+        // Check nonce — JS callers already send `_nonce` via windenAutoCompile.nonce
+        if (!isset($_POST['_nonce']) || !wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['_nonce'])), 'winden_nonce')) {
+            wp_send_json_error('Invalid nonce');
             return;
         }
 
@@ -418,6 +458,3 @@ class AutoCompile
         ]);
     }
 }
-
-// Initialize AutoCompile
-new AutoCompile();

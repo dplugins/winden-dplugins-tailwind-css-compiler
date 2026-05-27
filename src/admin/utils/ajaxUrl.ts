@@ -21,7 +21,7 @@ export function getAjaxUrl(): string {
 
   // If we reach here, the PHP hasn't properly localized the script
   // This is a configuration error that needs to be fixed in PHP, not worked around in JS
-  console.error('[Winden] ajaxUrl not available. Ensure wp_localize_script is called before this script runs.');
+  console.error('[winden:admin] ajaxUrl not available. Ensure wp_localize_script is called before this script runs.');
   throw new Error('Winden: AJAX URL not configured. Please check plugin setup.');
 }
 

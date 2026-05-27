@@ -175,10 +175,10 @@ const FontFamily: React.FC<FontFamilyProps> = ({ label }) => {
             </ArrowButton> */}
           </div>
 
-          <SidebarSeparator label="Builders integration" />
+          <SidebarSeparator label="Use design tokens from page builders" />
           {Object.keys(dynamicFontFamilyFSE)?.length ? (
             <Checkbox
-              label="Include FSE Font Families"
+              label="Use FSE font families"
               checked={localWizzardState?.extendFontFamilyFSE}
               onCheckedChange={(checked) => {
                 const _state = { ...localWizzardState };
@@ -189,7 +189,7 @@ const FontFamily: React.FC<FontFamilyProps> = ({ label }) => {
           ) : null}
           {Object.keys(dynamicFontFamilyBricks)?.length ? (
             <Checkbox
-              label="Include Bricks Font Families"
+              label="Use Bricks font families"
               checked={localWizzardState?.extendFontFamilyBricks}
               onCheckedChange={(checked) => {
                 const _state = { ...localWizzardState };
@@ -200,7 +200,7 @@ const FontFamily: React.FC<FontFamilyProps> = ({ label }) => {
           ) : null}
           {Object.keys(dynamicFontFamilyOxygen)?.length ? (
             <Checkbox
-              label="Include Oxygen Font Families"
+              label="Use Oxygen font families"
               checked={localWizzardState?.extendFontFamilyOxygen}
               onCheckedChange={(checked) => {
                 const _state = { ...localWizzardState };

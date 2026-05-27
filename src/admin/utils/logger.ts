@@ -32,8 +32,6 @@ const isDebug = (): boolean =>
 
 const minLevel = (): number => (isDebug() ? 0 : 2); // debug/info in dev, warn/error in prod
 
-const PREFIX = '[Winden]';
-
 function emit(
   level: LogLevel,
   phase: string,
@@ -42,7 +40,9 @@ function emit(
 ) {
   if (LEVEL_PRIORITY[level] < minLevel()) return;
 
-  const tag = `${PREFIX} [${phase}]`;
+  // Consistent [winden:scope] format across compiler / listeners / admin
+  // (see #25). Phase is lowercased so callers don't have to think about case.
+  const tag = `[winden:${phase.toLowerCase()}]`;
   const fn =
     level === 'error'
       ? console.error
@@ -72,11 +72,11 @@ export const log = {
 
   /** Start a named timer (dev-only). */
   time: (label: string) => {
-    if (isDebug()) console.time(`${PREFIX} ${label}`);
+    if (isDebug()) console.time(`[winden:timer] ${label}`);
   },
 
   /** End a named timer (dev-only). */
   timeEnd: (label: string) => {
-    if (isDebug()) console.timeEnd(`${PREFIX} ${label}`);
+    if (isDebug()) console.timeEnd(`[winden:timer] ${label}`);
   },
 };

@@ -129,6 +129,10 @@ class FSESpacingProvider
         ];
 
         foreach ($utilitySpaces as $slug => $size) {
+            // Cast to string: PHP auto-converts numeric-string array keys
+            // to integers (e.g. '0' becomes 0), which breaks WP 6.7+'s
+            // getPresetsDeclarations → kebabCase(slug) in the block editor.
+            $slug = (string) $slug;
             $name = ucfirst($slug);
             if (!in_array($name, $existing_spacing) || $extendSpacingFSE) {
                 $sizes[] = [
