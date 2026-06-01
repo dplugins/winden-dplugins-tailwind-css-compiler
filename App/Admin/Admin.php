@@ -72,7 +72,7 @@ class Admin
             // jQuery family — admin UI bits (notices, screen options) still need it
             'jquery', 'jquery-core', 'jquery-migrate', 'jquery-ui-core',
             // WordPress core admin essentials
-            'common', 'admin-bar', 'wp-pointer', 'utils',
+            'common', 'admin-bar', 'wp-pointer', 'utils', 'svg-painter',
             // React + Winden's declared deps from index.asset.php
             'react', 'react-dom', 'wp-element',
             // wp-element's transitive deps (WordPress hands these out anyway)
