@@ -4,7 +4,7 @@ Tags: tailwind, css, compiler, gutenberg, page builder
 Requires at least: 6.2
 Tested up to: 6.9.1
 Requires PHP: 7.4
-Stable tag: 1.3.3
+Stable tag: 1.3.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -82,6 +82,10 @@ When you use the `@plugin` directive with an external URL in your CSS configurat
 
 == Changelog ==
 
+= 1.3.4 =
+* Tailwindcss update to 4.3.1
+* Fixed clearing cache on post save
+
 = 1.3.2 =
 * Added back "'svg-painter" in scripts dependencies so SVG custom icons are recolored
 
@@ -117,6 +121,7 @@ Bug Fixes
 * Fixed rare SCSS hang when another plugin already loaded Sass
 * Fixed tab visibility flash on page load
 * Fixed double class instantiation issues
+
 
 = 1.2.6 =
 * Tailwindcss update to 4.3.0
