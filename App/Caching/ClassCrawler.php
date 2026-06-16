@@ -69,9 +69,9 @@ class ClassCrawler
         if (!is_array($post_classes_index)) {
             $post_classes_index = [];
         }
-        $had_index = !empty($post_classes_index);
 
-        // Fallback to existing global classes if the per-post index is empty
+        // Existing global class list (covers every post, including ones never
+        // individually indexed yet)
         $existing_classes = DataConverter::getOptionAsArray('winden_crawled_classes');
 
         // Get the old classes for this specific post (before the edit)
@@ -85,8 +85,7 @@ class ClassCrawler
         $post_classes_index[$post_id] = $new_post_classes;
         update_option('winden_post_classes_index', $post_classes_index);
 
-        // Build the complete class list from all posts
-        // This ensures removed classes don't persist
+        // Build the complete class list from all individually-indexed posts
         $all_classes = [];
         foreach ($post_classes_index as $pid => $classes) {
             if (is_array($classes)) {
@@ -94,9 +93,14 @@ class ClassCrawler
             }
         }
 
-        // If we had no index, keep the existing global class list to avoid shrinking output.css
-        if (!$had_index && !empty($existing_classes)) {
-            $all_classes = array_merge($existing_classes, $all_classes);
+        // Carry forward the existing global list for every post that hasn't
+        // been individually re-indexed yet, minus this post's *old* classes
+        // (so classes the user just removed from this post don't persist —
+        // see #44). We can't tell which other post a given class belongs to,
+        // so we only ever drop classes we know came from the post being saved.
+        if (!empty($existing_classes)) {
+            $carried_forward = array_diff($existing_classes, $old_post_classes);
+            $all_classes = array_merge($carried_forward, $all_classes);
         }
 
         // Deduplicate and return
