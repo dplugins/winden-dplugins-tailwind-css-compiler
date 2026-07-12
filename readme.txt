@@ -2,9 +2,9 @@
 Contributors: krstivoja
 Tags: tailwind, css, compiler, gutenberg, page builder
 Requires at least: 6.2
-Tested up to: 6.9.1
+Tested up to: 7.0.1
 Requires PHP: 7.4
-Stable tag: 1.3.5
+Stable tag: 1.3.6
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -81,6 +81,9 @@ When you use the `@plugin` directive with an external URL in your CSS configurat
 2. Tailwind classes in Gutenberg
 
 == Changelog ==
+
+= 1.3.6 =
+* Tested up to WordPress 7.0.1
 
 = 1.3.4 =
 * Tailwindcss update to 4.3.1
