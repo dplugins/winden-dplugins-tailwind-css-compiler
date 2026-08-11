@@ -260,6 +260,12 @@ class GetContent
     {
         $cache = get_option('winden_dplugins_cache');
 
+        // get_option() returns false when the option has never been set, which is
+        // the normal state on a fresh install. validateAndFix() declares ?array,
+        // so passing that false through raises a TypeError and the admin screen
+        // 500s. Normalise anything that is not an array to null.
+        $cache = is_array($cache) ? $cache : null;
+
         // AUTO-FIX: If cache contains OLD PostCSS syntax errors from plugin migration, clear it
         if (CacheValidator::validateAndFix($cache, 'fetch')) {
             // Return success with null status to indicate cache was cleared

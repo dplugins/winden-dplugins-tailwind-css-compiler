@@ -231,7 +231,9 @@ class SaveContent
 
         // AUTO-FIX: Clear OLD PostCSS corrupted cache from plugin migration
         $existing_cache = get_option('winden_dplugins_cache');
-        if ($existing_cache) {
+        // A truthy non-array option value would raise the same TypeError that
+        // GetContent hit, so check the type rather than mere truthiness.
+        if (is_array($existing_cache)) {
             CacheValidator::validateAndFix($existing_cache, 'save');
         }
 
