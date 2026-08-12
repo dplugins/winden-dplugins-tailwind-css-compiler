@@ -55,6 +55,7 @@ class SaveContent
         if (!defined('WP_DEBUG') || !WP_DEBUG) return;
         $ctx = $context ? ' ' . wp_json_encode($context) : '';
         $scope = strtolower((string) $phase);
+        // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- deliberate debug logging, and unreachable unless WP_DEBUG is on.
         error_log("[winden:{$scope}] {$message}{$ctx}");
     }
 
