@@ -82,6 +82,12 @@ When you use the `@plugin` directive with an external URL in your CSS configurat
 
 == Changelog ==
 
+= Unreleased =
+* Fixed a fatal error on a fresh install in the admin cache path: `get_option('winden_dplugins_cache')` returns `false` when the option has never been set, which is the normal state on a fresh install, and that value was passed where an array was expected.
+* Set the stable tag to 1.4.0.
+* Silenced the `error_log` sniff on the `WP_DEBUG` logger.
+* Added a test that fails the build if any code reads an option key that the migration in `App/Helpers/Migration.php` renames and deletes.
+
 = 1.3.9 =
 * Tested up to WordPress 7.0.3
 
