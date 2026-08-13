@@ -47,3 +47,4 @@ Thumbs.db
 
 # macOS
 .DS_Store
+**/*.DS_Store
