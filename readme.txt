@@ -2,9 +2,9 @@
 Contributors: krstivoja
 Tags: tailwind, css, compiler, gutenberg, page builder
 Requires at least: 6.7
-Tested up to: 7.0
+Tested up to: 7.0.4
 Requires PHP: 8.0
-Stable tag: 1.4.0
+Stable tag: 1.4.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -81,6 +81,10 @@ When you use the `@plugin` directive with an external URL in your CSS configurat
 2. Tailwind classes in Gutenberg
 
 == Changelog ==
+
+= 1.4.1 =
+* Tested up to WordPress 7.0.4
+
 
 = Unreleased =
 * Fixed a fatal error on a fresh install in the admin cache path: `get_option('winden_dplugins_cache')` returns `false` when the option has never been set, which is the normal state on a fresh install, and that value was passed where an array was expected.
