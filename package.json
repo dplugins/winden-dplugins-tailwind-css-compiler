@@ -59,7 +59,7 @@
     "color-2-name": "^1.5.2",
     "immutable": "^5.1.4",
     "lodash": "^4.17.23",
-    "monaco-editor": "^0.54.0",
+    "monaco-editor": "^0.56.0",
     "postcss-import": "^16.1.1",
     "prop-types": "^15.8.1",
     "react": "^18.3.1",
@@ -76,7 +76,7 @@
     "@testing-library/react": "^16.3.2",
     "browser-sync": "^3.0.4",
     "chokidar": "^4.0.3",
-    "esbuild": "^0.27.3",
+    "esbuild": "^0.28.2",
     "esbuild-plugin-copy": "^2.1.1",
     "esbuild-plugin-inline-import": "^1.1.0",
     "esbuild-plugin-polyfill-node": "^0.3.0",
@@ -87,5 +87,8 @@
     "tailwindcss": "^4.3.3",
     "terser": "^5.46.0",
     "vitest": "^4.0.18"
+  },
+  "overrides": {
+    "dompurify": "^3.4.13"
   }
 }

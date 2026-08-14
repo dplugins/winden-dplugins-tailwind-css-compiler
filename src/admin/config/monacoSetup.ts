@@ -13,7 +13,7 @@ import { loader } from '@monaco-editor/react';
 // path always uses dynamic ESM `import()`.
 (globalThis as any).require = (globalThis as any).require || function () { /* AMD-shim no-op (#7 / monaco) */ };
 
-import * as monaco from 'monaco-editor/esm/vs/editor/editor.main';
+import * as monaco from 'monaco-editor/editor/editor.main';
 import { registerPlainJSLanguage } from '@/utils/monacoPlainJS';
 import '@/types/global.d.ts';
 
