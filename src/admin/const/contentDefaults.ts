@@ -1,7 +1,7 @@
 /**
  * Default CSS content for Tailwind v4
  */
-export const DEFAULT_CSS_CONTENT = '@layer theme, base, components, utilities;\n\n@import "tailwindcss/theme.css" layer(theme);\n@import "tailwindcss/preflight.css" layer(base);\n@import "tailwindcss/utilities.css" layer(utilities);\n\n@plugin "@tailwindcss/typography";\n@plugin "@tailwindcss/forms";\n@plugin "@tailwindcss/container-queries";\n';
+export const DEFAULT_CSS_CONTENT = '@layer theme, base, components, utilities;\n\n@import "tailwindcss/theme.css" layer(theme);\n@import "tailwindcss/preflight.css" layer(base);\n@import "tailwindcss/utilities.css" layer(utilities);\n\n@plugin "@tailwindcss/typography";\n@plugin "@tailwindcss/forms";\n';
 
 /**
  * Alias for backward compatibility

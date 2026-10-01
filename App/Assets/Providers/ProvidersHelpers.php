@@ -69,7 +69,7 @@ class ProvidersHelpers
     // Returns array ready for JSON encoding to window.tailwind_compiler_options
     // ------------------------------------------------------------------------
 
-    public static function get_compiler_options($important = '')
+    public static function get_compiler_options()
     {
         $settings = SettingsOptions::getWindenOptions();
         $editor_content = self::get_editor_content();
@@ -77,7 +77,6 @@ class ProvidersHelpers
         $compiler_options = [
             'tailwind_version' => 'v4',
             'css_preprocessor' => !empty($settings['css_preprocessor']) ? $settings['css_preprocessor'] : 'css',
-            'important' => $important,
             'custom_css' => $editor_content['custom_css'],
             'style_css' => $editor_content['style_css'],
             'config_content' => $editor_content['config_content'],
@@ -316,7 +315,7 @@ class ProvidersHelpers
     // Enqueue Tailwind Framework Scripts (compiler, watcher, etc.)
     // ------------------------------------------------------------------------
 
-    public static function framework_scripts($important = '')
+    public static function framework_scripts()
     {
         // Use consistent handle 'winden-compiler-module' to match AutoCompile.php
         // This ensures the compiler is loaded once regardless of which system loads it first
@@ -334,7 +333,7 @@ class ProvidersHelpers
         }
 
         // Get compiler options using shared helper
-        $compiler_options = self::get_compiler_options($important);
+        $compiler_options = self::get_compiler_options();
 
         // Register script with empty string to allow inline content attachment
         // Using wp_register_script + wp_enqueue_script pattern for inline-only scripts
@@ -406,15 +405,6 @@ class ProvidersHelpers
         wp_add_inline_script('winden-frontend-consts', $inline_script);
     }
 
-    /**
-     * Apply !important to compiled styles for Tailwind v4
-     * DISABLED: Users can use Tailwind's built-in ! modifier (e.g., bg-red-500!) instead
-     */
-    public static function tw_version_four_important()
-    {
-        return 'v4';
-    }
-
     // ------------------------------------------------------------------------
     // Shared enqueue helpers (used by all builder integrations)
     // ------------------------------------------------------------------------
@@ -452,10 +442,8 @@ class ProvidersHelpers
     /**
      * Enqueue compiler module with inline config options.
      * Used by FSE, Oxygen, and Bricks providers for parent-window compiler loading.
-     *
-     * @param string $selector CSS selector for !important (e.g., '.oxygen-body', '.brx-body')
      */
-    public static function enqueueCompilerWithOptions(string $selector = ''): void
+    public static function enqueueCompilerWithOptions(): void
     {
         $compiler_path = WINDTACS_PLUGIN_DIR . 'build/compiler/tailwindcss-compiler.js';
         if (!file_exists($compiler_path)) {
@@ -470,7 +458,7 @@ class ProvidersHelpers
             true
         );
 
-        $options = self::get_compiler_options($selector);
+        $options = self::get_compiler_options();
         $config_js = sprintf(
             'window.uploadUrl = %s; window.ajaxurl = %s; window.winden_plugin_url = %s; window.tailwind_compiler_options = %s;',
             wp_json_encode(WINDTACS_UPLOADS_URL['baseurl']),
@@ -511,13 +499,42 @@ class ProvidersHelpers
      */
     public static function localizeWindenClassesData(string $handle, string $jsVarName, array $extra = []): void
     {
+        // Everything editor-wide belongs here: the Gutenberg bundle is enqueued
+        // from two places under different handles, each localizing the same JS
+        // object, so a key added to only one of them survives or not depending
+        // on load order.
         $data = array_merge([
             'nonce' => wp_create_nonce('winden_nonce'),
             'ajaxUrl' => admin_url('admin-ajax.php'),
             'breakpoints' => SettingsOptions::getBreakpoints(),
+            // Monaco for the "HTML to blocks" modal. Not enqueued: it is ~4 MB
+            // and the modal opens in a minority of sessions, so the panel
+            // fetches it the first time it is needed.
+            'htmlEditor' => self::htmlEditorAssets(),
         ], $extra);
 
         wp_localize_script($handle, $jsVarName, $data);
+    }
+
+    /**
+     * URLs for the lazily loaded Monaco HTML editor, or null when it has not
+     * been built (a source checkout without `npm run build`).
+     */
+    private static function htmlEditorAssets(): ?array
+    {
+        $script = WINDTACS_PLUGIN_DIR . 'build/winden-classes/html-editor/index.js';
+        $style = WINDTACS_PLUGIN_DIR . 'build/winden-classes/html-editor/index.css';
+
+        if (!file_exists($script)) {
+            return null;
+        }
+
+        return [
+            'script' => WINDTACS_PLUGIN_URL . 'build/winden-classes/html-editor/index.js?ver=' . filemtime($script),
+            'style' => file_exists($style)
+                ? WINDTACS_PLUGIN_URL . 'build/winden-classes/html-editor/index.css?ver=' . filemtime($style)
+                : null,
+        ];
     }
 
 }

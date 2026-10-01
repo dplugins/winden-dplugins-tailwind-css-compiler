@@ -138,7 +138,7 @@ export const FilesScanTab: React.FC<FilesScanTabProps> = ({ settings, handleChan
 
       <div className="text-xs text-dimmed">
         <p>Common development folders like node_modules, vendor, .git, etc. are automatically ignored.</p>
-        <p className="mt-1">Select folders or files above. If nothing is selected, the scan will have nothing to search.</p>
+        <p className="mt-1">Select folders or files above. If nothing is selected, the active theme (and its parent theme) is scanned.</p>
       </div>
     </div>
   );

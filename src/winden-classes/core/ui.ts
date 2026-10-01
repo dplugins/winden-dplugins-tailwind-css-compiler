@@ -302,7 +302,6 @@ export function create(options: WindenClassesUIOptions): WindenClassesUIInstance
       container: singleMode,
       input: textarea,
       maxSuggestions: 12,
-      debounceMs: 50,
       onChange: (classes: string) => {
         // Trigger input event for any listeners
         textarea.dispatchEvent(new Event('input', { bubbles: true }));
@@ -328,14 +327,11 @@ export function create(options: WindenClassesUIOptions): WindenClassesUIInstance
   };
 }
 
-// Declare window types
+// Window types for WindenAutocomplete and winden_autocomplete are declared by
+// core/index.ts, which owns that global; re-declaring them here narrower made
+// the two definitions conflict.
 declare global {
   interface Window {
-    WindenAutocomplete: {
-      create: (options: any) => any;
-      setBreakpoints: (breakpoints: string[]) => void;
-    };
-    winden_autocomplete?: string[] | Record<string | number, string>;
     WindenClassesUI: {
       create: typeof create;
     };

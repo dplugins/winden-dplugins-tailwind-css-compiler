@@ -62,9 +62,25 @@
 .winden-classes-gutenberg-panel {
   position: relative;
 
-  .winden-textarea-base {
+  /* The panel is laid out by its content, and the sidebar does not clamp it —
+     so a row wide enough to matter pushed the whole panel past the sidebar's
+     280px and took the row buttons off the right edge with it. Measured: the
+     panel wanted 297px, and every element inside followed happily once the
+     width was actually constrained. */
+  max-width: 100%;
+  min-width: 0;
+
+  /* Split boxes hold one breakpoint each and stay hand-resizable; the single
+     box is fitted to its content by the panel, with a four-row floor. */
+  .winden-split-textarea {
     min-height: 60px;
     resize: vertical;
+  }
+
+  .winden-textarea-input,
+  .winden-textarea-mirror {
+    min-height: calc(4 * 1.5em + 18px);
+    resize: none;
   }
 
   .winden-split-mode {
@@ -72,4 +88,358 @@
     flex-direction: column;
     gap: 8px;
   }
+}
+
+/* ── HTML to blocks ───────────────────────────────────────── */
+
+/* Monaco measures itself against this box, so it needs a height of its own */
+.winden-html-blocks-editor {
+  flex: 1 1 auto;
+  min-height: 0;
+  border: 1px solid var(--wcl-border, #878787);
+  border-radius: 3px;
+  overflow: hidden;
+
+  /* Nothing has mounted yet, and an empty bordered box reads as broken */
+  &.is-plain {
+    display: none;
+  }
+}
+
+.winden-html-blocks-error {
+  margin: 0;
+  padding: 8px 12px;
+  color: var(--wcl-danger, #dc2626);
+  font-size: 12px;
+}
+
+/* ── The docked HTML editor ────────────────────────────────── */
+
+/* The opt-in lives in the sidebar; the panel itself hangs under the canvas,
+   where markup has the width it needs. */
+.winden-html-dock-toggle {
+  padding: 16px;
+  border-top: 1px solid var(--wcl-border, #e0e0e0);
+}
+
+/* Appended to the editor's content column, which is a flex column — so the
+   canvas keeps the rest and this keeps what it is given */
+.winden-html-dock-host {
+  flex: 0 0 auto;
+  display: flex;
+  min-height: 0;
+  min-width: 0;
+}
+
+/* Beside the canvas: the content column becomes a row, the panel goes first
+   and the canvas shrinks to the rest. The column is core's and the host is
+   the only thing of ours inside it, so the host marks its parent from JS
+   (`useDockHost`) — a class rather than `:has()`, which older Firefox and
+   Safari lack, and a layout that silently falls apart is worse than one that
+   needs a line of script. The visual editor is `flex: 1 0 auto` with no
+   min-width in core's own CSS, which in a row means it never shrinks — so
+   both are set here. */
+.winden-html-dock-beside {
+  flex-direction: row;
+
+  > .winden-html-dock-host.is-left {
+    order: -1;
+  }
+
+  > .editor-visual-editor {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+}
+
+.winden-html-dock-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  border-top: 1px solid #000;
+  /* Monaco's own vs-dark ground, so the chrome and the code are one surface */
+  background: #1e1e1e;
+  color: #cccccc;
+  /* The host is a flex row; under the canvas the panel takes its full width */
+  flex: 1 1 auto;
+
+  /* The handle is the first child: on top when the panel is under the
+     canvas, on the right when it is beside it */
+  &.is-left {
+    flex: 0 0 auto;
+    flex-direction: row-reverse;
+    border-top: 0;
+    border-inline-end: 1px solid #000;
+    height: 100%;
+  }
+}
+
+/* Wide enough to grab, and it says so on hover. Pointer capture is what makes
+   the drag survive crossing the canvas iframe — see onResize. */
+.winden-html-dock-resize {
+  flex: 0 0 8px;
+  cursor: ns-resize;
+  background: #2d2d2d;
+  touch-action: none;
+
+  &:hover {
+    background: var(--wp-admin-theme-color, #3858e9);
+  }
+
+  .is-left > & {
+    cursor: ew-resize;
+  }
+}
+
+/* Everything but the handle stacks as before; beside the canvas that stack is
+   one flex item of the row */
+.winden-html-dock-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+}
+
+/* Header toolbar: the lucide marks sized like core's own 24px icons */
+.winden-html-dock-side-icon {
+  display: inline-flex;
+
+  svg {
+    width: 20px;
+    height: 20px;
+    stroke: currentColor;
+    /* lucide draws with strokes; core's button CSS fills every svg with
+       currentColor and turned these into solid squares */
+    fill: none;
+  }
+}
+
+.winden-html-dock-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 12px;
+  font-size: 12px;
+
+  /* wp-admin's button CSS is light-on-light in here */
+  .components-button.is-tertiary {
+    color: #cccccc;
+  }
+
+  .components-button.is-secondary {
+    color: #cccccc;
+    box-shadow: inset 0 0 0 1px #4a4a4a;
+  }
+}
+
+.winden-html-dock-title {
+  font-weight: 600;
+  color: #ffffff;
+}
+
+/* Close sits at the far end; the spacer used to be the hint that was there */
+.winden-html-dock-bar > .components-button:last-child {
+  margin-inline-start: auto;
+}
+
+/* The block that is selected elsewhere. Shading rather than a border: the
+   range is whole lines, and a border would redraw the editor's own gutter. */
+.winden-html-dock-mark {
+  background: rgba(56, 88, 233, 0.18);
+}
+
+.winden-html-dock-mark-gutter {
+  border-inline-start: 3px solid var(--wp-admin-theme-color, #3858e9);
+}
+
+.winden-html-dock-note {
+  margin: 0;
+  padding: 8px 12px 12px;
+  color: #8c8c8c;
+  font-size: 12px;
+}
+
+/* No padding: the editor is the panel, edge to edge */
+.winden-html-dock-editor-wrap {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.winden-html-dock-editor.winden-html-blocks-editor {
+  flex: 1 1 auto;
+  min-height: 0;
+  border: 0;
+  border-radius: 0;
+}
+
+/* ── Overridden classes ────────────────────────────────────── */
+
+.winden-overridden-note {
+  margin: 0 0 8px;
+  padding: 6px 8px;
+  background: var(--wcl-bg-hover, #f1f5f9);
+  border: 1px solid var(--wcl-border, #878787);
+  border-radius: 3px;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.winden-overridden-line {
+  margin: 0;
+
+  & + & {
+    margin-top: 4px;
+  }
+
+  code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+}
+
+.winden-overridden-fix {
+  margin-left: 6px;
+  padding: 1px 6px;
+  background: transparent;
+  border: 1px solid var(--wcl-border, #878787);
+  border-radius: 3px;
+  color: inherit;
+  font-size: 11px;
+  cursor: pointer;
+
+  &:hover {
+    background: var(--wcl-bg, #fff);
+  }
+}
+
+/* ── Component classes: save / load ─────────────────────────── */
+
+.winden-component-actions {
+  display: flex;
+  gap: 2px;
+  margin-left: auto;
+
+  // Winden's own text colour for the idle icons; the pressed one keeps
+  // WordPress's white-on-dark, or it would sit black on black
+  .components-button:not(.is-pressed) {
+    color: inherit;
+  }
+
+  .components-button.is-pressed {
+    color: #fff;
+  }
+
+  .winden-overridden-trigger:not(.is-pressed) {
+    color: var(--wcl-warning, #b45309);
+  }
+}
+
+.winden-load-component-popover .components-popover__content {
+  min-width: 240px;
+  max-width: 320px;
+}
+
+.winden-load-component-list {
+  .components-menu-item__button {
+    height: auto;
+    min-height: 40px;
+    padding-top: 6px;
+    padding-bottom: 6px;
+  }
+
+  .components-menu-item__item {
+    display: block;
+    min-width: 0;
+    text-align: left;
+    white-space: normal;
+  }
+
+  .components-menu-item__info {
+    display: block;
+    margin-top: 2px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 11px;
+    line-height: 1.4;
+    overflow-wrap: anywhere;
+  }
+}
+
+.winden-load-component-empty {
+  margin: 0;
+  padding: 12px;
+  color: #757575;
+  font-size: 12px;
+}
+
+.winden-save-component-confirm,
+.winden-save-component-cancel {
+  padding: 4px 8px;
+  background: transparent;
+  border: 1px solid var(--wcl-border, #878787);
+  border-radius: 3px;
+  color: inherit;
+  font-size: 11px;
+  cursor: pointer;
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
+
+  &:not(:disabled):hover {
+    background: var(--wcl-bg-hover, #f1f5f9);
+  }
+}
+
+.winden-save-component {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.winden-save-component-name {
+  flex: 1;
+  min-width: 0;
+  /* wp-admin styles inputs at 40px with a heavy focus ring; match the panel */
+  height: auto;
+  min-height: 0;
+  padding: 4px 6px;
+  border: 1px solid var(--wcl-border, #878787);
+  border-radius: 3px;
+  font-size: 11px;
+  box-shadow: none;
+}
+
+.winden-save-component-error {
+  flex-basis: 100%;
+  margin: 0;
+  color: var(--wcl-danger, #dc2626);
+  font-size: 11px;
+}
+
+/* ── Plugin sidebar ─────────────────────────────────────────
+   The same panel outside the block inspector; it gets the full sidebar so the
+   helper does not compete with the block's own settings for height. */
+
+.winden-classes-sidebar-empty {
+  padding: 16px;
+  color: #757575;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+/* ── Whole page as HTML ─────────────────────────────────────
+   The header toolbar groups its buttons tight against each other, so ours
+   arrives shoulder to shoulder with List View — two dark squares reading as
+   one control. A gap says they are separate commands. */
+
+/* The header toolbar spaces its own tools with an 8px gap; these are
+   appended after that group, so they carry the gap themselves */
+.winden-html-whole-page-trigger,
+.winden-html-dock-side-trigger {
+  margin-left: 8px;
 }

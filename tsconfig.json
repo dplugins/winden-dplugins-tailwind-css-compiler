@@ -1,10 +1,67 @@
 {
   "compilerOptions": {
-      "module": "commonjs",
-      "target": "es5"
+    "target": "ES2020",
+    "module": "ESNext",
+    "lib": [
+      "ES2020",
+      "DOM",
+      "DOM.Iterable"
+    ],
+    "jsx": "react",
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
+    "allowJs": true,
+    "checkJs": false,
+    "noEmit": true,
+    "strict": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "paths": {
+      "@/*": [
+        "./src/admin/*"
+      ],
+      "@pages/*": [
+        "./src/admin/components/pages/*"
+      ],
+      "@components/*": [
+        "./src/admin/components/*"
+      ],
+      "@hooks/*": [
+        "./src/admin/hooks/*"
+      ],
+      "@ui/*": [
+        "./src/admin/components/ui/*"
+      ],
+      "@utils/*": [
+        "./src/admin/utils/*"
+      ],
+      "@el/*": [
+        "./src/admin/components/elements/*"
+      ],
+      "@functions/*": [
+        "./src/admin/functions/*"
+      ],
+      "@const/*": [
+        "./src/admin/const/*"
+      ]
+    },
+    "types": [
+      "node",
+      "vitest/globals"
+    ],
+    "allowUmdGlobalAccess": true
   },
+  "include": [
+    "./src/**/*",
+    "pro/src/**/*",
+    "tests/**/*"
+  ],
   "exclude": [
-      "node_modules",
-      "vendor"
+    "node_modules",
+    "vendor",
+    "build",
+    "pro/build"
   ]
 }

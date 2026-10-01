@@ -60,9 +60,30 @@
             }
         });
 
+        // A rebuild is pending (a save crawled new classes but nothing compiled yet):
+        // compile once from the crawled classes; compile() saves output.css and
+        // clears the flag. A save meanwhile waits for it instead of being dropped
+        // by compile()'s lock, so the pending rebuild never runs twice.
+        // Top window only: builders that load this script in their canvas iframe too
+        // (Bricks, Oxygen) would otherwise compile the same rebuild twice.
+        let pendingCompile = null;
+        if (window.windenAutoCompile.needsCompile && window === window.top) {
+            debug('[winden:compile-trigger] needsCompile set, compiling pending rebuild');
+            pendingCompile = compile().finally(() => {
+                pendingCompile = null;
+                window.windenAutoCompile.needsCompile = false;
+            });
+        }
+
         // Helper: Trigger recompile with the compile callback
         // Flushes any pending Winden class saves first
         function triggerRecompile() {
+            if (pendingCompile) {
+                debug('[winden:compile-trigger] Save during pending rebuild, waiting for it first');
+                pendingCompile.then(triggerRecompile);
+                return;
+            }
+
             // Check if Winden has pending saves that need to be flushed
             if (window.windenFlushPendingSaves && window.windenHasPendingSaves && window.windenHasPendingSaves()) {
                 debug('[winden:compile-trigger] Flushing pending Winden class saves before compile...');
@@ -311,103 +332,65 @@
                 }
             });
 
-            const getVueApp = () => {
-                return document.querySelector('#app')?.__vue__ ||
-                       window.parent?.document.querySelector('#app')?.__vue__;
-            };
-
-            let checkCount = 0;
-            const checkBreakdanceReady = setInterval(() => {
-                checkCount++;
-                const app = getVueApp();
-
-                if (app) {
-                    clearInterval(checkBreakdanceReady);
-
-                    try {
-                        const store = app.$store;
-
-                        if (store && store.state) {
-                            let wasSaving = false;
-
-                            if (store.watch) {
-                                store.watch(
-                                    (state) => state.ui?.saveInProgress,
-                                    (isSaving) => {
-                                        if (wasSaving && !isSaving) {
-                                            triggerRecompile();
-                                        }
-                                        wasSaving = isSaving;
-                                    }
-                                );
-                            } else {
-                                app.$watch(
-                                    () => store.state.ui?.saveInProgress,
-                                    (isSaving) => {
-                                        if (wasSaving && !isSaving) {
-                                            triggerRecompile();
-                                        }
-                                        wasSaving = isSaving;
-                                    }
-                                );
-                            }
-                        }
-                    } catch(e) {
-                        console.error('[winden:compile-trigger] Error setting up Breakdance watcher:', e);
-                    }
-                }
-            }, 100);
-
-            setTimeout(() => clearInterval(checkBreakdanceReady), 10000);
+            watchBuilderSave();
         }
 
         function initOxygen6() {
-            const getVueApp = () => {
-                return document.querySelector('#app')?.__vue__ ||
-                       window.parent?.document.querySelector('#app')?.__vue__;
+            watchBuilderSave();
+        }
+
+        // Breakdance / Oxygen 6 builder store: recompile when ui.saveInProgress
+        // goes true -> false. Vue 2 + Vuex (Breakdance, Oxygen 6.0) exposes
+        // `#app.__vue__.$store`; Vue 3 + Pinia (Oxygen 6.1+) exposes
+        // `#app.__vue_app__.config.globalProperties.$pinia`. We may run in the
+        // canvas iframe, so the parent document is checked too.
+        function findBuilderAppRoot() {
+            const docs = [document];
+            try {
+                if (window.parent && window.parent !== window) docs.push(window.parent.document);
+            } catch (e) { /* cross-origin parent */ }
+            for (const doc of docs) {
+                const root = doc.querySelector('#app');
+                if (root && (root.__vue__?.$store || root.__vue_app__?.config?.globalProperties?.$pinia)) {
+                    return root;
+                }
+            }
+            return null;
+        }
+
+        function watchBuilderSave() {
+            let wasSaving = false;
+            const onSavingChange = (isSaving) => {
+                if (wasSaving && !isSaving) {
+                    triggerRecompile();
+                }
+                wasSaving = Boolean(isSaving);
             };
 
-            let checkCount = 0;
-            const checkOxygen6Ready = setInterval(() => {
-                checkCount++;
-                const app = getVueApp();
+            const checkReady = setInterval(() => {
+                const root = findBuilderAppRoot();
+                if (!root) return;
+                clearInterval(checkReady);
 
-                if (app) {
-                    clearInterval(checkOxygen6Ready);
-
-                    try {
-                        const store = app.$store;
-
-                        if (store && store.state) {
-                            let wasSaving = false;
-
-                            const watchPath = store.state.ui?.saveInProgress !== undefined
-                                ? (state) => state.ui?.saveInProgress
-                                : (state) => state.closingConfirmations?.builder?.isSaving;
-
-                            if (store.watch) {
-                                store.watch(watchPath, (isSaving) => {
-                                    if (wasSaving && !isSaving) {
-                                        triggerRecompile();
-                                    }
-                                    wasSaving = isSaving;
-                                });
-                            } else {
-                                app.$watch(watchPath, (isSaving) => {
-                                    if (wasSaving && !isSaving) {
-                                        triggerRecompile();
-                                    }
-                                    wasSaving = isSaving;
-                                });
-                            }
-                        }
-                    } catch(e) {
-                        console.error('[winden:compile-trigger] Error setting up Oxygen 6 watcher:', e);
+                try {
+                    const pinia = root.__vue_app__?.config?.globalProperties?.$pinia;
+                    const uiStore = pinia?._s?.get('ui');
+                    if (uiStore) {
+                        uiStore.$subscribe(() => onSavingChange(uiStore.saveInProgress), { detached: true, flush: 'sync' });
+                        return;
                     }
+
+                    const store = root.__vue__.$store;
+                    const watchPath = store.state.ui?.saveInProgress !== undefined
+                        ? (state) => state.ui?.saveInProgress
+                        : (state) => state.closingConfirmations?.builder?.isSaving;
+                    store.watch(watchPath, onSavingChange);
+                } catch(e) {
+                    console.error('[winden:compile-trigger] Error setting up builder save watcher:', e);
                 }
             }, 100);
 
-            setTimeout(() => clearInterval(checkOxygen6Ready), 10000);
+            setTimeout(() => clearInterval(checkReady), 10000);
         }
 
         function initBuilderius() {
@@ -471,6 +454,13 @@
         window.addEventListener('fancoolo:postSaved', function(event) {
             triggerRecompile();
         });
+
+        // Plain frontend page (admin visit while a rebuild is pending):
+        // the compile above is all there is, no builder save to listen for
+        if (window.windenAutoCompile.frontendRebuild) {
+            debug('[winden:compile-trigger] Frontend rebuild only, no save listeners');
+            return;
+        }
 
         // Start when ready
         debug('[winden:compile-trigger] Setting up init trigger, document.readyState:', document.readyState);

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext, useCallback } from "react";
+import React, { useState, useEffect, useContext, useCallback, useRef } from "react";
 import '@/types/global.d.ts';
 import { Button } from "@el/Button";
 import {
@@ -82,6 +82,10 @@ const Nav: React.FC = () => {
   const [licenseError, setLicenseError] = useState<string | null>(null);
   const [groupedClasses, setGroupedClasses] = useState<GroupedClassesData | null>(null);
   const [classesLoading, setClassesLoading] = useState(false);
+  const [justSaved, setJustSaved] = useState(false);
+  
+  // Ref for caching abort controller
+  const cachingAbortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -255,6 +259,23 @@ const Nav: React.FC = () => {
     return () => window.removeEventListener('winden:apply-stale-save', onApply);
   }, [handleSaveAndFetchClasses]);
 
+  // Listen for save success to show inline confirmation
+  useEffect(() => {
+    const onSaveSuccess = () => {
+      setJustSaved(true);
+      const timeoutId = setTimeout(() => {
+        setJustSaved(false);
+      }, 2000);
+      
+      return () => {
+        clearTimeout(timeoutId);
+      };
+    };
+
+    window.addEventListener('winden:save-success', onSaveSuccess);
+    return () => window.removeEventListener('winden:save-success', onSaveSuccess);
+  }, []);
+
   useSaveShortcut(
     handleSaveAndFetchClasses,
     jsContentRef,
@@ -343,7 +364,11 @@ const Nav: React.FC = () => {
           onClick={handleSaveAndFetchClasses}
           disabled={loading || isDataLoading}
         >
-          {loading || isDataLoading ? "Loading..." : "Save"}
+          {loading || isDataLoading
+            ? "Loading..."
+            : justSaved
+            ? "Saved"
+            : "Save"}
         </Button>
 
         <Button

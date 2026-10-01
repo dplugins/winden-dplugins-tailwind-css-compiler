@@ -1,0 +1,38 @@
+{
+    "$schema": "https://schemas.wp.org/trunk/block.json",
+    "apiVersion": 3,
+    "name": "winden/text",
+    "version": "1.0.0",
+    "title": "Winden Text",
+    "category": "text",
+    "icon": "editor-textcolor",
+    "description": "One element and nothing around it \u2014 <time>, <span>, <code>, <button>, <label> \u2014 so the tag, its attributes and its Tailwind classes are all on the element the markup asked for.",
+    "keywords": [
+        "time",
+        "span",
+        "code",
+        "button",
+        "label",
+        "tailwind",
+        "winden"
+    ],
+    "textdomain": "winden-dplugins-tailwind-css-compiler",
+    "attributes": {
+        "tagName": {
+            "type": "string",
+            "default": "span"
+        },
+        "content": {
+            "type": "rich-text",
+            "source": "rich-text",
+            "selector": "span,time,code,abbr,mark,small,strong,em,b,i,s,sub,sup,q,cite,dfn,kbd,samp,var,bdi,bdo,button,label,summary,legend"
+        },
+        "htmlAttributes": {
+            "type": "object"
+        }
+    },
+    "supports": {
+        "anchor": true
+    },
+    "editorScript": "file:./index.js"
+}

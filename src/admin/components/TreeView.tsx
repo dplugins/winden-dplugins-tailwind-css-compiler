@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { ChevronRight, ChevronDown, Folder, FolderOpen, File } from '@/components/icons';
 import { Checkbox } from '@el/Checkbox';
 import { Button } from '@el/Button';
+import { Badge } from '@el/Badge';
+import { Spinner } from '@el/Spinner';
 import { cn } from '@utils/index';
 
 interface TreeNode {
@@ -81,84 +83,88 @@ export const TreeView: React.FC<TreeViewProps> = ({
     setExpandedNodes(newExpanded);
   };
 
-  const isSelected = (path: string) => {
-    return selectedPaths.some(selected => selected.path === path);
+  // A path is covered when it (or an ancestor of it) has an explicit entry.
+  const isPathCovered = (path: string): boolean => {
+    return selectedPaths.some(
+      selected => selected.path === path || path.startsWith(selected.path + '/')
+    );
   };
 
-  const getAllChildPaths = (node: TreeNode): string[] => {
-    let paths: string[] = [];
+  // Tri-state status computed bottom-up from selectedPaths, so a directory reads
+  // as 'full' whether it has its own entry, an inherited ancestor entry, or every
+  // one of its children independently resolves to 'full'.
+  const getNodeStatus = (node: TreeNode): 'full' | 'partial' | 'none' => {
+    if (isPathCovered(node.path)) return 'full';
+    if (!node.children || node.children.length === 0) return 'none';
 
-    if (node.children) {
-      node.children.forEach(child => {
-        paths.push(child.path);
-        if (child.type === 'directory') {
-          paths = paths.concat(getAllChildPaths(child));
-        }
-      });
+    const childStatuses = node.children.map(getNodeStatus);
+    if (childStatuses.every(status => status === 'full')) return 'full';
+    if (childStatuses.some(status => status !== 'none')) return 'partial';
+    return 'none';
+  };
+
+  const findNodeByPath = (nodes: TreeNode[], path: string): TreeNode | null => {
+    for (const node of nodes) {
+      if (node.path === path) return node;
+      if (node.children) {
+        const found = findNodeByPath(node.children, path);
+        if (found) return found;
+      }
     }
-
-    return paths;
+    return null;
   };
 
-  const getAllChildNodes = (node: TreeNode): TreeNode[] => {
-    let nodes: TreeNode[] = [];
+  // Replace a fully-selected ancestor with explicit entries for everything under
+  // it except the excluded path, so the excluded subtree reads as unselected
+  // while its siblings stay selected (a gitignore-style carve-out).
+  const carveOutExclusion = (ancestorNode: TreeNode, excludedPath: string, collected: SelectedPath[]) => {
+    if (!ancestorNode.children) return;
 
-    if (node.children) {
-      node.children.forEach(child => {
-        nodes.push(child);
-        if (child.type === 'directory') {
-          nodes = nodes.concat(getAllChildNodes(child));
-        }
-      });
-    }
-
-    return nodes;
-  };
-
-  const isIndeterminate = (node: TreeNode): boolean => {
-    if (node.type !== 'directory' || !node.children) return false;
-
-    const childPaths = getAllChildPaths(node);
-    const selectedChildCount = childPaths.filter(path => isSelected(path)).length;
-
-    return selectedChildCount > 0 && selectedChildCount < childPaths.length;
+    ancestorNode.children.forEach(child => {
+      if (child.path === excludedPath) {
+        return; // this is the excluded node itself
+      }
+      if (excludedPath.startsWith(child.path + '/')) {
+        carveOutExclusion(child, excludedPath, collected); // child is on the path to the exclusion
+        return;
+      }
+      collected.push({ path: child.path, type: child.type, name: child.name });
+    });
   };
 
   const handleCheckboxChange = (node: TreeNode, checked: boolean) => {
     let newSelectedPaths = [...selectedPaths];
 
     if (checked) {
-      // Add the node
-      if (!isSelected(node.path)) {
-        newSelectedPaths.push({
-          path: node.path,
-          type: node.type,
-          name: node.name,
-        });
-      }
-
-      // If it's a directory, add all children
-      if (node.type === 'directory' && node.children) {
-        const childNodes = getAllChildNodes(node);
-
-        childNodes.forEach(childNode => {
-          if (!isSelected(childNode.path)) {
-            newSelectedPaths.push({
-              path: childNode.path,
-              type: childNode.type,
-              name: childNode.name,
-            });
-          }
-        });
-      }
+      // Drop any entry for this node or its descendants - a single entry for
+      // this node covers the whole subtree.
+      newSelectedPaths = newSelectedPaths.filter(
+        selected => selected.path !== node.path && !selected.path.startsWith(node.path + '/')
+      );
+      newSelectedPaths.push({ path: node.path, type: node.type, name: node.name });
     } else {
-      // Remove the node
-      newSelectedPaths = newSelectedPaths.filter(selected => selected.path !== node.path);
+      const literalEntry = selectedPaths.some(selected => selected.path === node.path);
 
-      // If it's a directory, remove all children
-      if (node.type === 'directory' && node.children) {
-        const childPaths = getAllChildPaths(node);
-        newSelectedPaths = newSelectedPaths.filter(selected => !childPaths.includes(selected.path));
+      if (literalEntry) {
+        newSelectedPaths = newSelectedPaths.filter(
+          selected => selected.path !== node.path && !selected.path.startsWith(node.path + '/')
+        );
+      } else {
+        // Selected only through an inherited ancestor - carve this node out of it.
+        const ancestorEntry = selectedPaths.find(
+          selected => node.path.startsWith(selected.path + '/')
+        );
+
+        if (ancestorEntry) {
+          const ancestorNode = findNodeByPath(treeData, ancestorEntry.path);
+          newSelectedPaths = newSelectedPaths.filter(selected => selected.path !== ancestorEntry.path);
+
+          if (ancestorNode) {
+            const collected: SelectedPath[] = [];
+            carveOutExclusion(ancestorNode, node.path, collected);
+            newSelectedPaths.push(...collected);
+          }
+        }
       }
     }
 
@@ -167,8 +173,7 @@ export const TreeView: React.FC<TreeViewProps> = ({
 
   const renderNode = (node: TreeNode, level: number = 0): React.ReactNode => {
     const isExpanded = expandedNodes.has(node.path);
-    const nodeSelected = isSelected(node.path);
-    const nodeIndeterminate = isIndeterminate(node);
+    const nodeStatus = getNodeStatus(node);
     const paddingLeft = level * 20;
 
     return (
@@ -198,9 +203,7 @@ export const TreeView: React.FC<TreeViewProps> = ({
 
           <div className="mr-2">
             <Checkbox
-              checked={nodeSelected}
-              // @ts-ignore - Radix supports indeterminate
-              indeterminate={nodeIndeterminate ? 'true' : undefined}
+              checked={nodeStatus === 'partial' ? 'indeterminate' : nodeStatus === 'full'}
               onCheckedChange={(checked) => handleCheckboxChange(node, checked as boolean)}
             />
           </div>
@@ -220,9 +223,9 @@ export const TreeView: React.FC<TreeViewProps> = ({
           <span className="flex-1 text-sm">
             {node.name}
             {node.type === 'directory' && node.file_count && node.file_count > 0 && (
-              <span className="ml-2 text-xs text-dimmed">
-                ({node.file_count} {node.file_count === 1 ? 'file' : 'files'})
-              </span>
+              <Badge variant="count" className="ml-2">
+                {node.file_count} {node.file_count === 1 ? 'file' : 'files'}
+              </Badge>
             )}
             {node.type === 'file' && node.size && (
               <span className="ml-2 text-xs text-dimmed">
@@ -244,7 +247,10 @@ export const TreeView: React.FC<TreeViewProps> = ({
   if (loading) {
     return (
       <div className="flex items-center justify-center py-8">
-        <div className="text-dimmed">Loading file tree...</div>
+        <div className="flex items-center gap-1 text-dimmed">
+          <Spinner size="sm" />
+          Loading file tree...
+        </div>
       </div>
     );
   }

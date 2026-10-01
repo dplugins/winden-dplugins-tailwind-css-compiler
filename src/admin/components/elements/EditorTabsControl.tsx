@@ -99,7 +99,7 @@ export const EditorTabsControl: React.FC<EditorTabsControlProps> = ({
                 tabIndex={0}
                 aria-label={`Reorder ${EDITOR_TAB_LABELS[tab.value]}`}
                 onKeyDown={onKeyDown(idx)}
-                className="text-base-foreground/40 hover:text-base-foreground cursor-grab active:cursor-grabbing select-none px-1 leading-none focus:outline-none focus:ring-2 focus:ring-ring rounded"
+                className="text-base-foreground/40 hover:text-base-foreground cursor-grab active:cursor-grabbing select-none px-1 leading-none focus:outline-none focus:ring-2 focus:ring-ring rounded-md"
                 aria-grabbed={dragIndex === idx}
               >
                 ⋮⋮

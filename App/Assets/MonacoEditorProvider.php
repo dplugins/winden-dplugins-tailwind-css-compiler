@@ -107,7 +107,6 @@ class MonacoEditorProvider
         $compiler_options = [
             'tailwind_version' => 'v4',
             'css_preprocessor' => $settings['css_preprocessor'] ?? 'css',
-            'important' => '',
             'custom_css' => $wizzard_state,
         ];
 

@@ -5,7 +5,7 @@ import { cn } from "@utils/index";
 import { ReactComponent as DeleteOutlineIcon } from "@/assets/icons/DeleteOutlineIcon.svg";
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap outline-none rounded text-sm font-medium ring-offset-base transition-colors disabled:pointer-events-none disabled:opacity-50 cursor-pointer!",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap outline-none rounded-md text-sm font-medium ring-offset-base transition-colors disabled:pointer-events-none disabled:opacity-50 cursor-pointer!",
   {
     variants: {
       variant: {

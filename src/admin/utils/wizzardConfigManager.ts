@@ -296,39 +296,55 @@ export function generateWizzardConfig(params: GenerateConfigParams): string {
         : clampsBorderRadius)
     : {};
 
+  /**
+   * Both defaults below have to match `defaultWizzardState`, and both used to
+   * be its opposite.
+   *
+   * A state saved by an older version does not carry every key the current one
+   * expects. `extendColors ?? false` then reads a missing key as "replace the
+   * palette rather than extend it", and a missing `colorsActive` fell through
+   * to the generator's own `= true` — so a feature nobody switched on asked
+   * for every default to be deleted. That is how a site ends up with
+   * `--color-*: initial` and nothing behind it.
+   *
+   * Extending is the safe reading of silence: it adds and takes nothing away.
+   */
+  const extending = (value: unknown): boolean => value ?? true as boolean;
+  const active = (value: unknown): boolean => value ?? false as boolean;
+
   // Generate final config using the existing configGenerator
   const config = generateTailwindConfig({
     // Breakpoints
     breakpoints: wizzardState.breakpointsActive ? wizzardState.breakpoints : [],
-    extendBreakpoints: wizzardState.extendBreakpoints ?? false,
+    extendBreakpoints: extending(wizzardState.extendBreakpoints),
 
     // Font Family
     fontFamilies: wizzardState.fontFamilyActive ? wizzardState.fontFamily : [],
-    extendFontFamily: wizzardState.extendFontFamily ?? false,
+    extendFontFamily: extending(wizzardState.extendFontFamily),
 
     // Colors
     colors: colorsConfig,
-    extendColors: wizzardState.extendColors ?? false,
+    extendColors: extending(wizzardState.extendColors),
 
     // Spacing
     spacing: spacingConfig,
-    extendSpacing: wizzardState.spacing?.extend ?? false,
+    extendSpacing: extending(wizzardState.spacing?.extend),
 
     // Font Sizes
     fontSizes: fontSizesConfig,
-    extendFontSizes: wizzardState.fontSize?.extend ?? false,
+    extendFontSizes: extending(wizzardState.fontSize?.extend),
 
     // Border Radius
     borderRadius: borderRadiusConfig,
-    extendBorderRadius: wizzardState.borderRadius?.extend ?? false,
+    extendBorderRadius: extending(wizzardState.borderRadius?.extend),
 
     // Feature activation flags
-    colorsActive: wizzardState.colorsActive,
-    fontSizesActive: wizzardState.fontSizesActive,
-    fontFamilyActive: wizzardState.fontFamilyActive,
-    spacesActive: wizzardState.spacesActive,
-    breakpointsActive: wizzardState.breakpointsActive,
-    borderRadiusActive: wizzardState.borderRadiusActive,
+    colorsActive: active(wizzardState.colorsActive),
+    fontSizesActive: active(wizzardState.fontSizesActive),
+    fontFamilyActive: active(wizzardState.fontFamilyActive),
+    spacesActive: active(wizzardState.spacesActive),
+    breakpointsActive: active(wizzardState.breakpointsActive),
+    borderRadiusActive: active(wizzardState.borderRadiusActive),
 
     // Builder extensions
     colorsBuilders: builders.colors,

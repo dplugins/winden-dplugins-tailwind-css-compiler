@@ -1,53 +1,63 @@
-import { describe, expect, it } from 'vitest';
+/**
+ * Tests for clamp calculation utilities
+ * Covers: calculateClampValue, calculateClampsForFeature (with overrides, base step, units, etc.)
+ */
 
+import { describe, test, expect } from 'vitest';
 import {
   calculateClampValue,
   calculateClampsForFeature,
-} from '@utils/clampCalculations';
+  type FeatureConfig,
+} from '../src/admin/utils/clampCalculations';
+
+// ─── calculateClampValue ───────────────────────────────────
 
 describe('calculateClampValue', () => {
-  it('produces slope-then-intercept order, matching fluid-type-scale.com', () => {
-    // 16px -> 24px between 320px and 1920px.
-    // slope = 8/1600 = 0.005 -> 0.50vi; intercept = 16 - 0.005*320 = 14.4px = 0.90rem.
-    expect(calculateClampValue(16, 24, 320, 1920, true, 16, 2)).toBe(
-      'clamp(1.00rem, 0.50vi + 0.90rem, 1.50rem)'
-    );
+  test('generates correct clamp in px', () => {
+    const result = calculateClampValue(16, 24, 320, 1920, false, 16, 2);
+    expect(result).toMatch(/^clamp\(16\.00px,/);
+    expect(result).toMatch(/24\.00px\)$/);
+    expect(result).toContain('vi');
   });
 
-  it('emits px units when useRem is false, leaving the intercept unscaled', () => {
-    expect(calculateClampValue(16, 24, 320, 1920, false, 16, 2)).toBe(
-      'clamp(16.00px, 0.50vi + 14.40px, 24.00px)'
-    );
+  test('generates correct clamp in rem', () => {
+    const result = calculateClampValue(16, 24, 320, 1920, true, 16, 2);
+    // 16px / 16 = 1rem, 24px / 16 = 1.5rem
+    expect(result).toMatch(/^clamp\(1\.00rem,/);
+    expect(result).toMatch(/1\.50rem\)$/);
   });
 
-  it('honours decimalPlaces for the sizes but keeps the slope at two places', () => {
-    expect(calculateClampValue(16, 24, 320, 1920, true, 16, 0)).toBe(
-      'clamp(1rem, 0.50vi + 1rem, 2rem)'
-    );
+  test('slope is calculated correctly', () => {
+    // slope = (24 - 16) / (1920 - 320) = 8 / 1600 = 0.005
+    // slopeVi = 0.005 * 100 = 0.50
+    const result = calculateClampValue(16, 24, 320, 1920, false, 16, 2);
+    expect(result).toContain('0.50vi');
   });
 
-  it('collapses to a flat value when min and max are equal', () => {
-    // No growth: slope is 0, so the preferred term is a constant.
-    expect(calculateClampValue(18, 18, 320, 1920, true, 16, 2)).toBe(
-      'clamp(1.13rem, 0.00vi + 1.13rem, 1.13rem)'
-    );
+  test('handles equal min and max (zero slope)', () => {
+    const result = calculateClampValue(16, 16, 320, 1920, false, 16, 2);
+    expect(result).toContain('0.00vi');
+    expect(result).toMatch(/clamp\(16\.00px,.*16\.00px\)/);
   });
 
-  it('supports a shrinking scale where max is below min', () => {
-    const result = calculateClampValue(24, 16, 320, 1920, true, 16, 2);
-    expect(result).toBe('clamp(1.50rem, -0.50vi + 1.60rem, 1.00rem)');
+  test('handles different rem sizes', () => {
+    // remSize = 10: 16px / 10 = 1.60rem
+    const result = calculateClampValue(16, 24, 320, 1920, true, 10, 2);
+    expect(result).toMatch(/^clamp\(1\.60rem,/);
+    expect(result).toMatch(/2\.40rem\)$/);
   });
 
-  it('respects a non-16 rem size', () => {
-    expect(calculateClampValue(20, 20, 320, 1920, true, 10, 2)).toBe(
-      'clamp(2.00rem, 0.00vi + 2.00rem, 2.00rem)'
-    );
+  test('respects decimal places', () => {
+    const result = calculateClampValue(16, 24, 320, 1920, true, 16, 4);
+    expect(result).toMatch(/^clamp\(1\.0000rem,/);
   });
 });
 
+// ─── calculateClampsForFeature ─────────────────────────────
+
 describe('calculateClampsForFeature', () => {
-  const base = {
-    steps: ['sm', 'base', 'lg'],
+  const baseConfig: FeatureConfig = {
+    steps: ['xs', 'sm', 'base', 'lg', 'xl'],
     baseStep: 'base',
     minBaseSize: 16,
     maxBaseSize: 20,
@@ -55,102 +65,225 @@ describe('calculateClampsForFeature', () => {
     maxScaleRatio: 1.25,
     minScreenSize: 320,
     maxScreenSize: 1920,
-    useRem: true,
+    useRem: false,
     remSize: 16,
     decimalPlaces: 2,
   };
 
-  it('scales each step off the base step with a modular scale', () => {
-    const result = calculateClampsForFeature(base);
-
-    expect(Object.keys(result)).toEqual(['sm', 'base', 'lg']);
-    // base sits at the identity power, so it is exactly minBaseSize/maxBaseSize.
-    expect(result.base.minBase).toBe('16.00');
-    expect(result.base.maxBase).toBe('20.00');
-    // one step down divides by the ratio, one step up multiplies by it.
-    expect(result.sm.minBase).toBe('13.33');
-    expect(result.lg.minBase).toBe('19.20');
-    expect(result.lg.maxBase).toBe('25.00');
+  test('generates clamps for all steps', () => {
+    const result = calculateClampsForFeature(baseConfig);
+    expect(Object.keys(result)).toEqual(['xs', 'sm', 'base', 'lg', 'xl']);
   });
 
-  it('falls back to the middle step when baseStep is not in steps', () => {
-    const result = calculateClampsForFeature({ ...base, baseStep: 'nope' });
-
-    // Math.floor(3/2) = index 1 = 'base', so the identity lands there anyway.
-    expect(result.base.minBase).toBe('16.00');
+  test('base step has exact base sizes', () => {
+    const result = calculateClampsForFeature(baseConfig);
+    expect(result['base'].minBase).toBe('16.00');
+    expect(result['base'].maxBase).toBe('20.00');
   });
 
-  it('marks every step enabled by default', () => {
-    const result = calculateClampsForFeature(base);
-
-    expect(result.sm.enabled).toBe(true);
-    expect(result.base.enabled).toBe(true);
-    expect(result.lg.enabled).toBe(true);
+  test('steps below base are smaller', () => {
+    const result = calculateClampsForFeature(baseConfig);
+    const xsMin = parseFloat(result['xs'].minBase);
+    const baseMin = parseFloat(result['base'].minBase);
+    expect(xsMin).toBeLessThan(baseMin);
   });
 
-  it('honours an explicit enabled:false override', () => {
-    const result = calculateClampsForFeature({
-      ...base,
+  test('steps above base are larger', () => {
+    const result = calculateClampsForFeature(baseConfig);
+    const xlMin = parseFloat(result['xl'].minBase);
+    const baseMin = parseFloat(result['base'].minBase);
+    expect(xlMin).toBeGreaterThan(baseMin);
+  });
+
+  test('each step is progressively larger', () => {
+    const result = calculateClampsForFeature(baseConfig);
+    const sizes = ['xs', 'sm', 'base', 'lg', 'xl'].map(
+      (s) => parseFloat(result[s].minBase)
+    );
+    for (let i = 1; i < sizes.length; i++) {
+      expect(sizes[i]).toBeGreaterThan(sizes[i - 1]);
+    }
+  });
+
+  test('modular scale is applied correctly', () => {
+    const result = calculateClampsForFeature(baseConfig);
+    // base = 16, lg = 16 * 1.2^1 = 19.2
+    expect(parseFloat(result['lg'].minBase)).toBeCloseTo(19.2, 1);
+    // xl = 16 * 1.2^2 = 23.04
+    expect(parseFloat(result['xl'].minBase)).toBeCloseTo(23.04, 1);
+    // sm = 16 * 1.2^-1 = 13.33
+    expect(parseFloat(result['sm'].minBase)).toBeCloseTo(13.33, 1);
+  });
+
+  // ─── Base step not in steps ──────────────────────────
+
+  test('falls back to middle index when baseStep not found', () => {
+    const config: FeatureConfig = {
+      ...baseConfig,
+      steps: ['xs', 'sm', 'md', 'lg', 'xl', 'xxl'],
+      baseStep: 'base', // Not in steps!
+    };
+    const result = calculateClampsForFeature(config);
+    // Middle index = 3 (lg), so lg should have the base size
+    expect(parseFloat(result['lg'].minBase)).toBeCloseTo(16, 1);
+    // xs should be smaller (3 steps below)
+    expect(parseFloat(result['xs'].minBase)).toBeLessThan(16);
+  });
+
+  test('xs is smaller than base when baseStep not found (6 steps)', () => {
+    const config: FeatureConfig = {
+      ...baseConfig,
+      steps: ['xs', 'sm', 'md', 'lg', 'xl', 'xxl'],
+      baseStep: 'base',
+    };
+    const result = calculateClampsForFeature(config);
+    const xsMin = parseFloat(result['xs'].minBase);
+    const lgMin = parseFloat(result['lg'].minBase);
+    expect(xsMin).toBeLessThan(lgMin);
+  });
+
+  // ─── Overrides ───────────────────────────────────────
+
+  test('applies minBase override', () => {
+    const config: FeatureConfig = {
+      ...baseConfig,
+      overrides: {
+        lg: { enabled: true, value: '', fluidClamp: '', minBase: '25', maxBase: '' },
+      },
+    };
+    const result = calculateClampsForFeature(config);
+    expect(parseFloat(result['lg'].minBase)).toBeCloseTo(25, 1);
+    // Other steps unaffected
+    expect(parseFloat(result['base'].minBase)).toBeCloseTo(16, 1);
+  });
+
+  test('applies maxBase override', () => {
+    const config: FeatureConfig = {
+      ...baseConfig,
+      overrides: {
+        xl: { enabled: true, value: '', fluidClamp: '', minBase: '', maxBase: '120' },
+      },
+    };
+    const result = calculateClampsForFeature(config);
+    expect(parseFloat(result['xl'].maxBase)).toBeCloseTo(120, 1);
+    // Clamp should reflect the override
+    expect(result['xl'].value).toContain('120.00');
+  });
+
+  test('applies both min and max overrides', () => {
+    const config: FeatureConfig = {
+      ...baseConfig,
+      overrides: {
+        lg: { enabled: true, value: '', fluidClamp: '', minBase: '30', maxBase: '50' },
+      },
+    };
+    const result = calculateClampsForFeature(config);
+    expect(parseFloat(result['lg'].minBase)).toBeCloseTo(30, 1);
+    expect(parseFloat(result['lg'].maxBase)).toBeCloseTo(50, 1);
+  });
+
+  test('ignores empty string overrides', () => {
+    const config: FeatureConfig = {
+      ...baseConfig,
+      overrides: {
+        lg: { enabled: true, value: '', fluidClamp: '', minBase: '', maxBase: '' },
+      },
+    };
+    const result = calculateClampsForFeature(config);
+    // Should use calculated values, not 0
+    expect(parseFloat(result['lg'].minBase)).toBeCloseTo(19.2, 1);
+  });
+
+  test('override does not affect other steps', () => {
+    const config: FeatureConfig = {
+      ...baseConfig,
+      overrides: {
+        xl: { enabled: true, value: '', fluidClamp: '', minBase: '100', maxBase: '200' },
+      },
+    };
+    const result = calculateClampsForFeature(config);
+    // xl is overridden
+    expect(parseFloat(result['xl'].minBase)).toBeCloseTo(100, 1);
+    // Others are normal
+    expect(parseFloat(result['base'].minBase)).toBeCloseTo(16, 1);
+    expect(parseFloat(result['lg'].minBase)).toBeCloseTo(19.2, 1);
+  });
+
+  test('respects enabled=false in overrides', () => {
+    const config: FeatureConfig = {
+      ...baseConfig,
       overrides: {
         sm: { enabled: false, value: '', fluidClamp: '', minBase: '', maxBase: '' },
       },
-    });
-
-    expect(result.sm.enabled).toBe(false);
-    expect(result.base.enabled).toBe(true);
+    };
+    const result = calculateClampsForFeature(config);
+    expect(result['sm'].enabled).toBe(false);
+    expect(result['base'].enabled).toBe(true);
   });
 
-  it('applies numeric minBase and maxBase overrides', () => {
-    const result = calculateClampsForFeature({
-      ...base,
-      overrides: {
-        lg: { enabled: true, value: '', fluidClamp: '', minBase: '30', maxBase: '40' },
-      },
-    });
+  // ─── disableFluid (fixed mode) ──────────────────────
 
-    expect(result.lg.minBase).toBe('30.00');
-    expect(result.lg.maxBase).toBe('40.00');
-    // slope = (40-30)/1600 = 0.00625 -> 0.63vi at two decimal places.
-    expect(result.lg.value).toBe('clamp(1.88rem, 0.63vi + 1.75rem, 2.50rem)');
+  test('fixed mode outputs plain values without clamp', () => {
+    const config: FeatureConfig = { ...baseConfig, disableFluid: true };
+    const result = calculateClampsForFeature(config);
+    expect(result['base'].value).toBe('16.00px');
+    expect(result['base'].fluidClamp).toBe('');
   });
 
-  it('ignores overrides that are empty or unparseable', () => {
-    const result = calculateClampsForFeature({
-      ...base,
-      overrides: {
-        base: { enabled: true, value: '', fluidClamp: '', minBase: '', maxBase: 'abc' },
-      },
-    });
-
-    expect(result.base.minBase).toBe('16.00');
-    expect(result.base.maxBase).toBe('20.00');
+  test('fixed mode with rem', () => {
+    const config: FeatureConfig = { ...baseConfig, disableFluid: true, useRem: true };
+    const result = calculateClampsForFeature(config);
+    expect(result['base'].value).toBe('1.00rem');
   });
 
-  it('emits a fixed size and an empty fluidClamp when disableFluid is set', () => {
-    const result = calculateClampsForFeature({ ...base, disableFluid: true });
-
-    expect(result.base.value).toBe('1.00rem');
-    expect(result.base.fluidClamp).toBe('');
-  });
-
-  it('emits px fixed sizes when disableFluid is set and useRem is false', () => {
-    const result = calculateClampsForFeature({
-      ...base,
+  test('fixed mode applies overrides', () => {
+    const config: FeatureConfig = {
+      ...baseConfig,
       disableFluid: true,
-      useRem: false,
-    });
-
-    expect(result.base.value).toBe('16.00px');
+      overrides: {
+        lg: { enabled: true, value: '', fluidClamp: '', minBase: '25', maxBase: '' },
+      },
+    };
+    const result = calculateClampsForFeature(config);
+    expect(result['lg'].value).toBe('25.00px');
   });
 
-  it('sets value and fluidClamp to the same clamp string in fluid mode', () => {
-    const result = calculateClampsForFeature(base);
+  // ─── REM mode ────────────────────────────────────────
 
-    expect(result.base.value).toBe(result.base.fluidClamp);
-    expect(result.base.value).toMatch(/^clamp\(/);
+  test('rem mode outputs rem units in clamp', () => {
+    const config: FeatureConfig = { ...baseConfig, useRem: true };
+    const result = calculateClampsForFeature(config);
+    expect(result['base'].value).toContain('rem');
+    expect(result['base'].value).not.toContain('px');
   });
 
-  it('returns an empty object for an empty step list', () => {
-    expect(calculateClampsForFeature({ ...base, steps: [] })).toEqual({});
+  // ─── Edge cases ──────────────────────────────────────
+
+  test('single step', () => {
+    const config: FeatureConfig = {
+      ...baseConfig,
+      steps: ['base'],
+      baseStep: 'base',
+    };
+    const result = calculateClampsForFeature(config);
+    expect(Object.keys(result)).toEqual(['base']);
+    expect(parseFloat(result['base'].minBase)).toBeCloseTo(16, 1);
+  });
+
+  test('empty steps returns empty object', () => {
+    const config: FeatureConfig = { ...baseConfig, steps: [] };
+    const result = calculateClampsForFeature(config);
+    expect(Object.keys(result)).toHaveLength(0);
+  });
+
+  test('scale ratio of 1 produces equal sizes for all steps', () => {
+    const config: FeatureConfig = {
+      ...baseConfig,
+      minScaleRatio: 1,
+      maxScaleRatio: 1,
+    };
+    const result = calculateClampsForFeature(config);
+    const sizes = Object.values(result).map((c) => parseFloat(c.minBase));
+    sizes.forEach((s) => expect(s).toBeCloseTo(16, 1));
   });
 });

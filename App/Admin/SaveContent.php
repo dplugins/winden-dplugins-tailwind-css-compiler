@@ -8,6 +8,7 @@ use Winden\App\Helpers\Sanitization;
 use Winden\App\Helpers\AjaxHelper;
 use Winden\App\Helpers\CacheValidator;
 use Winden\App\Helpers\FileWriter;
+use Winden\App\Caching\PageCachePurge;
 
 class SaveContent
 {
@@ -48,6 +49,7 @@ class SaveContent
         add_action('wp_ajax_winden_save_cache', [$this, 'save_winden_cache']);
         add_action('wp_ajax_winden_update_wizzard_state', [$this, 'update_winden_wizzard_state']);
         add_action('wp_ajax_winden_clear_cache', [$this, 'clear_winden_cache']);
+        add_action('wp_ajax_winden_save_component_class', [$this, 'save_winden_component_class']);
     }
 
     private function winden_log($phase, $message, $context = [])
@@ -213,6 +215,141 @@ class SaveContent
         }
     }
 
+    /**
+     * Promote a class string to a component class, from wherever the user is
+     * working — the block editor, a builder — without sending them to the
+     * Style Editor to retype it as an `@apply`.
+     *
+     * Appends to the Style tab content the admin app already round-trips, in
+     * the same shape `combineStyleTabs` writes, so it parses back as a tab
+     * rather than as an unlabelled blob.
+     */
+    public function save_winden_component_class()
+    {
+        $request = AjaxHelper::validateRequest('edit_posts');
+        if (!$request['success']) {
+            AjaxHelper::sendError($request['error']);
+            return;
+        }
+
+        $data = $request['data'];
+        $name = isset($data['name']) ? trim((string) $data['name']) : '';
+        $classes = isset($data['classes']) ? trim((string) $data['classes']) : '';
+
+        // A CSS identifier, and one the user could have typed themselves
+        if (!preg_match('/^-?[_a-zA-Z][\w-]*$/', $name)) {
+            AjaxHelper::sendError('That is not a usable class name. Letters, digits and dashes, not starting with a digit.');
+            return;
+        }
+        if ($classes === '') {
+            AjaxHelper::sendError('There are no classes to save.');
+            return;
+        }
+        // The utilities are written into an @apply, so anything that could
+        // close the rule early has no business being here.
+        if (preg_match('/[{};]/', $classes)) {
+            AjaxHelper::sendError('Those classes contain characters a rule cannot hold.');
+            return;
+        }
+
+        $editor = get_option('winden_dplugins_editor');
+        if (!is_array($editor)) {
+            $editor = [];
+        }
+        $scss = isset($editor['scss']) && is_string($editor['scss']) ? $editor['scss'] : '';
+
+        if (preg_match('/(^|\s)\.' . preg_quote($name, '/') . '\s*[{,]/', $scss)) {
+            AjaxHelper::sendError(sprintf('A class named "%s" already exists in your styles.', $name));
+            return;
+        }
+
+        $rule = sprintf('.%s {' . "\n" . '  @apply %s;' . "\n" . '}', $name, $classes);
+        $editor['scss'] = Sanitization::sanitize_css(self::appendComponentRule($scss, $rule));
+        $editor['updated_at'] = gmdate('Y-m-d\TH:i:s\Z');
+
+        update_option('winden_dplugins_editor', $editor);
+        update_option('winden_dplugins_clear_cache_flag', time());
+        self::writeStyleFiles($editor['scss'], $editor['wizzard'] ?? []);
+
+        wp_send_json_success([
+            'name' => $name,
+            'scss' => $editor['scss'],
+        ]);
+    }
+
+    /**
+     * Mirror the Style tab to disk, the way a normal save does.
+     *
+     * The admin app reads `uploads/winden/style-tab.css` in preference to the
+     * database, and the compile fallback reads `input.css`, so an update that
+     * only touched the option was invisible in the editor and would be
+     * overwritten by the next save from it.
+     */
+    private static function writeStyleFiles($scss, $wizzard)
+    {
+        $upload_dir = wp_upload_dir();
+        $winden_dir = $upload_dir['basedir'] . '/winden';
+        \wp_mkdir_p($winden_dir);
+
+        $input_content = self::isStyleTabVisible() ? $scss : self::MINIMAL_BASE_CSS;
+        if (!empty($wizzard['configCode'])) {
+            $input_content .= "\n\n" . $wizzard['configCode'];
+        }
+
+        $style_tab_path = $winden_dir . '/style-tab.css';
+        $input_path = $winden_dir . '/input.css';
+        file_put_contents($style_tab_path, $scss);
+        file_put_contents($input_path, $input_content);
+
+        // Same filtered copies the full save honours, so a theme pointing these
+        // at its own tree does not fall behind.
+        $filtered_style_tab_path = \apply_filters('winden_scss_file_path', $style_tab_path);
+        if ($filtered_style_tab_path !== $style_tab_path && FileWriter::isPathAllowed($filtered_style_tab_path) && wp_is_writable(dirname($filtered_style_tab_path))) {
+            \wp_mkdir_p(dirname($filtered_style_tab_path));
+            file_put_contents($filtered_style_tab_path, $scss);
+        }
+
+        $filtered_input_path = \apply_filters('winden_input_file_path', $input_path);
+        if ($filtered_input_path !== $input_path && FileWriter::isPathAllowed($filtered_input_path) && wp_is_writable(dirname($filtered_input_path))) {
+            \wp_mkdir_p(dirname($filtered_input_path));
+            file_put_contents($filtered_input_path, $input_content);
+        }
+    }
+
+    /**
+     * Put a rule inside the components layer, reusing the tab that already
+     * holds one so repeated saves collect in one place rather than growing a
+     * tab each time.
+     */
+    private static function appendComponentRule($scss, $rule)
+    {
+        $marker = '/* Tab: Components (@layer components) */';
+        $indented = '  ' . str_replace("\n", "\n  ", $rule);
+
+        $position = strpos($scss, $marker);
+        if ($position !== false) {
+            $open = strpos($scss, '{', $position);
+            if ($open !== false) {
+                $depth = 1;
+                $index = $open + 1;
+                $length = strlen($scss);
+                while ($index < $length && $depth > 0) {
+                    if ($scss[$index] === '{') {
+                        $depth++;
+                    } elseif ($scss[$index] === '}') {
+                        $depth--;
+                    }
+                    $index++;
+                }
+                $close = $index - 1;
+                return substr($scss, 0, $close) . $indented . "\n" . substr($scss, $close);
+            }
+        }
+
+        $block = $marker . "\n@layer components {\n" . $indented . "\n}";
+        return $scss === '' ? $block : rtrim($scss) . "\n\n" . $block;
+    }
+
     public function save_winden_cache()
     {
         // Get the JSON data from the request
@@ -263,6 +400,7 @@ class SaveContent
 
             // Always save to default location
             \wp_mkdir_p(dirname($default_path));
+            $previous_hash = PageCachePurge::hashFile($default_path);
             $result = file_put_contents($default_path, $sanitized_styles);
 
             // Copy to filtered location if different
@@ -299,6 +437,9 @@ class SaveContent
                 'createdAt' => $formattedDatetime,
                 'status' => $status
             ]);
+
+            // Cached pages still carry the old CSS (inline, or the old ?ver=).
+            PageCachePurge::afterCssSaved($previous_hash, $sanitized_styles, $default_path);
 
             // Respond with a success message
             wp_send_json_success('Content saved successfully!');

@@ -1,6 +1,6 @@
 import * as React from "react";
 import * as CheckboxPrimitive from "@radix-ui/react-checkbox";
-import { Check } from "@/components/icons";
+import { Check, Minus } from "@/components/icons";
 import { cn } from "@utils/index";
 
 const Checkbox = React.forwardRef<
@@ -14,13 +14,15 @@ const Checkbox = React.forwardRef<
       ref={ref}
       className={cn(
         `flex p-2.5  items-center justify-center peer h-4 w-4 shrink-0 rounded-sm bg-base-1 cursor-pointer
-                border border-base-foreground 
-                ring-offset-base-foreground  
-                focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-base-foreground focus-visible:ring-offset-2 
-                disabled:cursor-not-allowed disabled:opacity-50 
+                border border-base-foreground
+                ring-offset-base-foreground
+                focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-base-foreground focus-visible:ring-offset-2
+                disabled:cursor-not-allowed disabled:opacity-50
                 data-[state=checked]:bg-base-foreground  data-[state=checked]:text-base-1
-                
+                data-[state=indeterminate]:bg-base-foreground data-[state=indeterminate]:text-base-1
+
                 dark:data-[state=checked]:bg-[var(--input-bg)] dark:data-[state=checked]:text-base-foreground dark:border-input
+                dark:data-[state=indeterminate]:bg-[var(--input-bg)] dark:data-[state=indeterminate]:text-base-foreground
                 `,
         className
       )}
@@ -29,7 +31,11 @@ const Checkbox = React.forwardRef<
       <CheckboxPrimitive.Indicator
         className={cn("flex items-center justify-center text-current scale-75")}
       >
-        <Check className="h-4 w-4 min-h-4 min-w-4" />
+        {props.checked === "indeterminate" ? (
+          <Minus className="h-4 w-4 min-h-4 min-w-4" />
+        ) : (
+          <Check className="h-4 w-4 min-h-4 min-w-4" />
+        )}
       </CheckboxPrimitive.Indicator>
     </CheckboxPrimitive.Root>
     {label && <span className="ml-2">{label}</span>}

@@ -54,7 +54,7 @@ const SegmentedControl: React.FC<SegmentedControlProps> = ({
             type="button"
             onClick={() => onChange(option.value)}
             className={classNames(
-              "flex-1 rounded px-4 py-2 text-sm font-medium transition-all duration-200",
+              "flex-1 rounded-md px-4 py-2 text-sm font-medium transition-all duration-200",
               isSelected
                 ? "bg-base-foreground text-base-1 shadow-sm dark:bg-[var(--input-bg)] dark:hover:bg-base-3 dark:text-base-foreground"
                 : "bg-transparent text-foreground hover:bg-base-3 cursor-pointer"

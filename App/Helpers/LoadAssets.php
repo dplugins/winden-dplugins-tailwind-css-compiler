@@ -52,6 +52,16 @@ class LoadAssets
 
     public static function modify_script_loader_tag($tag, $handle, $src)
     {
+        // The admin bundle is ESM, so it has to load as a module: code
+        // splitting needs `format: 'esm'`, and an ESM file loaded as a classic
+        // script is a syntax error on its first import, before anything runs.
+        // Its `-before` inline data is printed as a separate classic script,
+        // so `windenData` still arrives first; chunks resolve against the
+        // module's own URL, so nothing has to be told where the plugin lives.
+        if ($handle === 'winden-admin-script') {
+            return str_replace('<script ', '<script type="module" ', $tag);
+        }
+
         // Define a list of handles and their respective attributes
         $attributes_map = [
             'inline-module-js' => 'setup="false"',

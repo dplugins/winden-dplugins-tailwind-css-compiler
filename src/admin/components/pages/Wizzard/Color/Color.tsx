@@ -5,10 +5,10 @@ import {
   dynamicColorsBricks,
   dynamicColorsOxygen,
 } from "@/dynamicData/colors";
-import { tailwindDefaultColors } from "@/constants/tailwindColors";
+import { tailwindDefaultColors, tailwindColorNames } from "@/constants/tailwindColors";
 import { oklchToHex } from "@/utils/oklchToHex";
 
-import React, { useState, useCallback, useMemo, useContext } from "react";
+import React, { useState, useCallback, useMemo, useContext, useEffect } from "react";
 import ColorEntry from "./ColorEntry";
 import { colorPresets } from "./colorPresets";
 import { generateColorShades } from "./colorEntryCalculations";
@@ -88,9 +88,41 @@ const Color: React.FC<ColorProps> = ({ label }) => {
     [dispatchColor]
   );
 
+  // Backfill for states saved before Extend populated includeTailwindColors:
+  // Extend was already true but the block-editor palette (which only reads
+  // includeTailwindColors) never got the default colors it implies.
+  useEffect(() => {
+    const extendColors = localWizzardState?.extendColors ?? true;
+    const hasSelection = (localWizzardState?.includeTailwindColors?.length ?? 0) > 0;
+    if (extendColors && !hasSelection) {
+      setLocalWizzardState((prev) => ({
+        ...prev,
+        includeTailwindColors: [...tailwindColorNames],
+        includeUtilityColors: true,
+      }));
+    }
+  }, [localWizzardState?.extendColors, localWizzardState?.includeTailwindColors, setLocalWizzardState]);
+
   const toggleFlag = useCallback(
     <K extends keyof WizzardState>(key: K, value: WizzardState[K]) => {
       setLocalWizzardState((prev) => ({ ...prev, [key]: value }));
+    },
+    [setLocalWizzardState]
+  );
+
+  // Extend hides the per-color picker (all colors are "already included"), so
+  // turning it on must also populate includeTailwindColors — otherwise the
+  // block-editor palette (which only reads includeTailwindColors) never
+  // receives the default Tailwind colors Extend implies.
+  const handleExtendColorsChange = useCallback(
+    (checked: boolean) => {
+      setLocalWizzardState((prev) => ({
+        ...prev,
+        extendColors: checked,
+        ...(checked
+          ? { includeTailwindColors: [...tailwindColorNames], includeUtilityColors: true }
+          : {}),
+      }));
     },
     [setLocalWizzardState]
   );
@@ -327,7 +359,7 @@ const Color: React.FC<ColorProps> = ({ label }) => {
             <Checkbox
               label="Extend"
               checked={localWizzardState?.extendColors}
-              onCheckedChange={(checked) => toggleFlag('extendColors', checked as boolean)}
+              onCheckedChange={(checked) => handleExtendColorsChange(checked as boolean)}
             />
           </Sidebar>
         )}

@@ -25,6 +25,8 @@ use Winden\App\Caching\Crawlers\ScriptsOrganizerCrawler;
 use Winden\App\Caching\Crawlers\MetaBoxBlockViews;
 use Winden\App\Caching\Crawlers\HookCrawler;
 use Winden\App\Caching\Crawlers\FancooloCrawler;
+use Winden\App\Caching\Crawlers\MenuCrawler;
+use Winden\App\Caching\Crawlers\WidgetCrawler;
 use Winden\App\Helpers\SettingsOptions;
 use Winden\App\Helpers\Builders;
 use Winden\App\Helpers\LicenseManager;
@@ -281,6 +283,13 @@ class ClassCrawler
         $fancoloClasses = $fancooloCrawler->classes();
         $this->addClassesFromSource('Fancoolo', $fancoloClasses);
 
+        // Menu item CSS classes and widgets (saves schedule a full crawl, see AutoCompile)
+        $menuCrawler = new MenuCrawler();
+        $this->addClassesFromSource('Menus', $menuCrawler->classes());
+
+        $widgetCrawler = new WidgetCrawler();
+        $this->addClassesFromSource('Widgets', $widgetCrawler->classes());
+
         $settings = SettingsOptions::getWindenOptions();
 
         // Check if scan paths are provided
@@ -288,15 +297,17 @@ class ClassCrawler
                          is_array($settings['scan_path']) &&
                          count($settings['scan_path']) > 0;
 
-        // Enable scanning if paths are provided (Pro feature)
-        if ($has_scan_paths && LicenseManager::isProActive()) {
+        // File scanner (Pro feature); without configured paths it scans the active + parent theme
+        if (LicenseManager::isProActive()) {
             $scannerCrawler = new \Winden\Pro\Crawlers\ScanCrawler();
 
             // Initialize default scan path
             $scan_path = ['/'];
 
             // Handle scan_path from settings
-            if (isset($settings['scan_path'])) {
+            if (!$has_scan_paths) {
+                $scan_path = \Winden\Pro\Crawlers\ScanCrawler::defaultPaths();
+            } elseif (isset($settings['scan_path'])) {
                 if (is_array($settings['scan_path'])) {
                     // Filter out empty paths and ensure non-empty array
                     $filtered_paths = array_filter($settings['scan_path'], function($path) {
@@ -311,6 +322,10 @@ class ClassCrawler
             $scan_file_formats = [];
             if (isset($settings['scan_file_formats']) && is_array($settings['scan_file_formats'])) {
                 $scan_file_formats = $settings['scan_file_formats'];
+            }
+            // "All files" is fine for paths the user picked, not for a whole theme (images, fonts)
+            if (!$has_scan_paths && empty($scan_file_formats)) {
+                $scan_file_formats = \Winden\Pro\Crawlers\ScanCrawler::DEFAULT_FILE_FORMATS;
             }
 
             try {

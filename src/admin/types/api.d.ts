@@ -71,12 +71,8 @@ export interface WindenSettings {
   autocomplete_oxygen6?: boolean;
   autocomplete_elementor?: boolean;
 
-  // Winden Classes autocomplete
-  winden_classes_gutenberg?: boolean;
-  winden_classes_bricks?: boolean;
-  winden_classes_oxygen?: boolean;
-
-  // Autocomplete mode (which tab is selected in settings)
+  // Which input every enabled builder renders: the Winden Classes textarea by
+  // default, or the tag fallback
   autocomplete_mode?: 'plain-classes' | 'winden-classes';
 
   // File scanning settings
@@ -199,7 +195,8 @@ declare global {
       classes: string[],
       css: string,
       config: string,
-      preprocessor: string
+      preprocessor: string,
+      options?: { incremental?: boolean }
     ) => Promise<{ css?: string; error?: { message: string } }>;
 
     tailwindifyClasses?: (css: string) => Promise<string[]>;

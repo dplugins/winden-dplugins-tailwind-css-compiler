@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { Input } from '@el/Input';
 import { ReactComponent as ChevronDown } from '@/assets/icons/lucide/chevron-down.svg';
 
 interface ClassSource {
@@ -79,12 +80,12 @@ export const ClassSourceList: React.FC<ClassSourceListProps> = ({
         <h4 className="text-sm font-semibold text-base-foreground whitespace-nowrap">
           Fetched classes ({total} total)
         </h4>
-        <input
+        <Input
           type="text"
           placeholder="Search classes..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="text-sm px-2 py-1 border border-border rounded bg-base-1 text-base-foreground placeholder:text-input w-40"
+          className="h-auto w-40 py-1 text-sm"
         />
       </div>
 

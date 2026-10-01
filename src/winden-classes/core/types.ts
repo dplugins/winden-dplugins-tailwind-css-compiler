@@ -6,7 +6,7 @@ export interface AutocompleteOptions {
   /** Container element or selector */
   container: HTMLElement | string;
   /** Input element or selector */
-  input: HTMLInputElement | string;
+  input: HTMLInputElement | HTMLTextAreaElement | string;
   /** Callback when classes change */
   onChange?: (classes: string) => void;
   /** Callback when hovering or navigating suggestions for live preview */

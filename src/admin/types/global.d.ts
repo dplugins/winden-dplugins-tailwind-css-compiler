@@ -87,15 +87,14 @@ declare global {
       classes: string[],
       css: string,
       config: string,
-      preprocessor: string
+      preprocessor: string,
+      options?: { incremental?: boolean }
     ) => Promise<{ css?: string; error?: { message: string } }>;
 
     tailwindifyClasses?: (
       css: string,
       configContent?: string
     ) => Promise<string[]>;
-
-    tailwindV4BundleCSS?: (css: string) => Promise<string>;
 
     // Winden internal state
     windenAutoCompile?: {

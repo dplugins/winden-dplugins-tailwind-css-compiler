@@ -2,6 +2,7 @@
 
 namespace Winden\App\Caching\Crawlers;
 
+use Winden\App\Caching\PostContext;
 use Winden\App\Caching\StringParser;
 
 class GutenbergCrawler
@@ -35,9 +36,10 @@ class GutenbergCrawler
             // Render blocks to get the full HTML output with all classes
             // This is necessary because Gutenberg stores blocks as JSON comments
             // and the actual CSS classes only appear in the rendered HTML
-            $postClasses = $this->collectPostClasses($post);
+            $postClasses = $this->collectPostClasses($post, $rendered);
 
-            if ($this->useCache) {
+            // A failed render is retried on the next crawl
+            if ($this->useCache && $rendered) {
                 // Cache per post + modification timestamp to avoid repeated rendering on large sites
                 wp_cache_set($cacheKey, $postClasses, 'winden_gutenberg', DAY_IN_SECONDS);
             }
@@ -48,23 +50,31 @@ class GutenbergCrawler
         return array_unique($classes);
     }
 
-    private function collectPostClasses($post): array
+    private function collectPostClasses($post, ?bool &$rendered = null): array
     {
         // Short-circuit heavy rendering when there are no blocks or shortcodes
         $hasBlocks = function_exists('has_blocks') && has_blocks($post->post_content);
         $hasShortcodes = $this->contentHasShortcodes($post->post_content);
 
-        $content = $post->post_content;
+        // Render as the current post so context shortcodes and dynamic blocks print
+        $content = PostContext::render($post, function () use ($post, $hasBlocks, $hasShortcodes) {
+            $content = $post->post_content;
 
-        if ($hasBlocks && function_exists('do_blocks')) {
-            $content = do_blocks($content);
-        }
+            if ($hasBlocks && function_exists('do_blocks')) {
+                $content = do_blocks($content);
+            }
 
-        if ($hasShortcodes || $this->contentHasShortcodes($content)) {
-            $content = do_shortcode($content);
-        }
+            if ($hasShortcodes || $this->contentHasShortcodes($content)) {
+                $content = do_shortcode($content);
+            }
 
-        $classes = $this->parseString($content);
+            return $content;
+        });
+
+        $rendered = $content !== null;
+
+        // Render failed: fall back to the block attributes below
+        $classes = $rendered ? $this->parseString($content) : [];
 
         // Also parse blocks to get className attributes from block attrs
         // This catches classes that might not appear in rendered HTML
@@ -87,7 +97,11 @@ class GutenbergCrawler
     {
         $modified = $post->post_modified_gmt ?: $post->post_modified ?: '0';
 
-        return sprintf('gutenberg_classes_%d_%s', $post->ID, $modified);
+        // Rendered output also reads meta and other posts (shortcodes, Query Loop);
+        // core bumps this on any post or post meta change
+        $lastChanged = wp_cache_get_last_changed('posts');
+
+        return sprintf('gutenberg_classes_%d_%s_%s', $post->ID, $modified, $lastChanged);
     }
 
     private function extractClassesFromBlocks(array $blocks): array

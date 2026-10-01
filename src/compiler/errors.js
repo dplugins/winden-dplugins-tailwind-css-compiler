@@ -83,7 +83,11 @@ export class WindenSCSSError extends WindenCompilationError {
 export class WindenPluginError extends WindenCompilationError {
   constructor(pluginUrl, originalError, context = {}) {
     super(
-      `Couldn't load the plugin "${pluginUrl}"`,
+      // Failing to fetch and failing to run are different problems for the
+      // reader: one is a name or a network, the other is the wrong package.
+      context.stage === 'run'
+        ? `The plugin "${pluginUrl}" failed while Tailwind was running it`
+        : `Couldn't load the plugin "${pluginUrl}"`,
       'PLUGIN_ERROR',
       'plugin',
       {
@@ -108,24 +112,6 @@ export class WindenTailwindError extends WindenCompilationError {
       'tailwind',
       {
         suggestion: 'Look in your `@theme { ... }` block for a malformed value or property name.',
-        ...context
-      }
-    );
-    this.originalError = originalError;
-  }
-}
-
-/**
- * CSS bundling error
- */
-export class WindenBundlingError extends WindenCompilationError {
-  constructor(originalError, context = {}) {
-    super(
-      `Couldn't bundle the CSS: ${originalError.message}`,
-      'BUNDLING_ERROR',
-      'bundling',
-      {
-        suggestion: 'An `@import` path can\'t be found. Check the spelling and make sure the file exists.',
         ...context
       }
     );

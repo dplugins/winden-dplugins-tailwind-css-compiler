@@ -8,6 +8,7 @@ import {
 import { WizzardContext, defaultWizzardState } from "@hooks/wizzardContext";
 import { useState } from "react";
 import { Button } from "@el/Button";
+import { Input } from "@el/Input";
 import { DropZone } from "@el/DropZone";
 import { ReactComponent as DownloadIcon } from "@/assets/icons/downloadIcon.svg";
 import { ReactComponent as UploadIcon } from "@/assets/icons/uploadIcon.svg";
@@ -203,9 +204,9 @@ const Backups: React.FC<BackupsProps> = ({ onExport }) => {
                   >
                     {isEditing === idx ? (
                       <>
-                        <input
+                        <Input
                           type="text"
-                          className="grow border border-border rounded p-1"
+                          className="grow"
                           value={
                             state?.stateName?.length ? state?.stateName : ""
                           }

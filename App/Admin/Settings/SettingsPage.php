@@ -27,11 +27,20 @@ class SettingsPage
      * same cache as the regular enqueue — the browser just starts fetching
      * earlier so the workers are ready by the time the Style Editor mounts.
      */
+    /**
+     * The Monaco workers, fetched only where an editor will use them.
+     *
+     * They are 1.38 MB together, and preloading them made sense while Monaco
+     * itself was in the main bundle: the fetch overlapped a download that was
+     * happening anyway. Now the editor is a lazy chunk, and the Wizzard and
+     * the Style Guide never ask for it — measured, a Wizzard landing pulled
+     * 1.38 MB of workers for an editor that was never built.
+     *
+     * They are requested by `MonacoEnvironment.getWorker` when an editor
+     * mounts, so nothing here is needed for them to arrive.
+     */
     public function preload_monaco_workers()
     {
-        $build_url = esc_url(WINDTACS_PLUGIN_URL . 'build/admin/');
-        echo '<link rel="preload" as="script" crossorigin="anonymous" href="' . $build_url . 'css.worker.js">' . "\n";
-        echo '<link rel="preload" as="script" crossorigin="anonymous" href="' . $build_url . 'editor.worker.js">' . "\n";
     }
 
     public function modify_script_loader_tag($tag, $handle, $src)

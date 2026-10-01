@@ -8,8 +8,9 @@ use Winden\App\Helpers\Builders;
 use Winden\App\Helpers\Migration;
 use Winden\App\Assets\MonacoEditorProvider;
 use Winden\App\Caching\AutoCompile;
-use Winden\App\PageBuilder\GutenbergWindenClasses;
 use Winden\App\Helpers\LicenseManager;
+use Winden\App\Helpers\SettingsOptions;
+use Winden\App\Blocks\Blocks;
 
 class App
 {
@@ -18,6 +19,7 @@ class App
     public function __construct()
     {
         $this->runMigration();
+        $this->runBlocks();
         $this->runProviders();
         $this->runAdmin();
         $this->registerMonacoHooks();
@@ -34,6 +36,14 @@ class App
     }
 
     /**
+     * The blocks Winden ships and the block-editor extensions that go with them
+     */
+    private function runBlocks()
+    {
+        new Blocks();
+    }
+
+    /**
      * Initialize auto-compile functionality
      */
     private function initAutoCompile()
@@ -46,16 +56,9 @@ class App
      */
     private function initPageBuilderIntegrations()
     {
-        $settings = get_option('winden_dplugins_options', []);
-
-        // Gutenberg: Winden classes autocomplete (requires setting enabled)
-        if (!empty($settings['winden_classes_gutenberg'])) {
-            new GutenbergWindenClasses();
-        }
-
-        // Oxygen: Separate Winden classes input (requires setting enabled) - Pro feature
+        // Oxygen: separate Winden classes input - Pro feature
         if (LicenseManager::proFolderExists() && Builders::isOxygenPluginActivated()) {
-            if (!empty($settings['winden_classes_oxygen'])) {
+            if (SettingsOptions::usesWindenClasses('oxygen')) {
                 new \Winden\Pro\PageBuilder\OxygenWindenClasses();
             }
         }

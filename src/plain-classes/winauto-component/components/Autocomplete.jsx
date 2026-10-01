@@ -8,6 +8,9 @@ import { createInputHandlers } from "../const/Input";
 import { createKeydownHandler } from "../const/Keydown";
 import { mergeClassTokens, getConflictingClasses } from "../../shared/preview-utils";
 
+const OUTSIDE_CLICK_GRACE_MS = 500;
+let lastOutsideMousedownAt = 0;
+
 const areTagListsEqual = (a = [], b = []) => {
   if (a.length !== b.length) return false;
   for (let i = 0; i < a.length; i++) {
@@ -34,6 +37,7 @@ export const Autocomplete = ({
   onPreviewClassChange,
   blockId = null,
 }) => {
+  const rootRef = useRef(null);
   const inputRef = useRef(null);
   const tagRefs = useRef([]);
   const suggestionsRef = useRef(null);
@@ -160,6 +164,9 @@ export const Autocomplete = ({
 
       // Only close if clicked outside suggestions AND not inside an editing tag
       if (clickedOutsideSuggestions && !clickedInsideEditingTag) {
+        if (!rootRef.current?.contains(event.target)) {
+          lastOutsideMousedownAt = Date.now();
+        }
         setShowSuggestions(false);
         setEditingTagIndex(-1);
         setFocusedTagIndex(-1);
@@ -223,20 +230,22 @@ export const Autocomplete = ({
 
   useEffect(() => {
     if (editingTagIndex === -1 && inputRef.current) {
-      // If the current active element is within the Gutenberg editor content area,
-      // do not focus the sidebar input.
-      if (document.activeElement.closest(".editor-visual-editor")) {
+      // A click in another builder field also ends a tag edit (and may remount this
+      // component) before the browser focuses that field — the field keeps the focus.
+      if (Date.now() - lastOutsideMousedownAt < OUTSIDE_CLICK_GRACE_MS) {
+        return;
+      }
+      // Focus sitting in another field (e.g. the Gutenberg canvas) is not ours to take.
+      const active = inputRef.current.ownerDocument.activeElement;
+      const focusIsFree = !active
+        || active === active.ownerDocument.body
+        || rootRef.current?.contains(active);
+      if (!focusIsFree) {
         return;
       }
       inputRef.current.focus();
       inputRef.current.textContent = "";
     }
-    /* if (editingTagIndex === -1) {
-      if (inputRef.current) {
-        inputRef.current.focus();
-        inputRef.current.textContent = "";
-      }
-    } */
   }, [editingTagIndex]);
 
   // Reset preview mode when editing stops
@@ -536,6 +545,7 @@ export const Autocomplete = ({
 
   return (
     <div
+      ref={rootRef}
       className={`relative w-full max-w-[100%] ${isDragTarget ? 'drag-target' : ''}`}
       onKeyDown={(e) => {
         // Only stop propagation for keys that autocomplete handles

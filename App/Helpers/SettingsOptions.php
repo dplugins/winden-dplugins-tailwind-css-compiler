@@ -25,12 +25,7 @@ class SettingsOptions
             'autocomplete_oxygen6' => false,
             'autocomplete_elementor' => false,
             'autocomplete_builderius' => false,
-            'winden_classes_gutenberg' => false,
-            'winden_classes_bricks' => false,
-            'winden_classes_oxygen' => false,
-            'winden_classes_oxygen6' => false,
-            'winden_classes_elementor' => false,
-            'autocomplete_mode' => 'plain-classes',
+            'autocomplete_mode' => 'winden-classes',
             'compiled_css' => false,
             'cdn_for_admin' => false,
             'register_wizzard_data_in_fse' => true,
@@ -48,6 +43,45 @@ class SettingsOptions
         self::$cached_options = $options;
 
         return $options;
+    }
+
+    /**
+     * Builders that ship a Winden Classes panel. Builderius has a tag
+     * integration only, so it ignores the mode and always uses tags.
+     */
+    public const WINDEN_CLASSES_BUILDERS = ['gutenberg', 'bricks', 'oxygen', 'oxygen6', 'elementor'];
+
+    /**
+     * Is the integration turned on for a builder ('gutenberg', 'bricks', ...)?
+     * One switch per builder now — which input it renders is the mode's job.
+     */
+    public static function builderEnabled(string $builder): bool
+    {
+        return !empty(self::getWindenOptions()["autocomplete_{$builder}"]);
+    }
+
+    /**
+     * The tag fallback: one switch for every builder at once, off by default.
+     * Sites that want the old tag input turn it on themselves — no per-builder
+     * pairing to keep in sync, and no class is lost either way.
+     */
+    public static function usesPlainClasses(): bool
+    {
+        return (self::getWindenOptions()['autocomplete_mode'] ?? 'winden-classes') === 'plain-classes';
+    }
+
+    /** Builder is on and rendering the Winden Classes textarea */
+    public static function usesWindenClasses(string $builder): bool
+    {
+        return self::builderEnabled($builder)
+            && !self::usesPlainClasses()
+            && in_array($builder, self::WINDEN_CLASSES_BUILDERS, true);
+    }
+
+    /** Builder is on and rendering the tag input */
+    public static function usesTagInput(string $builder): bool
+    {
+        return self::builderEnabled($builder) && !self::usesWindenClasses($builder);
     }
 
     /**

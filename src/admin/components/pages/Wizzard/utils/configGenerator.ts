@@ -51,23 +51,27 @@ interface ConfigOptions {
  */
 const generateTailwindConfig = ({
   breakpoints = [],
-  extendBreakpoints = false,
+  extendBreakpoints = true,
   fontFamilies = [],
-  extendFontFamily = false,
+  extendFontFamily = true,
   colors = {},
-  extendColors = false,
+  extendColors = true,
   spacing = {},
-  extendSpacing = false,
+  extendSpacing = true,
   fontSizes = {},
-  extendFontSizes = false,
+  extendFontSizes = true,
   borderRadius = {},
-  extendBorderRadius = false,
-  colorsActive = true,
-  fontSizesActive = true,
-  fontFamilyActive = true,
-  spacesActive = true,
-  breakpointsActive = true,
-  borderRadiusActive = true,
+  extendBorderRadius = true,
+  // Off unless asked for, and extending unless told otherwise — the same way
+  // `defaultWizzardState` reads. These were the other way round, so a caller
+  // that left them out asked for every Tailwind default to be replaced by
+  // nothing.
+  colorsActive = false,
+  fontSizesActive = false,
+  fontFamilyActive = false,
+  spacesActive = false,
+  breakpointsActive = false,
+  borderRadiusActive = false,
   colorsBuilders = {},
   fontSizesBuilders = {},
   spacingBuilders = {},
@@ -158,6 +162,27 @@ const generateTailwindConfig = ({
     return vars.filter(v => v).join('\n');
   };
 
+  /**
+   * A wildcard reset with nothing to put back is only destruction.
+   *
+   * `--color-*: initial` tells Tailwind to forget its palette, which is what
+   * "replace rather than extend" means — but replacing it with nothing leaves
+   * a theme with no colours at all. Measured on a site in exactly that state:
+   * the Style Guide showed no colours, no font families and no font sizes,
+   * `bg-red-500` compiled to nothing, and `p-4` produced no padding, because
+   * `--spacing-*: initial` had removed the scale those utilities are built
+   * from. Font weights were the only survivors, `--font-weight-*` being a
+   * namespace of its own.
+   *
+   * So a section that is nothing but its reset is dropped and the defaults
+   * stay. Someone who genuinely wants an empty namespace can still write the
+   * wildcard in the Style tab, where it reads as the deliberate act it is.
+   */
+  const withoutEmptyReset = (vars: string[]): string[] => {
+    const values = vars.filter((line) => line.trim() && !line.includes('-*: initial;'));
+    return values.length > 0 ? vars : [];
+  };
+
   // Colors
   if (colorsActive) {
     const colorVars: string[] = [];
@@ -189,7 +214,7 @@ const generateTailwindConfig = ({
     });
 
     if (colorVars.length > 0) {
-      sections.push(createSection(colorVars));
+      sections.push(createSection(withoutEmptyReset(colorVars)));
     }
   }
 
@@ -224,7 +249,7 @@ const generateTailwindConfig = ({
     });
 
     if (fontSizeVars.length > 0) {
-      sections.push(createSection(fontSizeVars));
+      sections.push(createSection(withoutEmptyReset(fontSizeVars)));
     }
   }
 
@@ -246,7 +271,7 @@ const generateTailwindConfig = ({
     });
 
     if (fontFamilyVars.length > 0) {
-      sections.push(createSection(fontFamilyVars));
+      sections.push(createSection(withoutEmptyReset(fontFamilyVars)));
     }
   }
 
@@ -287,7 +312,7 @@ const generateTailwindConfig = ({
     });
 
     if (spacingVars.length > 0) {
-      sections.push(createSection(spacingVars));
+      sections.push(createSection(withoutEmptyReset(spacingVars)));
     }
   }
 
@@ -328,7 +353,7 @@ const generateTailwindConfig = ({
     });
 
     if (radiusVars.length > 0) {
-      sections.push(createSection(radiusVars));
+      sections.push(createSection(withoutEmptyReset(radiusVars)));
     }
   }
 
@@ -350,7 +375,7 @@ const generateTailwindConfig = ({
     });
 
     if (breakpointVars.length > 0) {
-      sections.push(createSection(breakpointVars));
+      sections.push(createSection(withoutEmptyReset(breakpointVars)));
     }
   }
 
