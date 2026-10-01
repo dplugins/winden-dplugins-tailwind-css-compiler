@@ -1,0 +1,29 @@
+{
+    "$schema": "https://schemas.wp.org/trunk/block.json",
+    "apiVersion": 3,
+    "name": "winden/image",
+    "version": "1.0.0",
+    "title": "Winden Image",
+    "category": "media",
+    "icon": "format-image",
+    "description": "Just the <img> — no figure, no caption wrapper — so Tailwind classes such as absolute inset-0 object-cover land on the image itself. Can show the post's featured image.",
+    "keywords": ["image", "img", "plain", "bare", "tailwind", "featured", "winden"],
+    "textdomain": "winden-dplugins-tailwind-css-compiler",
+    "attributes": {
+        "id": { "type": "number" },
+        "url": { "type": "string" },
+        "alt": { "type": "string", "default": "" },
+        "width": { "type": "number" },
+        "height": { "type": "number" },
+        "sizeSlug": { "type": "string", "default": "full" },
+        "useFeaturedImage": { "type": "boolean", "default": false },
+        "htmlAttributes": { "type": "object" }
+    },
+    "usesContext": ["postId", "postType"],
+    "supports": {
+        "anchor": true
+    },
+    "editorScript": "file:./index.js",
+    "editorStyle": "file:./index.css",
+    "render": "file:./render.php"
+}

@@ -30,8 +30,8 @@ let loadedData = {
     'style-tab.css': '',
 };
 
-// Debouncing and compilation state
-let compileTimeout = null;
+// Scheduling and compilation state
+let compileScheduled = false;
 let isCompiling = false;
 let pendingCompilation = false;
 let pendingCompilationOptions = null;
@@ -106,20 +106,44 @@ const resetLoadedDataCache = () => {
 };
 
 /**
- * Debounced compilation function
+ * Compile on the next frame, before it paints.
+ *
+ * This used to be a 150 ms `setTimeout` debounce, and that debounce was the
+ * whole of the lag: a warm incremental compile is 1–3 ms, but the editor
+ * paints the new class the moment it lands in the DOM, so for those 150 ms
+ * an element read `bg-blue-400` with no rule behind it — background gone,
+ * padding gone, then the new style. Measured red → blue: transparent for
+ * ~165 ms.
+ *
+ * `requestAnimationFrame` runs before that frame's style and paint, and the
+ * warm compile chain is microtasks only (cached stylesheet, cached compiler,
+ * synchronous `build()`), so the `<style>` is rewritten inside the same
+ * frame: measured, zero unstyled frames. It also coalesces every mutation of
+ * a frame into one walk, which is what the debounce was for. A hidden page
+ * never gets a frame, so it falls back to a task there; a cold compile
+ * (stylesheet or config changed) awaits real work and paints in between as
+ * it always did.
  */
-const debouncedCompile = (delay = 150) => {
-    if (compileTimeout) {
-        clearTimeout(compileTimeout);
+const scheduleCompile = () => {
+    if (compileScheduled) {
+        return;
     }
+    compileScheduled = true;
 
-    compileTimeout = setTimeout(async () => {
+    const run = async () => {
+        compileScheduled = false;
         if (!isCompiling) {
             await compileClasses();
         } else {
             pendingCompilation = true;
         }
-    }, delay);
+    };
+
+    if (typeof requestAnimationFrame === 'function' && document.visibilityState !== 'hidden') {
+        requestAnimationFrame(run);
+    } else {
+        setTimeout(run, 0);
+    }
 };
 
 /**
@@ -141,17 +165,40 @@ const fnvHash = (str) => {
 /**
  * Efficient class collection with early termination and filtering
  */
+// Invalid patterns to exclude (JS code, HTML syntax, etc.)
+const invalidPatterns = [
+    /^[{}\[\]()'"`;=<>]/, // Starts with JS/HTML syntax
+    /[{};"'`=<>]/,         // Contains JS/HTML special chars
+    /\s/,                   // Contains whitespace
+    /^\d+$/,                // Pure numbers
+    /^[A-Z][a-z]+\./,       // JavaScript syntax (e.g., "iframeScope.")
+];
+
+const isCandidate = (className) => !invalidPatterns.some((pattern) => pattern.test(className));
+
+/** Every class on one element and its descendants, added to `into` */
+const addClassesUnder = (root, into) => {
+    if (!root || root.nodeType !== Node.ELEMENT_NODE) return;
+    const elements = [root, ...root.querySelectorAll('[class]')];
+    for (const element of elements) {
+        if (tagsToIgnore.has(element.tagName)) continue;
+        const classList = element.classList;
+        for (let i = 0; i < classList.length; i++) {
+            if (isCandidate(classList[i])) into.add(classList[i]);
+        }
+    }
+};
+
 const collectClasses = () => {
     const classes = new Set();
 
-    // Invalid patterns to exclude (JS code, HTML syntax, etc.)
-    const invalidPatterns = [
-        /^[{}\[\]()'"`;=<>]/, // Starts with JS/HTML syntax
-        /[{};"'`=<>]/,         // Contains JS/HTML special chars
-        /\s/,                   // Contains whitespace
-        /^\d+$/,                // Pure numbers
-        /^[A-Z][a-z]+\./,       // JavaScript syntax (e.g., "iframeScope.")
-    ];
+    // The first compile is scheduled as soon as the stylesheets are fetched,
+    // which on a warm cache is before the canvas document has a <body> —
+    // and a frame callback runs while it is still parsing. Nothing to
+    // collect yet; the observer fires again as the body arrives.
+    if (!document.body) {
+        return classes;
+    }
 
     const walker = document.createTreeWalker(
         document.body,
@@ -173,10 +220,7 @@ const collectClasses = () => {
         const classList = node.classList;
         for (let i = 0; i < classList.length; i++) {
             const className = classList[i];
-
-            // Skip if matches any invalid pattern
-            const isInvalid = invalidPatterns.some(pattern => pattern.test(className));
-            if (!isInvalid) {
+            if (isCandidate(className)) {
                 classes.add(className);
             }
         }
@@ -216,30 +260,50 @@ const isIgnorableNode = (node) => {
     );
 };
 
-const handleMutations = async (mutations) => {
-    let shouldCompile = false;
+/**
+ * Whether a batch of mutations can have brought a class the sheet lacks.
+ *
+ * Builders toggle `is-selected`, hover and drag classes on every mouse move,
+ * and with a compile per frame rather than per 150 ms pause each of those
+ * would walk the whole canvas — measured 4 ms on 5,000 elements. The
+ * mutation records already name the elements that changed, and live preview
+ * only ever adds CSS (see `incremental` below), so a class going away is
+ * never a reason to compile: only a class that is new to the last compile
+ * is. Text nodes carry no classes and are skipped outright, so typing prose
+ * costs nothing here.
+ *
+ * Before the first compile nothing is known, and everything is new.
+ */
+const mutationsBringNewClasses = (mutations) => {
+    const seen = new Set();
 
     for (const mutation of mutations) {
         if (mutation.type === 'attributes') {
-            if (mutation.attributeName === 'class' && !isIgnorableNode(mutation.target)) {
-                shouldCompile = true;
-                break;
+            if (mutation.attributeName !== 'class' || isIgnorableNode(mutation.target)) continue;
+            const classList = mutation.target.classList;
+            for (let i = 0; i < classList.length; i++) {
+                if (isCandidate(classList[i])) seen.add(classList[i]);
             }
             continue;
         }
 
         if (mutation.type === 'childList') {
-            const relevantNode = [...mutation.addedNodes, ...mutation.removedNodes]
-                .some((node) => !isIgnorableNode(node));
-            if (relevantNode) {
-                shouldCompile = true;
-                break;
+            for (const node of mutation.addedNodes) {
+                if (node.nodeType === Node.ELEMENT_NODE && !isIgnorableNode(node)) addClassesUnder(node, seen);
             }
         }
     }
 
-    if (shouldCompile) {
-        debouncedCompile();
+    if (previousClassnames.size === 0) return seen.size > 0;
+    for (const className of seen) {
+        if (!previousClassnames.has(className)) return true;
+    }
+    return false;
+};
+
+const handleMutations = (mutations) => {
+    if (mutationsBringNewClasses(mutations)) {
+        scheduleCompile();
     }
 };
 
@@ -287,59 +351,6 @@ const fetchEditorContent = async (file = 'tailwind.config.js') => {
  */
 const isOxygenIframe = () => {
     return window.location.href.includes('oxygen_iframe=true');
-};
-
-/**
- * Check if we're in Oxygen builder (main window or iframe)
- */
-const isOxygenBuilder = () => {
-    return window.location.href.includes('ct_builder=true');
-};
-
-// Note: We rely on the 1.5s delay (isPageLoaded) to prevent style creation on page load
-// After the delay, class changes will trigger real-time CSS injection
-// This provides real-time preview while avoiding duplicate styles on initial load
-
-/**
- * Apply !important to CSS declarations in @layer utilities ONLY
- * Only applies when inside Oxygen iframe (to override Oxygen's inline styles)
- * Skips CSS custom properties (--var) as !important doesn't work on them
- *
- * IMPORTANT: We only apply !important to utilities layer because:
- * - When !important is on ALL layers, cascade order is REVERSED
- * - base layer's "margin: 0 !important" would override utilities' "margin: X !important"
- * - By only adding !important to utilities, they properly override Oxygen's inline styles
- */
-const applyImportantFn = (text) => {
-    // Only apply !important in Oxygen iframe
-    if (!isOxygenIframe()) {
-        return text;
-    }
-
-    if (!text) return text;
-
-    // Find @layer utilities block and only apply !important within it
-    return text.replace(
-        /@layer\s+utilities\s*\{([\s\S]*?)\}(?=\s*(?:@layer|$))/g,
-        (layerMatch, layerContent) => {
-            // Apply !important to declarations within utilities layer
-            const modifiedContent = layerContent.replace(
-                /([^{}@;]+?):\s*([^;{}!]+?)(\s*;)/g,
-                (match, prop, value, semi) => {
-                    // Skip if already has !important
-                    if (value.includes('!important')) {
-                        return match;
-                    }
-                    // Skip CSS custom properties (--variable-name)
-                    if (prop.trim().startsWith('--')) {
-                        return match;
-                    }
-                    return `${prop}: ${value.trim()} !important${semi}`;
-                }
-            );
-            return `@layer utilities {${modifiedContent}}`;
-        }
-    );
 };
 
 /**
@@ -486,14 +497,24 @@ const compileClasses = async (compileOptions = {}) => {
                 tw = cssCache.get(cacheKey);
                 performanceStats.cacheHits++;
             } else {
-                // Compile Tailwind classes
+                // Compile Tailwind classes. Live preview only ever adds CSS,
+                // so reuse the parsed compiler (`incremental`) — a removed
+                // class leaves inert CSS behind until reload, and the parse
+                // of theme/plugins/@config is paid once per config change
+                // instead of once per keystroke. output.css never comes
+                // through here (see winden-compiler-core.js).
                 const startTime = performance.now();
+                //
+                // Inside the Oxygen iframe utilities must beat Oxygen's inline
+                // styles, so they compile with !important there (Tailwind's
+                // `important` import modifier — utilities only; base and
+                // components keep the normal cascade).
                 tw = await window.tailwindify(
                     Array.from(classes),
                     getStyleFileString,
                     getConfigFileString,
                     (compilerOptions?.css_preprocessor ?? 'css'),
-                    (compilerOptions?.important ?? '')
+                    { incremental: true, important: isOxygenIframe() }
                 );
                 const endTime = performance.now();
                 const compilationTime = endTime - startTime;
@@ -517,8 +538,7 @@ const compileClasses = async (compileOptions = {}) => {
             } else {
                 // Skip CSS injection on first compile, inject on subsequent class changes
                 if (!isFirstCompile && compiledStylesNode) {
-                    const finalCss = applyImportantFn(tw.css);
-                    compiledStylesNode.textContent = finalCss;
+                    compiledStylesNode.textContent = tw.css;
                 }
 
                 // Mark first compile as done - next class change will inject CSS
@@ -610,7 +630,7 @@ window.getWindenPerformanceStats = () => {
     } catch (error) {
         console.error('[Winden Watcher] Failed to preload editor content:', error);
     } finally {
-        debouncedCompile(0);
+        scheduleCompile();
     }
 })();
 

@@ -65,7 +65,13 @@ export function combineStyleTabs(tabs: StyleTab[]): string {
                 return `${sourceComment}\n${trimmedContent}`;
             }
 
-            return `${sourceComment}\n@layer ${tab.layer} {\n${trimmedContent}\n}`;
+            // Indented back in, so what is read out of the file matches what
+            // the tab shows and a round-trip changes nothing.
+            const indented = trimmedContent
+                .split('\n')
+                .map((line) => (line.trim() === '' ? line : `${LAYER_INDENT}${line}`))
+                .join('\n');
+            return `${sourceComment}\n@layer ${tab.layer} {\n${indented}\n}`;
         })
         .join('\n\n');
 }
@@ -85,6 +91,26 @@ const normalizeLayer = (layer?: string): LayerType => {
     return VALID_LAYERS.includes(layer as LayerType) ? (layer as LayerType) : 'none';
 };
 
+/**
+ * Take one level of indentation off a block, evenly.
+ *
+ * `.trim()` alone strips the first line's indent and leaves every other line
+ * where it was, so a components tab opened as `.button-test {` flush left with
+ * `.testmarko {` still indented under it.
+ */
+const dedent = (block: string): string => {
+    const lines = block.replace(/^\n+|\s+$/g, '').split('\n');
+    const indents = lines
+        .filter((line) => line.trim() !== '')
+        .map((line) => line.match(/^[ \t]*/)?.[0].length ?? 0);
+    const common = indents.length > 0 ? Math.min(...indents) : 0;
+
+    return lines.map((line) => line.slice(common)).join('\n');
+};
+
+/** The indentation a tab's content is written back with inside its layer */
+const LAYER_INDENT = '  ';
+
 const stripLayerWrapper = (rawContent: string, layer: LayerType): string => {
     if (layer === 'none') {
         return rawContent.trim();
@@ -102,7 +128,7 @@ const stripLayerWrapper = (rawContent: string, layer: LayerType): string => {
         return trimmed;
     }
 
-    return trimmed.slice(firstBrace + 1, lastBrace).trim();
+    return dedent(trimmed.slice(firstBrace + 1, lastBrace));
 };
 
 export function parseContentIntoTabs(content: string): StyleTab[] {

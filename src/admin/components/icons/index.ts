@@ -13,6 +13,7 @@ export { default as File } from '@/assets/icons/lucide/file.svg';
 export { default as Folder } from '@/assets/icons/lucide/folder.svg';
 export { default as FolderOpen } from '@/assets/icons/lucide/folder-open.svg';
 export { default as Loader2 } from '@/assets/icons/lucide/loader2.svg';
+export { default as Minus } from '@/assets/icons/lucide/minus.svg';
 export { default as X } from '@/assets/icons/lucide/x.svg';
 
 // Other custom icons

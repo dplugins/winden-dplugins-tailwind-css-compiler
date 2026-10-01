@@ -11,19 +11,25 @@ type ClassesInput = string[] | string | Record<string, string> | null;
  * Fetch classes from WordPress backend
  * @param setCacheInProgress - Callback to update cache progress state
  * @param handleFetchedClasses - Callback to handle fetched classes
+ * @param signal - Optional AbortSignal to cancel the fetch
  */
 export const fetchClasses = async (
   setCacheInProgress: (inProgress: boolean) => void,
-  handleFetchedClasses: (classes: string[]) => void
+  handleFetchedClasses: (classes: string[]) => void,
+  signal?: AbortSignal
 ): Promise<void> => {
   try {
-    const response = await fetch(buildAjaxUrl('winden_get_classes'));
+    const response = await fetch(buildAjaxUrl('winden_get_classes'), { signal });
     const data: WordPressAjaxResponse<{ classes: string[] }> = await response.json();
 
     if (data.success) {
       handleFetchedClasses(data.data.classes);
     }
   } catch (error) {
+    // Ignore AbortError silently
+    if (error instanceof Error && error.name === 'AbortError') {
+      return;
+    }
     console.error('[FETCH] Error fetching classes:', error);
   }
 };
@@ -53,7 +59,8 @@ export const handleFetchedClasses = async (
   wizzardContentRef: React.MutableRefObject<WizzardState | null>,
   wizzardContent: WizzardState | null,
   css_preprocessor: string = 'css',
-  tailwind_version: string = 'v4'
+  tailwind_version: string = 'v4',
+  signal?: AbortSignal
 ): Promise<void> => {
   if (scriptLoaded) {
 
@@ -64,7 +71,10 @@ export const handleFetchedClasses = async (
 
     try {
       if (typeof window.tailwindify === 'function') {
-        const response = await fetch(`${window.uploadUrl}/winden/tailwind.config.js?_t=${Date.now()}`);
+        // Check if the operation was cancelled before proceeding
+        if (signal?.aborted) return;
+
+        const response = await fetch(`${window.uploadUrl}/winden/tailwind.config.js?_t=${Date.now()}`, { signal });
         const getConfigFile = await response.text();
         const getConfigFileString = `${getConfigFile}`;
 
@@ -180,6 +190,9 @@ export const handleFetchedClasses = async (
         }
       }
     } catch (error: unknown) {
+      // Check if the operation was cancelled before proceeding
+      if (signal?.aborted) return;
+
       console.error('[ClassFetcher] Compilation error:', error);
 
       const errorMessage = error instanceof Error
@@ -199,12 +212,16 @@ export const handleFetchedClasses = async (
     }
 
     try {
+      // Check if the operation was cancelled before proceeding
+      if (signal?.aborted) return;
+
       const response = await fetch(buildAjaxUrl('winden_save_cache'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ ...payload, '_nonce': window.nonce }),
+        signal
       });
 
       const result: WordPressAjaxResponse<unknown> = await response.json();
@@ -219,6 +236,9 @@ export const handleFetchedClasses = async (
       // Refetch cache status after successful save
       await fetchCacheStatus(setCacheStatus);
     } catch (error) {
+      // Check if the operation was cancelled before proceeding
+      if (signal?.aborted) return;
+
       console.error('[CACHE] Error saving cache:', error);
 
       // Small delay to ensure database has been updated

@@ -292,7 +292,7 @@ export const colorModeChangeRGB = (
   setHsl: (hsl: HSL) => void
 ): void => {
   setColor(newColor);
-  const hsva = rgbaToHsva(newColor);
+  const hsva = rgbaToHsva({ ...newColor, a: newColor.a ?? 1 });
   setHsl(roundHslValues({
     h: roundToDecimal(hsva.h, 0),
     s: roundToDecimal(hsva.s, 0),

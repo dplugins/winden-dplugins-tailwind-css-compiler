@@ -30,7 +30,10 @@ class Frontend extends BaseProvider
         // Load compiler and dev tools only if dev mode is NOT disabled AND user is logged in
         // IMPORTANT: Compiler must load BEFORE CSS to prevent Flash of Unstyled Content (FOUC)
         // Logged-out users on public frontend don't need compiler, broadcast listener, or watcher
-        if (!$dev_mode_disabled && is_user_logged_in()) {
+        // The Elementor canvas is a frontend request, so it gets the compiler whatever the setting
+        // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only check for editor detection
+        $in_elementor_canvas = isset($_GET['elementor-preview']);
+        if (is_user_logged_in() && (!$dev_mode_disabled || $in_elementor_canvas)) {
             add_action('wp_enqueue_scripts', [$this, 'load_tailwind_cdn'], 9999998);
 
             // Load broadcast listener for real-time updates + CSS cache busting

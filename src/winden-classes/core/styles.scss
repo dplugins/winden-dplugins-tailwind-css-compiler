@@ -111,6 +111,124 @@
   width: 100%;
 }
 
+/* ── Textarea with an inline highlight mirror ───────────────
+   A <textarea> cannot style its own content, so a div renders the same text
+   behind a transparent textarea. Both use .winden-textarea-base, so every
+   metric that affects wrapping — font, padding, border, line-height — stays
+   identical; if they drift, the highlight drifts off the word. */
+
+.winden-textarea-wrap {
+  position: relative;
+}
+
+.winden-textarea-mirror {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  pointer-events: none;
+  color: transparent;
+  resize: none;
+}
+
+/* Four rows before it grows; JS fits it to the content from there, so the
+   resize handle is gone — dragging it would only be undone by the next
+   keystroke. The mirror shares the floor or it would sit short of the box. */
+.winden-textarea-wrap .winden-textarea-input,
+.winden-textarea-wrap .winden-textarea-mirror {
+  min-height: calc(4 * 1.5em + 18px);
+}
+
+.winden-textarea-wrap .winden-textarea-input {
+  position: relative;
+  z-index: 1;
+  background: transparent;
+  resize: none;
+
+  /* wp-admin restyles textareas (it was overriding padding to 2px/5px). Any
+     metric that differs from the mirror shifts the text and drags the
+     highlight off the word, so pin them here. */
+  margin: 0;
+  padding: 8px 10px;
+  font-size: 12px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  line-height: 1.5;
+  letter-spacing: normal;
+  box-sizing: border-box;
+
+  /* Text is drawn by the mirror; the caret and selection stay visible */
+  &:not(:placeholder-shown) {
+    color: transparent;
+    caret-color: var(--wcl-color);
+  }
+
+  &::selection {
+    background: rgba(123, 102, 255, 0.35);
+  }
+}
+
+.winden-class-token {
+  /* Laid out by the mirror, hit-tested by the panel — never clickable itself */
+  pointer-events: none;
+}
+
+/* ── Class tooltip ─────────────────────────────────────────── */
+
+.winden-class-tooltip {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  /* Above the helper's own pickers (99999) — it explains what is inside them */
+  z-index: 100000;
+
+  /* The autocomplete dropdown owns the space below the box while it is open */
+  &.is-above {
+    top: auto;
+    bottom: calc(100% + 6px);
+  }
+  padding: 8px 10px;
+  background: var(--wcl-bg, #fff);
+  border: 1px solid var(--wcl-border, #878787);
+  border-radius: 4px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.14);
+  color: var(--wcl-color, #1e1e1e);
+  font-size: 8px;
+  line-height: 1.5;
+  pointer-events: none;
+}
+
+/* The rule verbatim, as the design system wrote it */
+.winden-class-tooltip-rule {
+  margin: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 8px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.winden-class-tooltip-empty {
+  opacity: 0.7;
+  font-style: italic;
+}
+
+/* Applied, compiled, and beaten by something else on the page */
+.winden-class-overridden {
+  text-decoration: underline dotted currentColor;
+  text-underline-offset: 2px;
+  opacity: 0.75;
+}
+
+.winden-class-unknown {
+  color: var(--wcl-danger, #dc2626);
+  font-weight: 700;
+  text-decoration: underline wavy var(--wcl-danger, #dc2626);
+  text-underline-offset: 2px;
+}
+
 .winden-textarea-base {
   width: 100%;
   min-height: 60px;

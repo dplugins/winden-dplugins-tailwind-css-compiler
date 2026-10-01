@@ -321,9 +321,9 @@ export function calculateAllClamps(
     );
 
     // Check if user has customized min value
-    const hasCustomMin = clampOverrides?.[step]?.minBase &&
+    const hasCustomMin = !!(clampOverrides?.[step]?.minBase &&
                         clampOverrides[step].minBase !== "" &&
-                        clampOverrides[step].minBase !== calculatedMinBase;
+                        clampOverrides[step].minBase !== calculatedMinBase);
 
     const minBase = hasCustomMin ? clampOverrides[step].minBase : calculatedMinBase;
 
@@ -344,9 +344,9 @@ export function calculateAllClamps(
         decimalPlaces
       );
 
-      hasCustomMax = clampOverrides?.[step]?.maxBase &&
+      hasCustomMax = !!(clampOverrides?.[step]?.maxBase &&
                     clampOverrides[step].maxBase !== "" &&
-                    clampOverrides[step].maxBase !== calculatedMaxBase;
+                    clampOverrides[step].maxBase !== calculatedMaxBase);
 
       maxBase = hasCustomMax ? clampOverrides[step].maxBase : calculatedMaxBase;
 

@@ -17,6 +17,9 @@ const createWordPressExternalsPlugin = (trackerId) => ({
       '@wordpress/data': { global: 'window.wp.data', wpDep: 'wp-data' },
       '@wordpress/compose': { global: 'window.wp.compose', wpDep: 'wp-compose' },
       '@wordpress/hooks': { global: 'window.wp.hooks', wpDep: 'wp-hooks' },
+      '@wordpress/i18n': { global: 'window.wp.i18n', wpDep: 'wp-i18n' },
+      '@wordpress/core-data': { global: 'window.wp.coreData', wpDep: 'wp-core-data' },
+      '@wordpress/primitives': { global: 'window.wp.primitives', wpDep: 'wp-primitives' },
       'react': { global: 'window.React', wpDep: 'react' },
       'react-dom': { global: 'window.ReactDOM', wpDep: 'react-dom' },
       'react-dom/client': { global: 'window.ReactDOM', wpDep: 'react-dom' }, // React 18 createRoot API
@@ -101,6 +104,7 @@ const createBuildOptions = (entryPoint, useBundledReact = false, trackerId = '',
       '.tsx': 'tsx',
       '.css': 'css',
       '.scss': 'css',
+      '.svg': 'text',
     },
     plugins: useBundledReact ? [sharedSassPlugin] : [createWordPressExternalsPlugin(trackerId), sharedSassPlugin],
     define: {
@@ -124,6 +128,12 @@ const freeIntegrations = [
   { path: './src/winden-classes/core/index.ts', bundleReact: true },        // Core autocomplete library
   { path: './src/winden-classes/core/ui.ts', bundleReact: false },          // Reusable UI component
   { path: './src/winden-classes/gutenberg/index.js', bundleReact: false },  // Gutenberg panel
+  // Blocks (FREE): winden/image, and htmlAttributes on core blocks + the "Winden" group variation
+  { path: './src/blocks/image/index.js', bundleReact: false, blockFiles: ['block.json', 'render.php'] },
+  { path: './src/blocks/text/index.js', bundleReact: false, blockFiles: ['block.json'] },
+  { path: './src/blocks/icon/index.js', bundleReact: false, blockFiles: ['block.json'] },
+  { path: './src/blocks/html-attributes/index.js', bundleReact: false },
+  { path: './src/blocks/list-view/index.js', bundleReact: false },
 ];
 
 // Pro integrations (require license) - only include if pro folder exists
@@ -139,6 +149,7 @@ const proIntegrations = [
   { path: './pro/src/winden-classes/oxygen/index.js', bundleReact: false },     // Oxygen Classic panel
   { path: './pro/src/winden-classes/oxygen6/index.js', bundleReact: false },    // Oxygen 6 panel
   { path: './pro/src/winden-classes/elementor/index.js', bundleReact: false },  // Elementor panel
+  { path: './pro/src/winden-classes/elementor-atomic/index.js', bundleReact: false },  // Elementor Atomic elements (v4 panel + canvas)
 ];
 
 // Check if pro folder exists
@@ -167,6 +178,19 @@ function generateAssetFile(outputPath, dependencies = []) {
   fs.writeFileSync(assetFile, assetContent);
 }
 
+// A block's block.json and render.php live beside the source and are read by
+// WordPress from beside the build, so they travel with it
+function copyBlockFiles(integration) {
+  if (!integration.blockFiles) return;
+  const path = require('path');
+  const sourceDir = path.dirname(integration.path);
+  const outDir = sourceDir.replace(/^\.\/src\//, './build/');
+  fs.mkdirSync(outDir, { recursive: true });
+  for (const file of integration.blockFiles) {
+    fs.copyFileSync(path.join(sourceDir, file), path.join(outDir, file));
+  }
+}
+
 function getIntegrationKey(integrationPath) {
   return integrationPath
     .replace(/^\.\//, '')
@@ -192,10 +216,12 @@ async function build() {
 
       const buildOptions = createBuildOptions(integration.path, integration.bundleReact, trackerId);
       const result = await esbuild.build(buildOptions);
+      copyBlockFiles(integration);
 
       // Generate asset file with dependencies
       if (result.metafile) {
-        const outputs = Object.keys(result.metafile.outputs);
+        // The bundle, not its source map — in dev builds the map is listed first
+        const outputs = Object.keys(result.metafile.outputs).filter((file) => file.endsWith('.js'));
         if (outputs.length > 0) {
           const outputFile = outputs[0];
           const deps = integration.bundleReact ? [] : Array.from(dependencyTrackers.get(trackerId) || []);
@@ -239,13 +265,15 @@ async function watch() {
 
               // Generate asset file
               if (result.metafile) {
-                const outputs = Object.keys(result.metafile.outputs);
+                const outputs = Object.keys(result.metafile.outputs).filter((file) => file.endsWith('.js'));
                 if (outputs.length > 0) {
                   const outputFile = outputs[0];
                   const deps = integration.bundleReact ? [] : Array.from(dependencyTrackers.get(trackerId) || []);
                   generateAssetFile(outputFile, deps);
                 }
               }
+
+              copyBlockFiles(integration);
 
               const time = new Date().toLocaleTimeString();
               console.log(`✅ ${name} rebuilt at ${time}`);

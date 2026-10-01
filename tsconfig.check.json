@@ -1,0 +1,10 @@
+{
+  "extends": "./tsconfig.json",
+  "include": [
+    "./src/types/**/*",
+    "./src/winden-classes/**/*",
+    "./src/blocks/**/*.ts",
+    "./src/plain-classes/shared/*",
+    "./tests/**/*"
+  ]
+}

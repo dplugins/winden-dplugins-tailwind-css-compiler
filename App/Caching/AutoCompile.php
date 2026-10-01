@@ -4,6 +4,7 @@ if ( ! defined( 'ABSPATH' ) ) exit; // Exit if accessed directly
 use Winden\App\Helpers\SettingsOptions;
 use Winden\App\Helpers\Builders;
 use Winden\App\Helpers\DataConverter;
+use Winden\App\Assets\Providers\ProvidersHelpers;
 
 /**
  * AutoCompile - Automatically crawl classes and flag for recompilation when posts are saved
@@ -29,6 +30,9 @@ class AutoCompile
 {
     private static $is_compiling = false;
 
+    // True while crawl_and_flag runs, so options written by a render don't schedule another crawl
+    private static $is_crawling = false;
+
     public function __construct()
     {
         // Hook into post save actions
@@ -36,6 +40,13 @@ class AutoCompile
 
         // Hook into Fancoolo post save (generic hook from Fancoolo plugin)
         add_action('fancoolo_post_saved', [$this, 'on_fancoolo_post_save'], 10, 3);
+
+        // Menus and widgets aren't posts the builders save: rebuild the full list
+        add_action('wp_update_nav_menu', [$this, 'schedule_full_crawl']);
+        add_action('wp_update_nav_menu_item', [$this, 'schedule_full_crawl']);
+        add_action('wp_delete_nav_menu', [$this, 'schedule_full_crawl']);
+        add_action('added_option', [$this, 'on_option_change']);
+        add_action('updated_option', [$this, 'on_option_change']);
 
         // Async crawl handler
         add_action('winden_async_crawl', [$this, 'handle_async_crawl']);
@@ -90,6 +101,11 @@ class AutoCompile
             return;
         }
 
+        // Menu items: the menu hooks schedule a full crawl once the whole menu is saved
+        if ($post->post_type === 'nav_menu_item') {
+            return;
+        }
+
         // Mark that we're processing to prevent recursion
         self::$is_compiling = true;
 
@@ -120,15 +136,43 @@ class AutoCompile
         // Mark that we're processing to prevent recursion
         self::$is_compiling = true;
 
-        // Schedule the crawl to run asynchronously via WP Cron
-        // This prevents blocking the save operation completely
         // Force full crawl for Fancoolo saves to keep class list complete
+        $this->schedule_full_crawl();
+    }
+
+    /**
+     * Widget options and the sidebar layout changed
+     *
+     * @param string $option Option name
+     */
+    public function on_option_change($option)
+    {
+        if ($option === 'sidebars_widgets' || strpos((string) $option, 'widget_') === 0) {
+            $this->schedule_full_crawl();
+        }
+    }
+
+    /**
+     * Schedule a full crawl via WP Cron so the save isn't blocked
+     *
+     * Full, not single-post: menus and widgets aren't in the per-post index,
+     * and a full crawl drops classes that were removed.
+     */
+    public function schedule_full_crawl()
+    {
+        if (self::$is_crawling) {
+            return;
+        }
+
         if (!wp_next_scheduled('winden_async_crawl', [0])) {
             wp_schedule_single_event(time(), 'winden_async_crawl', [0]);
         }
 
-        // Spawn WP Cron immediately in background
-        spawn_cron();
+        // Spawn WP Cron at the end of this request: a menu or widget save writes
+        // many rows, and a crawl started after the first one would miss the rest
+        if (!has_action('shutdown', 'spawn_cron')) {
+            add_action('shutdown', 'spawn_cron');
+        }
     }
 
     /**
@@ -139,6 +183,8 @@ class AutoCompile
      */
     public function crawl_and_flag($post_id = null, $compile_now = false)
     {
+        self::$is_crawling = true;
+
         try {
             if ($post_id && $post_id > 0) {
                 // Fast path: Only crawl the single post and update the per-post index
@@ -184,8 +230,9 @@ class AutoCompile
             // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- Intentional production logging for error tracking
             error_log('[Winden AutoCompile] Error: ' . $e->getMessage());
         } finally {
-            // Reset the flag
+            // Reset the flags
             self::$is_compiling = false;
+            self::$is_crawling = false;
         }
     }
 
@@ -237,6 +284,8 @@ class AutoCompile
      */
     public function ajax_get_compile_status()
     {
+        check_ajax_referer('winden_nonce', '_nonce');
+
         // Check permissions
         if (!current_user_can('edit_posts')) {
             wp_send_json_error('Unauthorized');
@@ -270,6 +319,7 @@ class AutoCompile
 
         // Get crawled classes with safe unserialization and normalization
         $classes = DataConverter::getOptionAsArray('winden_crawled_classes');
+
         $classes = DataConverter::normalizeClasses($classes);
 
         // Return classes and config to browser for compilation
@@ -370,18 +420,15 @@ class AutoCompile
      * - Bricks.php for Bricks
      * - etc.
      *
+     * Editors always get it, whatever "Disable Dev Mode" says, so every save
+     * rebuilds output.css. On a plain frontend page it loads only for an admin
+     * while a rebuild is pending (see is_frontend_rebuild()); then the compiler
+     * is enqueued here, since no provider loads it there.
+     *
      * @param string|null $hook The current admin page hook (from admin_enqueue_scripts)
      */
     public function enqueue_compile_trigger($hook = null)
     {
-        // Check if dev mode is disabled
-        $settings = SettingsOptions::getWindenOptions();
-        $dev_mode_disabled = $settings['disable_dev_mode'] ?? false;
-
-        if ($dev_mode_disabled) {
-            return;
-        }
-
         // Detect editor context using Builders helper
         $is_bricks = Builders::isBricksEditorPage();
         $is_oxygen = Builders::isOxygenEditorPage();
@@ -393,9 +440,19 @@ class AutoCompile
         $is_builder = $is_bricks || $is_oxygen || $is_oxygen6 || $is_elementor || $is_fancoolo || $is_builderius;
         $is_valid_context = $is_builder || $is_gutenberg || $is_fancoolo;
 
-        // Don't load on frontend unless it's a builder editor
+        // On the frontend, load in builder editors, or for an admin while a rebuild is pending
+        $is_frontend_rebuild = false;
         if (!is_admin() && !$is_builder) {
-            return;
+            if (!$this->is_frontend_rebuild()) {
+                return;
+            }
+
+            $is_frontend_rebuild = true;
+
+            // Frontend.php already loads the compiler for logged-in users while dev mode is on
+            if (!wp_script_is('winden-compiler-module', 'enqueued')) {
+                ProvidersHelpers::enqueueCompilerWithOptions();
+            }
         }
 
         // For admin_enqueue_scripts, only load in valid editor contexts
@@ -428,8 +485,10 @@ class AutoCompile
             true
         );
 
-        // Build dependencies for compile-trigger
-        $dependencies = ['winden-compiler-core', 'winden-css-injector', 'jquery'];
+        // Build dependencies for compile-trigger (no jQuery on a plain frontend page)
+        $dependencies = $is_frontend_rebuild
+            ? ['winden-compiler-core', 'winden-css-injector']
+            : ['winden-compiler-core', 'winden-css-injector', 'jquery'];
 
         // Add Gutenberg dependencies if in block editor
         if (function_exists('get_current_screen')) {
@@ -454,7 +513,37 @@ class AutoCompile
             'needsCompile' => get_option('winden_needs_recompile', false),
             'clearCache' => get_option('winden_dplugins_clear_cache_flag', false),
             'ajaxUrl' => admin_url('admin-ajax.php'),
-            'nonce' => wp_create_nonce('winden_nonce')
+            'nonce' => wp_create_nonce('winden_nonce'),
+            // Plain frontend page: compile the pending rebuild, no save listeners
+            'frontendRebuild' => $is_frontend_rebuild
         ]);
+    }
+
+    /**
+     * Whether this plain frontend page view should compile a pending rebuild
+     *
+     * Only for admins, only while `winden_needs_recompile` is set, and never
+     * inside a builder preview frame (those are frontend URLs too).
+     *
+     * @return bool
+     */
+    private function is_frontend_rebuild()
+    {
+        if (!get_option('winden_needs_recompile', false) || !current_user_can('manage_options')) {
+            return false;
+        }
+
+        if (is_customize_preview()
+            || Builders::isBricksEditorFrame()
+            || Builders::isOxygenEditorFrame()
+            || Builders::isOxygen6EditorFrame()
+            || Builders::isBuilderiusEditor()
+            // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only check for editor detection
+            || isset($_GET['elementor-preview'])
+        ) {
+            return false;
+        }
+
+        return true;
     }
 }

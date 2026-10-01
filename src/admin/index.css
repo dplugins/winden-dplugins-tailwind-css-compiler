@@ -6,6 +6,8 @@
 
 @source "./**/**/*.{php,html,js,jsx,tsx,ts}";
 @source "../plain-classes/**/*.{php,html,js,jsx,tsx,ts}";
+/* Test fixtures hold arbitrary url() examples that break the bundler; pro git-ignores tests/, the free edition does not */
+@source not "../../tests";
 
 @theme {
 
@@ -266,6 +268,7 @@ select,
 textarea {
   margin: 0;
   border: 1px solid var(--color-input) !important;
+  border-radius: var(--radius-md) !important;
 }
 
 

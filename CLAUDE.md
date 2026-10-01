@@ -7,7 +7,10 @@ This file only records what is actually different here.
 Do not duplicate that document.
 If this file and `winden`'s CLAUDE.md ever disagree about `App/` or `src/` behavior, re-check both checkouts rather than trusting either blindly — they are supposed to be the same code.
 
-As of this writing, `App/`, `src/`, `shared/`, and `composer.json` are byte-identical between the two checkouts.
+`App/`, `src/`, `shared/`, `configs/`, `assets/`, the npm/composer manifests, the tooling configs and the unit tests are copied from pro by the `/sync-free` skill (`~/.claude/skills/sync-free/sync.sh`), so they are byte-identical to pro at the synced commit.
+Fix shared code in pro first, then sync; an edit made only here is overwritten by the next sync.
+Not synced: the plugin header file, `readme.txt`, `CHANGELOG.md`, this file, `.github/`, `.distignore`, `.gitignore`.
+`tests/e2e/` and pro-only unit tests (those importing `pro/`) stay in pro.
 `composer.json` still declares `"Winden\\Pro\\": "pro/App/"` even here — that path does not exist in this checkout, so anything under the `Winden\Pro\` namespace is simply unresolvable, not broken.
 All call sites reach it through `LicenseManager::proFolderExists()` (`App/Helpers/LicenseManager.php`, checks for `pro/App/License/License.php`), which returns `false` when the folder is absent, so the plugin runs correctly without it — a task that appears to need Pro code (Oxygen/Bricks/Elementor/Builderius crawlers and providers, EDD licensing) is out of scope for this checkout rather than a bug to fix.
 
@@ -15,10 +18,8 @@ Concrete differences that do exist:
 - `winden-dplugins-tailwind-css-compiler.php` vs `winden.php` — different plugin header (name, version, `Requires at least`/`Tested up to`/`Requires PHP`, text domain `winden-dplugins-tailwind-css-compiler` vs `winden`), and a different `ABSPATH` guard style.
 - No `pro/` directory, no `CHANGELOG.md`, no `_docs/`.
 - `readme.txt` has separate wordpress.org marketing copy — do not copy pro's readme content into it.
-- `tests/*.test.ts` — the two editions have independently-added test files (e.g. `ajaxUrl.test.ts` and `oklchToHex.test.ts` here vs `colorEntryCalculations.test.ts` and `scaleCalculatorCalculations.test.ts` in pro).
-  They are not kept in sync, and `tests/setup.ts` differs slightly between the two.
 
-Historically the free edition has been first to receive small fixes ahead of pro (per project knowledge, a `get_option()`-returns-`false`-not-`null` fix in `App/Admin/GetContent.php`/`SaveContent.php` landed here first) — given the two are currently identical, treat any such gap as temporary and check both files before assuming behavior differs.
+Before the sync existed, small fixes sometimes landed here first (the `get_option()`-returns-`false` fix in `GetContent.php`/`SaveContent.php`); pro now has them, and new fixes go to pro.
 
 ## Build
 

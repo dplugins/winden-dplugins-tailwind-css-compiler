@@ -2,9 +2,9 @@
 Contributors: krstivoja
 Tags: tailwind, css, compiler, gutenberg, page builder
 Requires at least: 6.7
-Tested up to: 7.1.2
+Tested up to: 7.1
 Requires PHP: 8.0
-Stable tag: 1.4.4
+Stable tag: 2.0.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -21,6 +21,9 @@ Winden brings the full power of Tailwind CSS v4 to WordPress. Write utility clas
 * Real-time compilation in browser
 * Works with any theme or page builder
 * Gutenberg integration
+* Winden Classes panel: a visual class helper with autocomplete, colour swatches and CSS previews
+* HTML editor: edit any block as HTML, or paste a Tailwind component and get blocks that keep their classes
+* Winden Group, Image, Text, Icon and Shape blocks for Tailwind markup
 * Developer-friendly
 
 **Integrations:**
@@ -36,7 +39,8 @@ Winden brings the full power of Tailwind CSS v4 to WordPress. Write utility clas
 
 * @tailwindcss/forms
 * @tailwindcss/typography
-* @tailwindcss/container-queries
+
+Container queries are built into Tailwind v4.
 
 **Easy migration:**
 * With single copy paste of style tab you can migrate form WindPress and other tailwindcss integration to Winden keeping all the classs in block attributes
@@ -75,12 +79,44 @@ When you use the `@plugin` directive with an external URL in your CSS configurat
 * In production mode with dev mode disabled, no external requests are made
 * No user data or site information is transmitted
 
+**npm registry (plugin search):**
+
+The Tailwind plugin picker in the Style Editor searches the public npm registry (https://registry.npmjs.org) for Tailwind plugins.
+
+* Only activated when you type into the plugin search
+* Sends only the search text you typed
+* No user data or site information is transmitted
+* npm terms: https://docs.npmjs.com/policies/terms, privacy: https://docs.npmjs.com/policies/privacy
+
 == Screenshots ==
 
 1. Winden settings panel
 2. Tailwind classes in Gutenberg
 
 == Changelog ==
+
+= 2.0.0 =
+* Added: Winden Classes panel, a visual class helper in Gutenberg. Autocomplete in a textarea, a colour swatch beside every colour class, hover a class to read its CSS, and classes that compile to nothing are flagged.
+* Added: HTML editor. Edit any block as HTML from its toolbar; the editor docks beside the canvas and follows your selection.
+* Added: Paste a Tailwind component and get real blocks that keep their classes, including images, galleries, tables, SVG and links.
+* Added: Winden Image, Winden Text and Winden Icon blocks, and the Winden Group and Winden Shape variations for Tailwind markup.
+* Added: HTML attributes (aria-*, data-*, style and more) on core Paragraph, Heading, List, Quote, Group, Code, Separator and Preformatted blocks.
+* Added: Expand or collapse a whole branch in List View.
+* Added: Alt/Option+click a block to jump straight to its Winden Classes field.
+* Added: Tailwind plugin management. Search npm for a plugin, add it without writing CSS, and switch it off without removing it.
+* Added: Page caches (WP Rocket, LiteSpeed, W3 Total Cache, WP Super Cache, SiteGround and more) are cleared automatically when the compiled CSS changes.
+* Improved: The compiler uses native Tailwind v4 APIs, and container queries work through Tailwind v4 itself. Existing Style tabs keep compiling.
+* Improved: The editor always compiles on save, even with "Disable Dev Mode" on. The setting now only affects the frontend for logged-in users.
+* Improved: A pending CSS rebuild runs the next time an admin opens the editor, the Winden settings or any frontend page.
+* Improved: More classes are found: shortcodes and dynamic blocks that depend on the current page, menu CSS classes and widgets.
+* Improved: Arbitrary values that contain quotes, such as url() backgrounds and quoted font names, now compile correctly.
+* Improved: Faster admin. Monaco loads only where there is an editor.
+* Improved: File scanner tri-state checkboxes, file-count badges and a loading spinner.
+* Improved: Tailwind CSS v4.3.3.
+* Fixed: Undo (Ctrl/Cmd+Z) in the Style Editor could replace a tab with another tab's content.
+* Fixed: An empty Wizzard deleted the whole theme.
+* Fixed: After switching blocks, autocomplete could show the previous block's suggestions.
+* Fixed: Autocomplete took focus away from other editor fields.
 
 = 1.4.4 =
 * Tested up to WordPress 7.1.2
@@ -97,12 +133,6 @@ When you use the `@plugin` directive with an external URL in your CSS configurat
 = 1.4.1 =
 * Tested up to WordPress 7.0.4
 
-
-= Unreleased =
-* Fixed a fatal error on a fresh install in the admin cache path: `get_option('winden_dplugins_cache')` returns `false` when the option has never been set, which is the normal state on a fresh install, and that value was passed where an array was expected.
-* Set the stable tag to 1.4.0.
-* Silenced the `error_log` sniff on the `WP_DEBUG` logger.
-* Added a test that fails the build if any code reads an option key that the migration in `App/Helpers/Migration.php` renames and deletes.
 
 = 1.3.9 =
 * Tested up to WordPress 7.0.3

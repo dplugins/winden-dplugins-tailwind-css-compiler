@@ -14,7 +14,6 @@ import { useUnsavedChangesGuard } from '@hooks/useUnsavedChangesGuard';
 import { useEditorContext } from '@/contexts/EditorContext';
 
 // Config
-import { setupMonaco } from '@/config/monacoSetup';
 
 // Components
 import Header from '@parts/Header';
@@ -25,8 +24,8 @@ import StaleSaveBanner from '@parts/StaleSaveBanner';
 // Import global type declarations
 import '@/types/global.d.ts';
 
-// Initialize Monaco on module load
-setupMonaco();
+// Monaco sets itself up inside its own chunk — see `parts/MonacoEditor`. Doing
+// it here loaded 3.84 MB on every tab, including the ones with no editor.
 
 function App() {
     const { localWizzardState, setLocalWizzardState } = useContext(WizzardContext)!;

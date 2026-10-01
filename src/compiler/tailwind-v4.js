@@ -1,89 +1,64 @@
-var r = require("process");
-r.versions.node = "1.0.0";
-
-const path = require("path");
-const postcss = require("postcss");
-const postcssImport = require("postcss-import");
+/**
+ * Tailwind's own stylesheets, inlined at build time so `@import "tailwindcss"`
+ * resolves inside the browser without a network request. Served through the
+ * `loadStylesheet` callback that `compile()` / `__unstable__loadDesignSystem()`
+ * call for every `@import` — Tailwind does the resolving, layering and
+ * modifier handling (`layer()`, `prefix()`, `source()`, `theme()`, `important`)
+ * itself. This is the same arrangement `@tailwindcss/browser` uses.
+ *
+ * Nothing here parses CSS. The old postcss + postcss-import pre-flattening
+ * step duplicated Tailwind's import machinery, weighed ~400 KB minified, and
+ * swallowed unknown/relative imports before Tailwind could see them.
+ */
 
 import tailwindTheme from 'inline:../../node_modules/tailwindcss/theme.css';
 import tailwindPreflight from 'inline:../../node_modules/tailwindcss/preflight.css';
 import tailwindUtilities from 'inline:../../node_modules/tailwindcss/utilities.css';
 import tailwindIndex from 'inline:../../node_modules/tailwindcss/index.css';
 
-const tailwindcss = {
-    '/tailwindcss/theme.css': tailwindTheme,
-    '/tailwindcss/preflight.css': tailwindPreflight,
-    '/tailwindcss/utilities.css': tailwindUtilities,
-    '/tailwindcss/index.css': tailwindIndex,
+/** Base every Tailwind-owned stylesheet reports, so relative ids inside them resolve back here. */
+export const TAILWIND_VIRTUAL_BASE = 'virtual:tailwindcss';
+
+const files = {
+  'index.css': tailwindIndex,
+  'theme.css': tailwindTheme,
+  'preflight.css': tailwindPreflight,
+  'utilities.css': tailwindUtilities,
 };
 
-export async function bundleCSS(customCss) {
-    const cssPath = '/';
-    const tailwindcssFiles = {
-        [cssPath]: customCss,
-        ...tailwindcss
-    };
+/**
+ * Map an `@import` id to one of Tailwind's own stylesheets, or `null` when the
+ * id is not Tailwind's to serve.
+ *
+ * Accepts every spelling Tailwind may hand us:
+ *   - `tailwindcss`, `tailwindcss/theme.css`, `tailwindcss/theme`
+ *   - `/anything/tailwindcss/utilities.css` (a resolved path)
+ *   - `./theme.css` (relative, from inside a Tailwind stylesheet — 4.0–4.1
+ *     `index.css` imports its parts that way; 4.3's index is self-contained)
+ *
+ * @param {string} id
+ * @param {string} [base]
+ * @returns {{ path: string, base: string, content: string } | null}
+ */
+export function resolveTailwindStylesheet(id, base) {
+  let file = null;
 
-    // Process CSS imports (autoprefixer is applied later in tailwindify())
-    const processor = postcss()
-        .use(postcssImport({
-            filter: () => true,
-            async resolve(id, basedir) {
-                // Handle tailwindcss imports directly - always resolve to root /tailwindcss/ path
-                // This prevents issues when running from subdirectories like /test/
-                if (id.startsWith('tailwindcss/') || id === 'tailwindcss') {
-                    let tailwindPath;
-                    if (id === 'tailwindcss') {
-                        tailwindPath = '/tailwindcss/index.css';
-                    } else if (id.endsWith('.css')) {
-                        tailwindPath = '/' + id;
-                    } else {
-                        tailwindPath = '/' + id + '.css';
-                    }
-                    if (tailwindcssFiles[tailwindPath]) {
-                        return tailwindPath;
-                    }
-                }
+  if (id === 'tailwindcss') {
+    file = 'index.css';
+  } else {
+    const match = id.match(/(?:^|\/)tailwindcss\/([^/]+?)(?:\.css)?$/);
+    if (match) {
+      file = `${match[1]}.css`;
+    } else if (base === TAILWIND_VIRTUAL_BASE && /^\.\//.test(id)) {
+      file = id.slice(2).replace(/(?:\.css)?$/, '.css');
+    }
+  }
 
-                let _path = path.resolve(basedir, id);
+  if (!file || !(file in files)) return null;
 
-                if (tailwindcssFiles[_path]) {
-                    return _path;
-                }
-
-                if (!id.endsWith('.css')) {
-                    id = id.concat('/index.css')
-                }
-
-                _path = path.join(basedir, id);
-
-                if (tailwindcssFiles[_path]) {
-                    return _path;
-                }
-            },
-            load(file) {
-                if (tailwindcssFiles[file]) {
-                    return tailwindcssFiles[file];
-                }
-
-                // Handle tailwindcss files that might have been resolved with different paths
-                const tailwindMatch = file.match(/\/tailwindcss\/(preflight|theme|utilities|index)\.css$/);
-                if (tailwindMatch) {
-                    const normalizedPath = '/tailwindcss/' + tailwindMatch[1] + '.css';
-                    if (tailwindcssFiles[normalizedPath]) {
-                        return tailwindcssFiles[normalizedPath];
-                    }
-                }
-
-                // Return empty string to prevent network fetch for unknown files
-                return '';
-            }
-        }));
-
-    const result = await processor.process(tailwindcssFiles[cssPath], {
-        from: cssPath
-    });
-
-    return result.css;
+  return {
+    path: `${TAILWIND_VIRTUAL_BASE}/${file}`,
+    base: TAILWIND_VIRTUAL_BASE,
+    content: files[file],
+  };
 }
-window.tailwindV4BundleCSS = bundleCSS;

@@ -50,7 +50,10 @@ const Typography = (
         {validFontSizeEntries.length === 0 ? <p>No font sizes available.</p> : (
           validFontSizeEntries.map(([className, value]) => {
             const size = Array.isArray(value) ? value[0] : value;
-            const lineHeight = Array.isArray(value) ? value[1]?.lineHeight : value;
+            // `--text-xs--line-height` comes back under the size's own key
+            const lineHeight = Array.isArray(value)
+              ? value[1]?.lineHeight
+              : (lineHeights as Record<string, string> | undefined)?.[className];
 
             // Check if this is a fluid value (contains clamp)
             const isFluid = typeof size === 'string' && size.includes('clamp(');
@@ -69,7 +72,7 @@ const Typography = (
             return (
               <div className='py-6' key={`size-${className}`}>
                 <hr />
-                <p>{className}: {size} / {lineHeight}</p>
+                <p>{className}: {size}{lineHeight ? ` / ${lineHeight}` : ''}</p>
                 {isFluid ? (
                   <div className="flex flex-col gap-2">
                     <p className='element' style={{ fontSize: minSize, lineHeight: 1, margin: 0 }}>The quick brown fox jumps over the lazy dog.</p>

@@ -1,0 +1,28 @@
+{
+    "$schema": "https://schemas.wp.org/trunk/block.json",
+    "apiVersion": 3,
+    "name": "winden/icon",
+    "version": "1.0.0",
+    "title": "Winden Icon",
+    "category": "media",
+    "icon": "art",
+    "description": "The <svg> exactly as it was written — so a heroicon keeps its paths, its viewBox and its Tailwind classes on the element itself. core/icon holds a name from WordPress's icon registry, which pasted markup is not.",
+    "keywords": ["svg", "icon", "heroicon", "vector", "tailwind", "winden"],
+    "textdomain": "winden-dplugins-tailwind-css-compiler",
+    "attributes": {
+        "content": {
+            "type": "string",
+            "source": "html",
+            "selector": "svg",
+            "default": ""
+        },
+        "htmlAttributes": {
+            "type": "object"
+        }
+    },
+    "supports": {
+        "anchor": true,
+        "html": false
+    },
+    "editorScript": "file:./index.js"
+}

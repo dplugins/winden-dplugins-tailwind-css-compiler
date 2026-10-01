@@ -31,7 +31,6 @@ export function getServerUpdatedAt(): string | null {
 
 declare global {
   interface Window {
-    tailwindV4BundleCSS?: (css: string) => Promise<string>;
     nonce?: string;
     websiteUrl?: string;
   }
@@ -104,8 +103,9 @@ export const handleSave = async (
       || settingsRes.editor_tabs.find((t: any) => t?.value === 'style')?.visible !== false;
     const effectiveScss = styleTabVisible ? scssContentRef.current : MINIMAL_BASE_CSS;
 
-    // Always use Tailwind v4 bundling
-    if (typeof window.tailwindV4BundleCSS === 'function' && effectiveScss?.length) {
+    // Assemble the CSS the compiler will get; the compiler itself resolves
+    // @import (through Tailwind's loadStylesheet) and runs SCSS.
+    if (effectiveScss?.length) {
       const bundleStartTime = performance.now();
       log.debug('Save', 'Preparing CSS bundle', { styleTabVisible });
 
@@ -145,11 +145,7 @@ export const handleSave = async (
         }
       }
 
-      // IMPORTANT: Skip bundleCSS step - it uses PostCSS which doesn't understand SCSS
-      // The main compiler (tailwindify) handles both SCSS preprocessing and @import bundling
-      // bundleCSS only handles @import statements, and the main compiler does this better
-      // cssContent = await window.tailwindV4BundleCSS(combinedCSS);
-      cssContent = combinedCSS; // Pass through directly - let the compiler handle everything
+      cssContent = combinedCSS;
 
       const bundleEndTime = performance.now();
       log.debug('Save', 'CSS bundle ready', {

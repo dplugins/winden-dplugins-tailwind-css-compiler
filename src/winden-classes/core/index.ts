@@ -8,6 +8,8 @@
  * - Tailwind class names
  */
 
+import { resolveColors } from './class-colors';
+
 import type {
   AutocompleteOptions,
   AutocompleteInstance,
@@ -21,7 +23,7 @@ import './styles.scss';
 /**
  * Parse the current input to extract completed classes and current partial
  */
-function parseInput(value: string, cursorPosition: number): ParsedInput {
+export function parseInput(value: string, cursorPosition: number): ParsedInput {
   // Get text up to cursor
   const textToCursor = value.substring(0, cursorPosition);
 
@@ -83,7 +85,7 @@ function getBreakpointQuery(input: string): string {
 /**
  * Generate suggestions based on parsed input
  */
-function getSuggestions(
+export function getSuggestions(
   parsed: ParsedInput,
   classData: ClassData,
   maxSuggestions: number
@@ -177,14 +179,17 @@ function getSuggestions(
     // The full suggestion value we would generate
     const fullSuggestion = (prefix + cls).toLowerCase();
 
-    // Skip if suggestion exactly matches what user already typed
-    if (fullSuggestion === currentInputLower) continue;
-
     // Calculate score
     let score = 0;
 
+    // What was typed, exactly. Dropping it used to leave a *different* class
+    // at the top of the list and preselected — type `m-20` and the highlighted
+    // suggestion was `-m-20`, one Enter away from the opposite margin.
+    if (fullSuggestion === currentInputLower) {
+      score = 200;
+    }
     // Starts with query (most relevant)
-    if (clsLower.startsWith(query)) {
+    else if (clsLower.startsWith(query)) {
       score = 80 + (query.length / clsLower.length) * 20;
     }
     // Contains query
@@ -305,6 +310,16 @@ function injectDropdownStyles(doc: Document): void {
     .winden-autocomplete-desc {
       display: none;
     }
+
+    .winden-autocomplete-swatch {
+      width: 14px;
+      height: 14px;
+      margin-left: auto;
+      border-radius: 50%;
+      /* A pale colour needs an edge to read as a colour and not as a hole */
+      box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.25);
+      flex: none;
+    }
   `;
   doc.head.appendChild(style);
 }
@@ -328,7 +343,7 @@ function createDropdown(extraClass?: string, ownerDoc?: Document): HTMLElement {
  * Position the dropdown below the input
  * Handles cross-document positioning when input and dropdown are in the same document
  */
-function positionDropdown(dropdown: HTMLElement, input: HTMLInputElement): void {
+function positionDropdown(dropdown: HTMLElement, input: HTMLInputElement | HTMLTextAreaElement): void {
   const rect = input.getBoundingClientRect();
   const dropdownDoc = dropdown.ownerDocument;
   const dropdownWin = dropdownDoc?.defaultView || window;
@@ -352,7 +367,8 @@ function renderSuggestions(
   selectedIndex: number,
   onSelect: (suggestion: Suggestion) => void,
   onHover?: (index: number) => void,
-  getInteractionMode?: () => 'keyboard' | 'mouse'
+  getInteractionMode?: () => 'keyboard' | 'mouse',
+  swatches?: Map<string, string>
 ): void {
   dropdown.innerHTML = '';
 
@@ -380,6 +396,16 @@ function renderSuggestions(
 
     item.appendChild(badge);
     item.appendChild(value);
+
+    // A colour is worth showing rather than naming: `bg-red-400` and
+    // `bg-rose-400` are a paragraph apart in text and obvious side by side.
+    const swatch = swatches?.get(suggestion.value);
+    if (swatch) {
+      const dot = document.createElement('span');
+      dot.className = 'winden-autocomplete-swatch';
+      dot.style.background = swatch;
+      item.appendChild(dot);
+    }
 
     if (suggestion.description) {
       const desc = document.createElement('span');
@@ -413,17 +439,53 @@ function renderSuggestions(
 }
 
 /**
- * Debounce function
+ * Debounce, with a way to stop waiting.
+ *
+ * A timer is the wrong thing to have alone here: the keys that act on the
+ * suggestion list arrive between the keystroke and the redraw it scheduled, so
+ * they need to bring that redraw forward (`flush`) rather than read the list
+ * belonging to the previous character. Closing the list needs the opposite —
+ * `cancel`, or a pending redraw reopens it a moment later.
  */
+interface Debounced<T extends (...args: unknown[]) => unknown> {
+  (...args: Parameters<T>): void;
+  flush: () => void;
+  cancel: () => void;
+}
+
 function debounce<T extends (...args: unknown[]) => unknown>(
   func: T,
   wait: number
-): (...args: Parameters<T>) => void {
+): Debounced<T> {
   let timeout: ReturnType<typeof setTimeout> | null = null;
-  return (...args: Parameters<T>) => {
-    if (timeout) clearTimeout(timeout);
-    timeout = setTimeout(() => func(...args), wait);
+  let pending: Parameters<T> | null = null;
+
+  const run = () => {
+    timeout = null;
+    const args = pending;
+    pending = null;
+    if (args) func(...args);
   };
+
+  const debounced = ((...args: Parameters<T>) => {
+    pending = args;
+    if (timeout) clearTimeout(timeout);
+    timeout = setTimeout(run, wait);
+  }) as Debounced<T>;
+
+  debounced.flush = () => {
+    if (!timeout) return;
+    clearTimeout(timeout);
+    run();
+  };
+
+  debounced.cancel = () => {
+    if (timeout) clearTimeout(timeout);
+    timeout = null;
+    pending = null;
+  };
+
+  return debounced;
 }
 
 /**
@@ -445,7 +507,11 @@ export function createTailwindAutocomplete(options: AutocompleteOptions): Autoco
 
   // Options with defaults
   const maxSuggestions = options.maxSuggestions ?? 10;
-  const debounceMs = options.debounceMs ?? 50;
+  // Zero by default on purpose: a full scan of the class list costs well
+  // under a millisecond, so any wait here is lag the typist can feel and
+  // nothing it buys back. The debounce stays for the coalescing, and for
+  // callers that want a wait.
+  const debounceMs = options.debounceMs ?? 0;
   // Use defaultClassData directly (without spread) to preserve getter behavior
   // This allows classes to be read dynamically from window.winden_autocomplete
   let classData: ClassData = options.classData ?? defaultClassData;
@@ -453,6 +519,8 @@ export function createTailwindAutocomplete(options: AutocompleteOptions): Autoco
   // State
   let suggestions: Suggestion[] = [];
   let selectedIndex = 0;
+  /** class → colour, kept across keystrokes so a colour is measured once */
+  const swatches = new Map<string, string>();
   let isOpen = false;
   let interactionMode: 'keyboard' | 'mouse' = 'keyboard';
   let lastParsed: ParsedInput | null = null;
@@ -499,9 +567,30 @@ export function createTailwindAutocomplete(options: AutocompleteOptions): Autoco
     selectedIndex = 0;
 
     positionDropdown(dropdown, input);
-    renderSuggestions(dropdown, suggestions, selectedIndex, handleSelect, handleHover, getInteractionMode);
+    renderSuggestions(dropdown, suggestions, selectedIndex, handleSelect, handleHover, getInteractionMode, swatches);
 
     isOpen = suggestions.length > 0;
+    void paintSwatches(suggestions);
+  };
+
+  /**
+   * Colours are measured where the compiled Tailwind lives, then the list is
+   * drawn again — the explanations are cached per class, so scrolling back to
+   * a colour already seen costs nothing.
+   */
+  const paintSwatches = async (shown: Suggestion[]) => {
+    const wanted = shown
+      .filter((suggestion) => suggestion.type === 'class' && !swatches.has(suggestion.value))
+      .map((suggestion) => suggestion.value);
+    if (wanted.length === 0) return;
+
+    const colours = await resolveColors(wanted);
+    for (const [className, colour] of colours) swatches.set(className, colour);
+
+    // Only redraw if the list is still the one these belong to
+    if (colours.size > 0 && isOpen && shown === suggestions) {
+      renderSuggestions(dropdown, suggestions, selectedIndex, handleSelect, handleHover, getInteractionMode, swatches);
+    }
   };
 
   const debouncedUpdate = debounce(updateSuggestions, debounceMs);
@@ -551,8 +640,8 @@ export function createTailwindAutocomplete(options: AutocompleteOptions): Autoco
     const parsed = parseInput(value, cursorPosition);
 
     // Build the new value
-    let newValue = parsed.completedClasses.join(' ');
-    if (newValue) newValue += ' ';
+    const completed = parsed.completedClasses.join(' ');
+    let newValue = completed ? completed + ' ' : '';
 
     // Handle breakpoint selection from @ trigger
     if (suggestion.type === 'breakpoint' && isBreakpointTrigger(parsed.currentInput)) {
@@ -567,22 +656,21 @@ export function createTailwindAutocomplete(options: AutocompleteOptions): Autoco
       newValue += suggestion.value + ' ';
     }
 
+    // Where the caret lands, measured before anything is appended behind it:
+    // past the separating space for a finished class, tight against the colon
+    // for a prefix still being built on. The space has to survive into the
+    // field — trimming it off left the next class typed against the last one,
+    // `text-xl` and `p-4` arriving as `text-xlp-4`.
+    const caret = newValue.length;
+
     // Add any text after the cursor
     const afterCursor = value.substring(cursorPosition).trim();
     if (afterCursor) {
       newValue += afterCursor;
     }
 
-    input.value = newValue.trim();
-
-    // Set cursor position
-    if (suggestion.type === 'class') {
-      // After the class and space
-      input.selectionStart = input.selectionEnd = (parsed.completedClasses.join(' ') + ' ' + suggestion.value + ' ').length;
-    } else {
-      // Right after the colon for continued typing
-      input.selectionStart = input.selectionEnd = newValue.trimEnd().length;
-    }
+    input.value = newValue;
+    input.selectionStart = input.selectionEnd = caret;
 
     // Trigger change callback
     options.onChange?.(input.value.trim());
@@ -602,6 +690,10 @@ export function createTailwindAutocomplete(options: AutocompleteOptions): Autoco
    * Close suggestions dropdown
    */
   const closeSuggestions = () => {
+    // A redraw still on the timer would reopen the list a moment after it was
+    // dismissed — or right after a suggestion was taken, since accepting one
+    // rewrites the field.
+    debouncedUpdate.cancel();
     if (options.onPreview && lastPreviewClass !== null) {
       options.onPreview(null);
       lastPreviewClass = null;
@@ -615,10 +707,46 @@ export function createTailwindAutocomplete(options: AutocompleteOptions): Autoco
   /**
    * Handle keyboard navigation
    */
+  /**
+   * Who gets Up and Down.
+   *
+   * While the list is open they step through it — that is the point of typing
+   * `bg-red` and reaching `bg-red-500` without touching the mouse. The catch is
+   * a textarea has lines of its own, and the list opens on every keystroke, so
+   * there has to be a way out: Escape closes it, and Alt+Up/Down moves the
+   * caret with the list still up. With the list closed the arrows are the
+   * caret's, and pressing one does not reopen it.
+   */
+  const isMultiline = input.tagName === 'TEXTAREA';
+
+  const stepSuggestion = (e: KeyboardEvent, delta: number) => {
+    e.preventDefault();
+    selectedIndex = delta > 0
+      ? (selectedIndex + 1) % suggestions.length
+      : (selectedIndex <= 0 ? suggestions.length - 1 : selectedIndex - 1);
+    // Redrawing without the swatches would drop every colour off the list the
+    // moment the keyboard touched it — the map is the only thing that carries
+    // them between renders.
+    renderSuggestions(dropdown, suggestions, selectedIndex, handleSelect, handleHover, getInteractionMode, swatches);
+    updatePreview(selectedIndex);
+  };
+
   const handleKeyDown = (e: KeyboardEvent) => {
     interactionMode = 'keyboard';
+    const isVertical = e.key === 'ArrowDown' || e.key === 'ArrowUp';
+
+    // These four keys read the list, and the list is drawn on a timer, so the
+    // keystroke that should have shaped it may still be waiting its turn.
+    // Without this, typing `p-4` and completing it straight away inserts
+    // `p-0` — the top match for `p-`, one character behind.
+    if (isVertical || e.key === 'Enter' || e.key === 'Tab') {
+      debouncedUpdate.flush();
+    }
+
     if (!isOpen) {
-      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      // In a textarea the arrows belong to the caret; reopening the list here
+      // would take them back and strand the caret on its line.
+      if (isVertical && !isMultiline) {
         updateSuggestions();
         e.preventDefault();
         if (suggestions.length > 0) {
@@ -628,19 +756,20 @@ export function createTailwindAutocomplete(options: AutocompleteOptions): Autoco
       return;
     }
 
+    // Alt is the way past an open list: the caret moves and the list goes,
+    // since it was about the word the caret is leaving.
+    if (isVertical && e.altKey) {
+      closeSuggestions();
+      return;
+    }
+
     switch (e.key) {
       case 'ArrowDown':
-        e.preventDefault();
-        selectedIndex = (selectedIndex + 1) % suggestions.length;
-        renderSuggestions(dropdown, suggestions, selectedIndex, handleSelect, handleHover, getInteractionMode);
-        updatePreview(selectedIndex);
+        stepSuggestion(e, 1);
         break;
 
       case 'ArrowUp':
-        e.preventDefault();
-        selectedIndex = selectedIndex <= 0 ? suggestions.length - 1 : selectedIndex - 1;
-        renderSuggestions(dropdown, suggestions, selectedIndex, handleSelect, handleHover, getInteractionMode);
-        updatePreview(selectedIndex);
+        stepSuggestion(e, -1);
         break;
 
       case 'Enter':
@@ -685,7 +814,7 @@ export function createTailwindAutocomplete(options: AutocompleteOptions): Autoco
 
   // Attach event listeners
   input.addEventListener('input', handleInput);
-  input.addEventListener('keydown', handleKeyDown);
+  input.addEventListener('keydown', handleKeyDown as EventListener);
   input.addEventListener('focus', handleFocus);
   input.addEventListener('blur', handleBlur);
 
@@ -716,17 +845,36 @@ export function createTailwindAutocomplete(options: AutocompleteOptions): Autoco
   dropdown.addEventListener('mousemove', handleDropdownMouseMove);
   dropdown.addEventListener('mouseleave', handleDropdownMouseLeave);
 
+  /**
+   * Dismiss on the way down, not on blur.
+   *
+   * Blur closes the list 150ms later so a suggestion can still be clicked, but
+   * the list sits over whatever is beneath the input — press a control down
+   * there and the list, still on screen, takes the click instead. Closing on
+   * mousedown outside lets the press through to what was aimed at.
+   */
+  const handleOutsidePress = (event: Event) => {
+    if (!isOpen) return;
+    const target = event.target as Node | null;
+    if (!target || input.contains(target) || dropdown.contains(target)) return;
+    closeSuggestions();
+  };
+
+  const pressDoc = dropdownOwnerDoc || document;
+  pressDoc.addEventListener('mousedown', handleOutsidePress, true);
+
   // Return instance
   return {
     destroy: () => {
       input.removeEventListener('input', handleInput);
-      input.removeEventListener('keydown', handleKeyDown);
+      input.removeEventListener('keydown', handleKeyDown as EventListener);
       input.removeEventListener('focus', handleFocus);
       input.removeEventListener('blur', handleBlur);
       dropdownWin.removeEventListener('scroll', handleReposition, true);
       dropdownWin.removeEventListener('resize', handleReposition);
       dropdown.removeEventListener('mousemove', handleDropdownMouseMove);
       dropdown.removeEventListener('mouseleave', handleDropdownMouseLeave);
+      pressDoc.removeEventListener('mousedown', handleOutsidePress, true);
       dropdown.remove();
     },
 
@@ -739,6 +887,8 @@ export function createTailwindAutocomplete(options: AutocompleteOptions): Autoco
     },
 
     setValue: (value: string) => {
+      // A list (or a redraw on the timer) built from the old text is stale.
+      closeSuggestions();
       input.value = value;
       options.onChange?.(value);
     },

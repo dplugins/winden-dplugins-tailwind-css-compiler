@@ -1,0 +1,96 @@
+/* Editor only: the HTML attributes rows in the Advanced panel */
+.winden-html-attributes__row + .winden-html-attributes__row {
+    margin-top: 8px;
+}
+
+.winden-html-attributes__row--new {
+    margin-top: 12px;
+}
+
+.winden-html-attributes__notice {
+    margin: 8px 0 0;
+}
+
+/* In the Winden Group panel the attributes follow the element select */
+.components-panel__body .winden-html-attributes {
+    margin-top: 4px;
+}
+.components-panel__body .components-base-control + .components-base-control {
+    margin-top: 16px;
+}
+
+/**
+ * A Winden Shape is a group with nothing in it, on purpose.
+ *
+ * Core draws its variation picker inside an empty group — a grey "Group blocks
+ * together…" card — so a gradient blob rendered as that card instead of the
+ * gradient: measured at 845px tall, the placeholder's height rather than the
+ * shape's own. Hiding it leaves the element to draw itself, and everything
+ * else about the block — selection, toolbar, inspector, the element select —
+ * keeps working, which is why this is a stylesheet rule and not a replacement
+ * for core's edit.
+ */
+.is-winden-shape {
+    > .components-placeholder,
+    > * > .components-placeholder {
+        display: none;
+    }
+}
+
+/* ── List View: expand/collapse a subtree ───────────────────
+   Two buttons before the row's ⋮.
+
+   The cell is a 36px `table-cell` holding one control, so three of them wrapped
+   onto three lines and the row grew to 72px. Laying the cell out as a flex row
+   and letting it size to its contents is what keeps them on one line; the
+   buttons are 24px like core's own, with an 18px glyph so three fit where core
+   put one. Hidden until the row is hovered or selected, the way core hides its
+   own menu button. */
+
+/* With the menu cell sized to its content, the table stops stretching the
+   name cell — 150 + 72 of a 342px row left 120px of nothing in the middle.
+   `100%` in table layout means "take what is left". */
+.block-editor-list-view-tree:has(.winden-list-view-expand)
+  .block-editor-list-view-block__contents-cell {
+  width: 100%;
+}
+
+/* Left as a table cell, which fills the row's height by nature: as a flex box
+   it sized to its 24px contents and left an 8px notch of background showing
+   under the buttons in a 32px row. `nowrap` keeps the three controls on one
+   line, `max-content` sizes the cell to exactly them.
+
+   Scoped to the whole tree rather than the row: a table's columns share their
+   width, so the moment one row is 72px wide every row is — and a row without
+   our buttons would otherwise leave its lone ⋮ adrift at the left of that
+   space, out of line with the rest. */
+.block-editor-list-view-tree:has(.winden-list-view-expand)
+  .block-editor-list-view-block__menu-cell {
+  width: max-content;
+  white-space: nowrap;
+  text-align: right;
+  vertical-align: middle;
+}
+
+.block-editor-list-view-tree:has(.winden-list-view-expand)
+  .block-editor-list-view-block__menu-cell > * {
+  vertical-align: middle;
+}
+
+/* `.components-button.has-icon` sets a 36px minimum, which is why the plain
+   class alone left them 36 wide and crowding the ⋮ */
+.block-editor-list-view-block__menu-cell .components-button.winden-list-view-expand {
+  flex: 0 0 auto;
+  min-width: 24px;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  color: currentColor;
+  opacity: 0;
+}
+
+.block-editor-list-view-leaf:hover .winden-list-view-expand,
+.block-editor-list-view-leaf.is-selected .winden-list-view-expand,
+.winden-list-view-expand:focus-visible {
+  opacity: 1;
+}

@@ -55,16 +55,15 @@ function getWindenAjaxUrl() {
 }
 
 const tailwindcss = require("tailwindcss");
-const postcss = require("postcss");
 import * as Immutable from "immutable";
-import { bundleCSS } from './tailwind-v4.js';
-import { extractConfigFromSources, convertToStyleGuideFormat, convertJsConfigToCss } from './config-extractor.js';
+import { resolveTailwindStylesheet } from './tailwind-v4.js';
+import { extractThemeConfig, convertToStyleGuideFormat } from './config-extractor.js';
+import { componentClassNames } from '../winden-classes/core/component-classes';
 import {
   WindenCompilationError,
   WindenSCSSError,
   WindenPluginError,
   WindenTailwindError,
-  WindenBundlingError,
   WindenConfigError,
   WindenStylesheetError,
   formatError
@@ -73,13 +72,29 @@ import {
 // Import bundled plugins directly
 const typographyPlugin = require('@tailwindcss/typography/src/index.js');
 const formsPlugin = require('@tailwindcss/forms/src/index.js');
-const containerQueriesPlugin = require('@tailwindcss/container-queries/dist/index.js');
+
+/**
+ * `@tailwindcss/container-queries` is a no-op on purpose. Container queries
+ * are built into Tailwind v4 (`@container`, `@sm:`, `@min-[400px]:`,
+ * `--container-*` in @theme, `theme.containers` in a JS config) — and the
+ * v3-era plugin actively hurts: its own `containers` theme replaces the
+ * `--container-*` namespace with the old list, so `max-w-2xs` / `max-w-3xs`
+ * stop compiling. Sites that still declare the plugin keep compiling
+ * (the id resolves), they just get the native behaviour.
+ */
+let warnedAboutContainerQueries = false;
+const containerQueriesNoop = () => {
+  if (!warnedAboutContainerQueries) {
+    warnedAboutContainerQueries = true;
+    console.info('[winden] `@plugin "@tailwindcss/container-queries"` does nothing in Tailwind v4 — container queries are built in. The line can be removed from the Style tab.');
+  }
+};
 
 // Plugin mapping
 const bundledPlugins = {
   '@tailwindcss/typography': typographyPlugin,
   '@tailwindcss/forms': formsPlugin,
-  '@tailwindcss/container-queries': containerQueriesPlugin,
+  '@tailwindcss/container-queries': containerQueriesNoop,
 };
 
 // ============================================================
@@ -212,8 +227,10 @@ class BlobLRUCache extends LRUCache {
 // ============================================================
 const compilationCache = {
   designSystem: new LRUCache(20),   // Max 20 design systems
+  compiler: new LRUCache(20),        // Max 20 incremental compilers (see loadCompiler)
   compiled: new LRUCache(50),        // Max 50 compiled results
-  bundled: new LRUCache(30),         // Max 30 bundled CSS
+  preprocessed: new LRUCache(20),    // Max 20 Sass outputs, keyed by the exact input (see preprocessSCSS)
+  bundled: new LRUCache(30),         // Max 30 fetched http(s) stylesheets
   modules: {
     configs: new LRUCache(20),       // Max 20 parsed configs
     plugins: new LRUCache(10),       // Max 10 fetched plugins
@@ -232,10 +249,8 @@ const inflightDesignSystemLoads = new Map();
  * Load (or reuse) a Tailwind design system + extract its class list.
  * Three layers: LRU cache hit → in-flight promise hit → fresh compute.
  *
- * Returns `{ designSystem, autocompleteClasses, screens }` where `screens`
- * is the order-61 extraction. Callers that need a different screen order
- * (e.g. tailwindifyClasses uses 62) re-run `extractBreakpointsFromDesignSystem`
- * on the returned designSystem; that call is cheap.
+ * Returns `{ designSystem, autocompleteClasses, screens }`; `screens` is the
+ * breakpoint list every entry point shares (see extractBreakpointsFromDesignSystem).
  */
 async function loadDesignSystem(cacheKey, cssToProcess, configFileString) {
   // 1. Cache hit — return immediately.
@@ -254,7 +269,7 @@ async function loadDesignSystem(cacheKey, cssToProcess, configFileString) {
         loadModule: async (modulePath, base, resourceHint) => loadModule(modulePath, base, resourceHint, configFileString)
       });
       const autocompleteClasses = designSystem.getClassList().flat().filter(c => typeof c === 'string');
-      const screens = extractBreakpointsFromDesignSystem(designSystem, 61);
+      const screens = extractBreakpointsFromDesignSystem(designSystem);
       const cached = { designSystem, autocompleteClasses, screens };
       compilationCache.designSystem.set(cacheKey, cached);
       return cached;
@@ -263,6 +278,47 @@ async function loadDesignSystem(cacheKey, cssToProcess, configFileString) {
     }
   })();
   inflightDesignSystemLoads.set(cacheKey, promise);
+  return promise;
+}
+
+// In-flight incremental compilers, same dedup contract as
+// inflightDesignSystemLoads above.
+const inflightCompilerLoads = new Map();
+
+/**
+ * Load (or reuse) an *incremental* Tailwind compiler for a given CSS/config
+ * pair. `tailwindcss.compile()` parses the whole stylesheet (theme, plugins,
+ * @config, @utility …) and returns an object whose `build(candidates)` is
+ * meant to be called repeatedly: it accumulates every candidate it has seen
+ * and short-circuits when nothing new arrives.
+ *
+ * Because it accumulates, the CSS from a cached compiler is a *superset* of
+ * the current candidate set. That is exactly right for live preview in a
+ * builder — a class removed from the DOM leaves harmless CSS behind until the
+ * page reloads — and exactly wrong for output.css, which must shrink when
+ * classes go away. Callers pick via `tailwindify(..., { incremental: true })`;
+ * the default stays a fresh compile per call.
+ */
+async function loadCompiler(cacheKey, cssToProcess, configFileString) {
+  if (compilationCache.compiler.has(cacheKey)) {
+    return compilationCache.compiler.get(cacheKey);
+  }
+  if (inflightCompilerLoads.has(cacheKey)) {
+    return inflightCompilerLoads.get(cacheKey);
+  }
+  const promise = (async () => {
+    try {
+      const compiler = await tailwindcss.compile(cssToProcess, {
+        loadStylesheet,
+        loadModule: async (modulePath, base, resourceHint) => loadModule(modulePath, base, resourceHint, configFileString)
+      });
+      compilationCache.compiler.set(cacheKey, compiler);
+      return compiler;
+    } finally {
+      inflightCompilerLoads.delete(cacheKey);
+    }
+  })();
+  inflightCompilerLoads.set(cacheKey, promise);
   return promise;
 }
 
@@ -500,62 +556,6 @@ async function initializeDartSass() {
 // ============================================================
 
 /**
- * Check if CSS contains SCSS-specific comments
- * Must NOT match // in URLs (url(//cdn.com) or url("//cdn.com"))
- *
- * @param {string} css - CSS/SCSS code to check
- * @returns {boolean} True if SCSS comments detected
- */
-function hasScssComments(css) {
-  const lines = css.split('\n');
-
-  for (const line of lines) {
-    // Skip if line contains url() or url("
-    if (/url\s*\(/.test(line)) continue;
-
-    // Skip if // appears after : (CSS property value context)
-    if (/:\s*[^;]*\/\//.test(line)) continue;
-
-    // Now check for actual SCSS comments
-    // Match // at start of line or after whitespace
-    if (/(^|[\s\n])\/\//.test(line)) {
-      return true;
-    }
-  }
-
-  return false;
-}
-
-/**
- * Check if CSS contains SCSS-specific syntax
- *
- * IMPORTANT: This should only detect SCSS-specific features, NOT standard CSS features
- * or Tailwind v4 syntax. Be careful not to trigger false positives.
- *
- * @param {string} css - CSS/SCSS code to check
- * @returns {boolean} True if SCSS features detected
- */
-function hasScssFeatures(css) {
-  if (!css || typeof css !== 'string') return false;
-
-  // SCSS-specific features (NOT Tailwind v4 CSS features)
-  const hasScssVariables = /\$[a-zA-Z_-]+/.test(css);  // $variable (not just any $)
-  const hasMixins = css.includes('@mixin');
-  const hasIncludes = css.includes('@include');
-  const hasExtends = css.includes('@extend');
-  const hasScssFunctions = /@function\s+/.test(css);
-  const hasComments = hasScssComments(css); // Use new context-aware function
-
-  // Parent selector with modifiers (SCSS-specific: &--modifier, &__element, &:hover is CSS)
-  // Standard CSS nesting: & is optional for pseudo-classes/elements
-  // SCSS-specific: &-- (BEM modifier), &__ (BEM element), &- (prefix)
-  const hasScssParentSelector = /&[_-]{2}/.test(css) || /&-[a-z]/.test(css);
-
-  return hasScssVariables || hasMixins || hasIncludes || hasExtends ||
-    hasScssFunctions || hasComments || hasScssParentSelector;
-}
-
-/**
  * Preprocess SCSS/Sass to CSS
  * This runs BEFORE Tailwind compilation to handle SCSS syntax
  * Uses official Dart Sass loaded dynamically (only when preprocessor is 'scss')
@@ -566,6 +566,21 @@ function hasScssFeatures(css) {
  * @throws {Error} If SCSS syntax detected but preprocessor is set to 'css'
  */
 async function preprocessSCSS(scss, preprocessor = 'css') {
+  // Pure function of its input, and Dart Sass runs synchronously on the main
+  // thread — 50–200 ms for an ordinary Style tab. The live watcher calls this
+  // on every class change with the *same* stylesheet, so without this memo
+  // SCSS mode paid Sass per keystroke while CSS mode paid nothing. Keyed by
+  // the exact text rather than a hash: `hashString` samples long inputs and
+  // a collision here would serve another stylesheet's output.
+  if (preprocessor !== 'scss') return runPreprocessSCSS(scss, preprocessor);
+  const cached = compilationCache.preprocessed.get(scss);
+  if (cached !== undefined) return cached;
+  const css = await runPreprocessSCSS(scss, preprocessor);
+  compilationCache.preprocessed.set(scss, css);
+  return css;
+}
+
+async function runPreprocessSCSS(scss, preprocessor = 'css') {
   try {
     // Early return if no content
     if (!scss || scss.trim() === '') {
@@ -729,69 +744,35 @@ async function preprocessSCSS(scss, preprocessor = 'css') {
 // ============================================================
 
 /**
- * Extract breakpoints from design system with fallback paths
- * Handles different Tailwind versions and variant structures
+ * Breakpoint names, read from the design system's theme.
  *
- * @param {Object} designSystem - The Tailwind design system object
- * @param {number} order - The variant order to filter by (61 or 62)
- * @returns {Array<string>} Array of breakpoint names
+ * Responsive variants come from the `--breakpoint-*` namespace, so that is
+ * the source of truth: Tailwind's defaults, a Wizzard `--breakpoint-tablet`,
+ * and a legacy `@config` `theme.screens` all land there. Peeking at
+ * `variants.variants` by internal order number is not an option — those
+ * numbers move between releases (on 4.3.3, 61 is `contrast-more`).
  *
- * Note: Tailwind v4 uses different variant orders:
- * - Order 61: Used in main tailwindify() function for responsive variants
- * - Order 62: Used in tailwindifyClasses() for breakpoint list
+ * Legacy `theme.screens` can hold complex entries. Tailwind stores
+ * `{ raw: 'print' }` as `--breakpoint-print-raw` and `{ min, max }` as
+ * `--breakpoint-tab-min` / `-max`, while the variants are `print` and `tab`.
+ * The suffix is stripped and the name kept only if `getVariants()` lists it.
  *
- * The structure can vary between versions:
- * - Modern: designSystem?.variants?.variants?.entries()
- * - Legacy: designSystem?.variants?.entries()
+ * @param {Object} designSystem
+ * @returns {string[]}
  */
-function extractBreakpointsFromDesignSystem(designSystem, order = 61) {
-  if (!designSystem) {
-    console.warn('[winden:compiler] extractBreakpointsFromDesignSystem: No design system provided');
-    return [];
+function extractBreakpointsFromDesignSystem(designSystem) {
+  if (!designSystem?.theme?.namespace) return [];
+
+  const variantNames = new Set((designSystem.getVariants?.() ?? []).map((v) => v.name));
+  const hasVariant = (name) => (variantNames.size === 0 ? true : variantNames.has(name));
+
+  const names = [];
+  for (const key of designSystem.theme.namespace('--breakpoint').keys()) {
+    if (key === null || key === undefined) continue;
+    const name = String(key).replace(/-(?:min|max|raw)$/, '');
+    if (!names.includes(name) && hasVariant(name)) names.push(name);
   }
-
-  try {
-    // Try modern path first (Tailwind v4+)
-    // Structure: designSystem.variants.variants.entries()
-    if (designSystem?.variants?.variants?.entries) {
-      const breakpoints = Array.from(designSystem.variants.variants.entries())
-        .filter(([_, value]) => value.kind === 'static' && value.order === order)
-        .map(([key]) => key);
-
-      if (breakpoints.length > 0) {
-        return breakpoints;
-      }
-    }
-
-    // Fallback to older path (Tailwind v3/early v4)
-    // Structure: designSystem.variants.entries()
-    if (designSystem?.variants?.entries) {
-      const breakpoints = Array.from(designSystem.variants.entries())
-        .filter(([_, value]) => value.kind === 'static' && value.order === order)
-        .map(([key]) => key);
-
-      if (breakpoints.length > 0) {
-        return breakpoints;
-      }
-    }
-
-    // If no breakpoints found, log warning with available info
-    console.warn('[winden:compiler] extractBreakpointsFromDesignSystem: Could not extract breakpoints', {
-      order,
-      hasVariants: !!designSystem?.variants,
-      hasNestedVariants: !!designSystem?.variants?.variants,
-      variantsType: typeof designSystem?.variants
-    });
-
-    return [];
-  } catch (error) {
-    console.error('[winden:compiler] extractBreakpointsFromDesignSystem: Error extracting breakpoints', {
-      error: error.message,
-      order,
-      stack: error.stack
-    });
-    return [];
-  }
+  return names;
 }
 
 // ============================================================
@@ -845,7 +826,9 @@ function clearAllCaches() {
 
   // Clear all caches
   compilationCache.designSystem.clear();
+  compilationCache.compiler.clear();
   compilationCache.compiled.clear();
+  compilationCache.preprocessed.clear();
   compilationCache.bundled.clear();
   compilationCache.modules.configs.clear();
   compilationCache.modules.plugins.clear();
@@ -937,41 +920,22 @@ function _enforceImportDepth(id) {
  * @param {string} base - Base URL for resolution
  * @returns {Promise<Object>} Stylesheet object with path, base, and content
  */
+/** Empty virtual stylesheet whose only job is to carry the `important` modifier. */
+const IMPORTANT_IMPORT_ID = 'winden://important';
+const IMPORTANT_IMPORT = `@import "${IMPORTANT_IMPORT_ID}" important;`;
+
 async function loadStylesheet(id, base) {
   _enforceImportDepth(id);
   _importStack.push(id);
   try {
-    // Handle Tailwind core imports - check multiple patterns
-    // The id might come as 'tailwindcss/...' or as a resolved path like '/test/tailwindcss/...'
-    const tailwindMatch = id.match(/(?:^|\/)tailwindcss(?:\/([^/]+\.css))?$/);
-    if (id === 'tailwindcss' || id.startsWith('tailwindcss/') || tailwindMatch) {
-      // Normalize to just 'tailwindcss/...' format for bundling
-      let normalizedId = id;
-      if (tailwindMatch && !id.startsWith('tailwindcss')) {
-        normalizedId = tailwindMatch[1] ? `tailwindcss/${tailwindMatch[1]}` : 'tailwindcss';
-      }
-      const cssHash = hashString(normalizedId);
-
-      // Check cache first
-      if (compilationCache.bundled.has(cssHash)) {
-        const content = compilationCache.bundled.get(cssHash);
-        return {
-          path: `virtual:${normalizedId}`,
-          base,
-          content
-        };
-      }
-
-      // Bundle the Tailwind CSS import using normalized path
-      const content = await bundleCSS(`@import "${normalizedId}";`);
-      compilationCache.bundled.set(cssHash, content);
-
-      return {
-        path: `virtual:${normalizedId}`,
-        base,
-        content
-      };
+    if (id === IMPORTANT_IMPORT_ID) {
+      return { path: id, base, content: '' };
     }
+
+    // Tailwind's own stylesheets are inlined in the bundle; Tailwind resolves,
+    // layers and applies import modifiers itself once it has the text.
+    const own = resolveTailwindStylesheet(id, base);
+    if (own) return own;
 
     // Handle CDN stylesheets
     if (id.startsWith('https://') || id.startsWith('http://')) {
@@ -1135,10 +1099,47 @@ async function _loadModuleInner(modulePath, base, resourceHint, configFileString
     }
   }
 
+  // A plugin that throws does so deep inside Tailwind, where the message is a
+  // minified variable name and the blame lands on the user's @theme. Wrapping
+  // it means the package that failed is named instead: `dculus-ui` is a
+  // component library, not a Tailwind plugin, and said only "g is not a
+  // function" until this existed.
+  const attributePlugin = (loaded, name) => {
+    if (resourceHint !== 'plugin') return loaded;
+
+    // A Tailwind plugin is callable, or an object carrying a handler. Anything
+    // else is a package that was never a plugin — a component library, say —
+    // and Tailwind's own message for that is "g is not a function", blamed on
+    // the user's @theme.
+    const callable = typeof loaded === 'function';
+    const hasHandler = loaded && typeof loaded === 'object' && typeof loaded.handler === 'function';
+    if (!callable && !hasHandler) {
+        throw new WindenPluginError(name, new Error('its default export is not a plugin'), {
+            stage: 'run',
+            suggestion: `"${name}" does not export a Tailwind plugin. Component libraries and CSS-only packages cannot be loaded with @plugin — check the package's own docs for how it is meant to be included.`,
+        });
+    }
+    if (!callable) return loaded;
+
+    const wrapped = (...args) => {
+      try {
+        return loaded(...args);
+      } catch (error) {
+        throw new WindenPluginError(name, error, {
+          stage: 'run',
+          suggestion: `Check that "${name}" is a Tailwind v4 plugin. A component library, or a plugin written for v3, fails here — v4 rewrote the plugin API.`,
+        });
+      }
+    };
+
+    // Plugins carry their own properties (handler, config); keep them
+    return Object.assign(wrapped, loaded);
+  };
+
   // Handle bundled plugins first (already efficient)
   const bundledPlugin = bundledPlugins[modulePath];
   if (bundledPlugin) {
-    return { module: bundledPlugin, base };
+    return { module: attributePlugin(bundledPlugin, modulePath), base };
   }
 
   // Auto-resolve plugin names to esm.sh URLs
@@ -1207,8 +1208,15 @@ async function _loadModuleInner(modulePath, base, resourceHint, configFileString
         const result = { module, base };
         compilationCache.modules.plugins.set(resolvedPath, result);
 
+        // Validated after the retry loop: a package that is not a plugin is not
+        // a transport failure, and retrying it three times says the wrong thing.
+        result.module = attributePlugin(result.module, modulePath);
         return result;
       } catch (error) {
+        // "Not a plugin" is a verdict, not a transport failure: retrying it
+        // three times and reporting "couldn't load" describes the wrong problem.
+        if (error instanceof WindenPluginError) throw error;
+
         lastError = error;
         if (attempt < maxRetries) {
           console.warn(`[winden:compiler] Plugin fetch failed (attempt ${attempt + 1}/${maxRetries + 1}), retrying...`, {
@@ -1262,14 +1270,22 @@ async function _loadModuleInner(modulePath, base, resourceHint, configFileString
  * Public compiler entry points (exposed on `window`)
  * ---------------------------------------------------
  *
- * `window.tailwindify(html, customCss, configFileString, preprocessor?)`
+ * `window.tailwindify(html, customCss, configFileString, preprocessor?, options?)`
  *   - Full compile path. Produces final CSS for a given list of class
  *     names + custom CSS. Use this when you need the compiled CSS to
  *     inject into a page (frontend, builder iframe, save handler).
+ *   - `options.incremental` (default false): reuse a cached compiler for
+ *     the same CSS/config and only rebuild candidates. Output is a superset
+ *     of everything that compiler has seen — fine for live preview, never
+ *     for output.css. See loadCompiler().
+ *   - `options.important` (default false): compile utilities with
+ *     `!important` (Tailwind's `important` import modifier). Used by the
+ *     watcher inside the Oxygen iframe, where utilities must beat inline
+ *     styles.
  *   - Resolves to `{ css, classes, screens, error?, errorDetails?, success? }`:
  *       css           string   Compiled Tailwind CSS ('' on error)
  *       classes       string[] Class list from the design system
- *       screens       object[] Breakpoint metadata (order 61)
+ *       screens       string[] Breakpoint names from the theme's --breakpoint-* namespace
  *       error         string   Plain-English message; error path only
  *       errorDetails  object   { phase, code, details, ... } from formatError
  *       success       false    Sentinel on the error path
@@ -1279,16 +1295,21 @@ async function _loadModuleInner(modulePath, base, resourceHint, configFileString
  *     compiling. Use this for autocomplete and breakpoint extraction
  *     where producing CSS would be wasted work.
  *   - Resolves to the same shape as `tailwindify`. `css` is always ''
- *     (kept for parity); `screens` uses order 62 instead of 61.
+ *     (kept for parity).
  *
  * Callers should branch on `result.error` once, then consume the keys
  * uniformly. The error path produces the same typed-error contract from
  * `formatError()` — see src/compiler/errors.js (#14).
  */
 function main() {
-  async function tailwindify(html, customCss, configFileString, preprocessorOverride) {
+  async function tailwindify(html, customCss, configFileString, preprocessorOverride, options) {
     try {
       const classes = Array.isArray(html) ? html : (typeof html === 'object' ? Object.values(html) : []);
+
+      // 5th argument used to be an (ignored) `important` string; only a real
+      // options object is honoured so old callers keep the default path.
+      const incremental = Boolean(options && typeof options === 'object' && options.incremental);
+      const important = Boolean(options && typeof options === 'object' && options.important);
 
       // Get preprocessor setting:
       // 1. From function parameter (passed from admin UI)
@@ -1326,7 +1347,19 @@ function main() {
       }
 
       // Preprocess SCSS to CSS (if preprocessor is 'scss')
-      const preprocessedCss = await preprocessSCSS(cssWithTheme, preprocessor);
+      let preprocessedCss = await preprocessSCSS(cssWithTheme, preprocessor);
+
+      // `important`: Tailwind's own switch for "every utility gets !important"
+      // is the `important` import modifier. It is a flag on the design system,
+      // not on the stylesheet it rides in, so an empty virtual import carries
+      // it and the user's own @import lines stay untouched. Preflight,
+      // @layer components and --tw-* variables are left alone, exactly as the
+      // old regex did — the builder iframes (Oxygen) need utilities to beat
+      // inline styles, nothing more. Injected before hashing so the cache
+      // keys tell the two outputs apart.
+      if (important) {
+        preprocessedCss = `${IMPORTANT_IMPORT}\n${preprocessedCss ?? ''}`;
+      }
 
       // OPTIMIZATION: Early bail-out only if no classes AND no custom CSS
       // We still need to compile if there's custom CSS (for @apply directives, etc.)
@@ -1344,28 +1377,20 @@ function main() {
       const cacheKey = `${cssHash}-${configHash}-${preprocessor}`;
       const classesKey = [...classes].sort().join('|');
       const classesHash = hashString(classesKey);
-      const fullCacheKey = `${cacheKey}-${classesHash}`;
+      // Incremental results are supersets (see loadCompiler), so they must
+      // never be served to an exact-mode caller with the same class set —
+      // e.g. the Gutenberg parent window runs both the live watcher and the
+      // compile-on-save path against this one compiler instance.
+      const fullCacheKey = `${cacheKey}-${classesHash}-${incremental ? 'inc' : 'exact'}`;
 
       // Check full compilation cache
       if (compilationCache.compiled.has(fullCacheKey)) {
         return compilationCache.compiled.get(fullCacheKey);
       }
 
-      // OPTIMIZATION: Check bundleCSS cache. Wrap so non-typed errors get a
-      // bundling phase tag for the UI. Errors already typed (e.g. a nested
-      // WindenStylesheetError thrown by loadStylesheet) re-throw as-is.
-      let cssToProcess;
-      if (compilationCache.bundled.has(cssHash)) {
-        cssToProcess = compilationCache.bundled.get(cssHash);
-      } else {
-        try {
-          cssToProcess = await bundleCSS(preprocessedCss);
-        } catch (error) {
-          if (error?.phase) throw error;
-          throw new WindenBundlingError(error);
-        }
-        compilationCache.bundled.set(cssHash, cssToProcess);
-      }
+      // `@import`s are resolved by Tailwind through loadStylesheet; a failing
+      // import surfaces as a WindenStylesheetError from there.
+      const cssToProcess = preprocessedCss;
 
       // OPTIMIZATION: Load design system with dedup across concurrent callers
       // (LRU cache for sequential, in-flight Map for concurrent). See #16.
@@ -1378,20 +1403,36 @@ function main() {
         throw new WindenTailwindError(error);
       }
 
-      // Compile with cached design system
-      // Lightning CSS (built into Tailwind v4) handles autoprefixing automatically
+      // Compile. Lightning CSS (built into Tailwind v4) handles autoprefixing.
+      // Incremental: reuse the parsed compiler for this CSS/config and only
+      // feed it the candidates — the expensive stylesheet parse happens once
+      // per cacheKey instead of once per class change. Exact: fresh compile,
+      // so the CSS contains precisely `classes` and nothing that was seen
+      // earlier.
       let compiledCss;
       try {
-        compiledCss = (await tailwindcss.compile(cssToProcess, {
-          loadStylesheet,
-          loadModule: async (modulePath, base, resourceHint) => loadModule(modulePath, base, resourceHint, configFileString)
-        })).build(classes);
+        if (incremental) {
+          const compiler = await loadCompiler(cacheKey, cssToProcess, configFileString);
+          compiledCss = compiler.build(classes);
+        } else {
+          compiledCss = (await tailwindcss.compile(cssToProcess, {
+            loadStylesheet,
+            loadModule: async (modulePath, base, resourceHint) => loadModule(modulePath, base, resourceHint, configFileString)
+          })).build(classes);
+        }
       } catch (error) {
         if (error?.phase) throw error;
         throw new WindenTailwindError(error);
       }
 
-      const result = { css: compiledCss, classes: autocompleteClasses, screens };
+      // Component classes are the user's own (`@layer components { .card … }`).
+      // getClassList() reports utilities only, so without this they exist on
+      // the page but not in autocomplete.
+      const result = {
+        css: compiledCss,
+        classes: [...autocompleteClasses, ...componentClassNames(cssToProcess)],
+        screens,
+      };
 
       // Cache the result
       compilationCache.compiled.set(fullCacheKey, result);
@@ -1413,58 +1454,52 @@ function main() {
 window.tailwindify = main();
 
 
+/**
+ * Put `@config "winden://config"` after the last `@import` (or at the top)
+ * when the user has Config-tab content but wrote no `@config` themselves.
+ * Shared by every entry point that takes (css, configFileString).
+ */
+function withConfigDirective(css, configFileString) {
+  let out = css ?? '';
+  if (!(configFileString && configFileString.trim()) || out.includes('@config')) return out;
+  const importMatch = out.match(/(@import\s+["'][^"']+["'][^;]*;[\s\n]*)+/g);
+  if (importMatch) {
+    let lastImportEnd = 0;
+    for (const imp of importMatch) {
+      const idx = out.indexOf(imp, lastImportEnd);
+      if (idx !== -1) lastImportEnd = idx + imp.length;
+    }
+    return out.slice(0, lastImportEnd) + '\n@config "winden://config";\n' + out.slice(lastImportEnd);
+  }
+  return '@config "winden://config";\n' + out;
+}
+
+/**
+ * The design system for a (css, config) pair, exactly as the compile path
+ * would build it: `@config` injected, SCSS preprocessed, cached by the same
+ * key `tailwindify()` uses. Returns `{ designSystem, autocompleteClasses,
+ * screens, preprocessedCss }`.
+ */
+async function resolveDesignSystem(customCss, configFileString = '', preprocessor = 'css') {
+  const preprocessedCss = await preprocessSCSS(withConfigDirective(customCss, configFileString), preprocessor);
+  const cacheKey = `${hashString(preprocessedCss)}-${hashString(configFileString)}-${preprocessor}`;
+  const cached = await loadDesignSystem(cacheKey, preprocessedCss, configFileString);
+  return { ...cached, preprocessedCss };
+}
+
 function classes() {
   async function tailwindifyClasses(customCss, configFileString = '') {
     try {
       // Get preprocessor setting from window (passed from PHP)
       const preprocessor = window.tailwind_compiler_options?.css_preprocessor || 'css';
+      const { autocompleteClasses, screens, preprocessedCss: cssToProcess } =
+        await resolveDesignSystem(customCss, configFileString, preprocessor);
 
-      let cssWithConfig = customCss ?? '';
-
-      // Auto-inject @config directive if user has config content but didn't write @config manually
-      if (configFileString && configFileString.trim() && !cssWithConfig.includes('@config')) {
-        const importMatch = cssWithConfig.match(/(@import\s+["'][^"']+["'][^;]*;[\s\n]*)+/g);
-        if (importMatch) {
-          let lastImportEnd = 0;
-          for (const imp of importMatch) {
-            const idx = cssWithConfig.indexOf(imp, lastImportEnd);
-            if (idx !== -1) {
-              lastImportEnd = idx + imp.length;
-            }
-          }
-          cssWithConfig = cssWithConfig.slice(0, lastImportEnd) + '\n@config "winden://config";\n' + cssWithConfig.slice(lastImportEnd);
-        } else {
-          cssWithConfig = '@config "winden://config";\n' + cssWithConfig;
-        }
-      }
-
-      // Preprocess SCSS to CSS (if preprocessor is 'scss')
-      const preprocessedCss = await preprocessSCSS(cssWithConfig, preprocessor);
-
-      // OPTIMIZATION: Generate cache keys (use preprocessed CSS for hash).
-      // Include preprocessor mode to avoid SCSS↔CSS cache collision (#15).
-      const cssHash = hashString(preprocessedCss);
-      const configHash = hashString(configFileString);
-      const cacheKey = `${cssHash}-${configHash}-${preprocessor}`;
-
-      // OPTIMIZATION: Check bundleCSS cache
-      let cssToProcess;
-      if (compilationCache.bundled.has(cssHash)) {
-        cssToProcess = compilationCache.bundled.get(cssHash);
-      } else {
-        cssToProcess = await bundleCSS(preprocessedCss);
-        compilationCache.bundled.set(cssHash, cssToProcess);
-      }
-
-      // OPTIMIZATION: Reuse the dedup'd design-system loader. tailwindifyClasses
-      // uses screen order 62 (vs 61 the loader caches), so re-extract on the
-      // returned design system — cheap once we have it. See #16.
-      const cached = await loadDesignSystem(cacheKey, cssToProcess, configFileString);
-      const designSystem = cached.designSystem;
-      const autocompleteClasses = cached.autocompleteClasses;
-      const screens = extractBreakpointsFromDesignSystem(designSystem, 62);
-
-      return { css: '', classes: autocompleteClasses, screens };
+      return {
+        css: '',
+        classes: [...autocompleteClasses, ...componentClassNames(cssToProcess)],
+        screens,
+      };
     } catch (error) {
       // Match tailwindify's error contract: { success: false, error, errorDetails }.
       // css:'' kept for shape parity with tailwindify (#19).
@@ -1491,38 +1526,201 @@ function classes() {
 }
 window.tailwindifyClasses = classes();
 
-// Configuration extraction function
+/**
+ * `window.windenValidateClasses(classNames, customCss, configFileString?)`
+ *
+ * Returns the subset of `classNames` that Tailwind cannot turn into CSS —
+ * the typos that otherwise fail silently (`bg-blu-500`, `hoverr:flex`).
+ *
+ * Uses the design system's own `candidatesToCss`, so it costs a candidate
+ * parse rather than a compile, and it reuses the cached design system the
+ * autocomplete already builds for this CSS. Arbitrary values (`p-[13px]`) and
+ * theme tokens (`text-hero`) validate correctly because the design system is
+ * built from the user's own CSS.
+ *
+ * Classes defined by the user in `@layer components` are NOT utilities, so
+ * `candidatesToCss` reports them as unknown; their selectors are collected
+ * from the CSS and treated as known.
+ *
+ * Resolves to `{ unknown: string[], error? }`. On any failure it returns an
+ * empty list: a validator that cannot run must never mark valid classes red.
+ */
+function validator() {
+  /** `.card`, `.btn-primary:hover` → card, btn-primary */
+  function customSelectorNames(css) {
+    const names = new Set();
+    const pattern = /\.(-?[_a-zA-Z][\w-]*)/g;
+    let match;
+    while ((match = pattern.exec(css)) !== null) names.add(match[1]);
+    return names;
+  }
+
+  /**
+   * Run a list of class names through the design system built from the user's
+   * own CSS. Shared by the validator and the explainer so they cost one cached
+   * design system between them rather than one each.
+   */
+  async function compileCandidates(classNames, customCss, configFileString) {
+    const candidates = (Array.isArray(classNames) ? classNames : [])
+      .map((name) => String(name || '').trim())
+      .filter(Boolean);
+    if (candidates.length === 0) return { candidates: [], compiled: [], known: new Set() };
+
+    // Same preparation as the compile path (config directive, SCSS, cache key)
+    const preprocessor = window.tailwind_compiler_options?.css_preprocessor || 'css';
+    const { designSystem, preprocessedCss } = await resolveDesignSystem(customCss, configFileString, preprocessor);
+    return {
+      candidates,
+      compiled: designSystem.candidatesToCss(candidates),
+      known: customSelectorNames(preprocessedCss),
+      designSystem,
+    };
+  }
+
+  async function windenValidateClasses(classNames, customCss, configFileString = '') {
+    try {
+      const { candidates, compiled, known } = await compileCandidates(classNames, customCss, configFileString);
+      if (candidates.length === 0) return { unknown: [] };
+
+      const unknown = candidates.filter((candidate, index) => {
+        if (compiled[index]) return false;
+        // A component class may carry variants: `hover:card`
+        const utility = candidate.split(':').pop();
+        return !known.has(utility);
+      });
+
+      return { unknown };
+    } catch (error) {
+      // Never report unknowns from a validator that failed to run.
+      return { unknown: [], ...formatError(error) };
+    }
+  }
+
+  /**
+   * `window.windenResolveColors(classNames, customCss, configFileString?)`
+   *
+   * The colour each class paints, as a value a browser can render.
+   *
+   * Reading it off the page does not work: v4 emits a theme variable only when
+   * some utility uses it, so `var(--color-red-500)` resolves to nothing in a
+   * document that happens not to use red. Compiling the classes emits both the
+   * rule and the variables it references, and the two are resolved against each
+   * other here.
+   *
+   * Resolves to `{ colors: { [className]: string } }`, missing entries for
+   * anything that paints no colour.
+   */
+  async function windenResolveColors(classNames, customCss, configFileString = '') {
+    try {
+      const { candidates, compiled, designSystem } = await compileCandidates(classNames, customCss, configFileString);
+      if (candidates.length === 0) return { colors: {} };
+
+      // candidatesToCss writes `var(--color-red-500)` and nothing else: v4 emits
+      // a theme variable only where a utility uses it, so the value has to come
+      // from the design system rather than from the page or the rule.
+      const resolveVariable = (name) => {
+        try {
+          return designSystem.resolveThemeValue?.(name, true) ?? null;
+        } catch {
+          return null;
+        }
+      };
+
+      const colors = {};
+      candidates.forEach((candidate, index) => {
+        const rule = compiled[index];
+        if (!rule) return;
+
+        const declaration = [...rule.matchAll(/([-a-z]+)\s*:\s*([^;{}]+)/g)]
+          .find(([, property]) => /(^|-)color$|^fill$|^stroke$|^background$/.test(property));
+        if (!declaration) return;
+
+        let value = declaration[2].trim();
+        // One hop is enough: v4 writes `background-color: var(--color-red-500)`
+        const reference = value.match(/^var\((--[\w-]+)\)$/);
+        if (reference) {
+          const resolved = resolveVariable(reference[1]);
+          if (!resolved) return;
+          value = resolved;
+        }
+        colors[candidate] = value;
+      });
+
+      return { colors };
+    } catch (error) {
+      return { colors: {}, ...formatError(error) };
+    }
+  }
+
+  /**
+   * `window.windenExplainClasses(classNames, customCss, configFileString?)`
+   *
+   * The CSS each class produces, as the design system writes it — the same
+   * call the validator makes, keeping the rule instead of only asking whether
+   * there was one. Resolves to `{ css: { [className]: string | null } }`, null
+   * for anything the design system does not build (a component class, a typo).
+   */
+  async function windenExplainClasses(classNames, customCss, configFileString = '') {
+    try {
+      const { candidates, compiled } = await compileCandidates(classNames, customCss, configFileString);
+      const css = {};
+      candidates.forEach((candidate, index) => {
+        css[candidate] = compiled[index] || null;
+      });
+      return { css };
+    } catch (error) {
+      return { css: {}, ...formatError(error) };
+    }
+  }
+
+  return { windenValidateClasses, windenExplainClasses, windenResolveColors };
+}
+
+const classApi = validator();
+window.windenValidateClasses = classApi.windenValidateClasses;
+window.windenExplainClasses = classApi.windenExplainClasses;
+window.windenResolveColors = classApi.windenResolveColors;
+
+/**
+ * The CSS the Style Guide extractor feeds Tailwind — the same assembly the
+ * watcher and the save path use: the Style tab (which normally carries the
+ * Tailwind imports and @plugin lines) with the Wizzard @theme placed after
+ * the last @import. When the Style tab has no Tailwind import of its own,
+ * the split theme + utilities imports are prepended, as the autocomplete
+ * generator does.
+ */
+function assembleThemeCss(wizardCss, stylesCss) {
+  const wizard = wizardCss || '';
+  const styles = stylesCss || '';
+  const importRegex = /(@import\s+["'][^"']+["'][^;]*;\s*)+/g;
+  const matches = [...styles.matchAll(importRegex)];
+  if (matches.length > 0) {
+    const last = matches[matches.length - 1];
+    const at = last.index + last[0].length;
+    return `${styles.slice(0, at)}\n${wizard}\n${styles.slice(at)}`;
+  }
+  return `@layer theme, base, components, utilities;\n@import "tailwindcss/theme.css" layer(theme);\n@import "tailwindcss/utilities.css" layer(utilities);\n${wizard}\n${styles}`;
+}
+
+/**
+ * Resolve the theme the way the compiler sees it and read the Style Guide's
+ * token categories from it. `jsConfig` is the Config tab (reaches Tailwind
+ * through `@config`), `wizardCss` the Wizzard @theme, `stylesCss` the Style tab.
+ */
+async function resolveThemeConfig(jsConfig, wizardCss, stylesCss) {
+  const preprocessor = window.tailwind_compiler_options?.css_preprocessor || 'css';
+  const { designSystem, screens } = await resolveDesignSystem(assembleThemeCss(wizardCss, stylesCss), jsConfig || '', preprocessor);
+  return { config: extractThemeConfig(designSystem), screens };
+}
+
+// Raw token categories (kept for callers of window.extractTailwindConfig)
 function configExtractor() {
   async function extractTailwindConfig(customCss, wizardCss, windenStylesCss) {
     try {
-      // Get Tailwind defaults from the bundled CSS with basic imports
-      const tailwindDefaults = await bundleCSS(`
-        @layer theme, base, components, utilities;
-        @import "tailwindcss/theme.css" layer(theme);
-        @import "tailwindcss/utilities.css" layer(utilities);
-      `);
-
-      // Extract configuration from all sources
-      const sources = {
-        tailwindDefaults,
-        wizard: wizardCss || '',
-        windenStyles: windenStylesCss || ''
-      };
-
-      const config = extractConfigFromSources(sources);
-
-      return {
-        config: config.merged,
-        sources: config.sources,
-        success: true
-      };
+      const { config } = await resolveThemeConfig(customCss, wizardCss, windenStylesCss);
+      return { config, sources: {}, success: true };
     } catch (error) {
-      return {
-        config: {},
-        sources: {},
-        success: false,
-        error: error.message
-      };
+      return { config: {}, sources: {}, success: false, error: error.message };
     }
   }
   return extractTailwindConfig;
@@ -1533,54 +1731,22 @@ window.extractTailwindConfig = configExtractor();
 function styleGuideConfigExtractor() {
   async function extractStyleGuideConfig(customCss, wizardCss, windenStylesCss) {
     try {
+      const { config, screens } = await resolveThemeConfig(customCss, wizardCss, windenStylesCss);
+      const styleGuideConfig = convertToStyleGuideFormat(config);
 
-      // Get Tailwind defaults from the bundled CSS with basic imports
-      const tailwindDefaults = await bundleCSS(`
-        @layer theme, base, components, utilities;
-        @import "tailwindcss/theme.css" layer(theme);
-        @import "tailwindcss/utilities.css" layer(utilities);
-      `);
+      // Expose breakpoints for plain classes editors — the same list the
+      // compiler reports as `screens`, so there is one source.
+      window.winden_autocomplete_screens = screens;
+      window.parent.winden_autocomplete_screens = screens;
 
-      // Extract configuration from all sources
-      const sources = {
-        tailwindDefaults, // Use actual Tailwind defaults
-        jsConfig: customCss || '', // Use the JS config as a separate source
-        wizard: wizardCss || '',
-        windenStyles: windenStylesCss || ''
-      };
-
-      const config = extractConfigFromSources(sources);
-
-      // Convert to StyleGuide format
-      const styleGuideConfig = convertToStyleGuideFormat(config.merged);
-
-      // Expose breakpoints for plain classes editors (Tailwind v4)
-      if (config.merged.breakpoints) {
-        const breakpointKeys = Object.keys(config.merged.breakpoints);
-
-        // Expose breakpoints globally for plain classes editors
-        window.winden_autocomplete_screens = breakpointKeys;
-        window.parent.winden_autocomplete_screens = breakpointKeys;
-      }
-
-      return {
-        config: styleGuideConfig,
-        sources: config.sources,
-        success: true
-      };
+      return { config: styleGuideConfig, sources: {}, success: true };
     } catch (error) {
-      return {
-        config: { theme: {} },
-        sources: {},
-        success: false,
-        error: error.message
-      };
+      return { config: { theme: {} }, sources: {}, success: false, error: error.message };
     }
   }
   return extractStyleGuideConfig;
 }
 window.extractStyleGuideConfig = styleGuideConfigExtractor();
-window.convertJsConfigToCss = convertJsConfigToCss;
 
 // OPTIMIZATION: Auto-extract breakpoints with retry logic
 async function autoExtractBreakpoints() {

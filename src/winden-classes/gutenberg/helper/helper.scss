@@ -1,0 +1,864 @@
+/**
+ * Class Helper styles — built on the shared --wcl-* tokens from
+ * winden-classes/core/styles.scss. The Gutenberg panel applies
+ * .wcl-theme-light, which remaps those tokens, so both themes work.
+ */
+
+.winden-helper {
+    margin-bottom: 12px;
+    border: 1px solid var(--wcl-border, #444);
+    border-radius: var(--wcl-dropdown-radius, 6px);
+    overflow: visible;
+    font-size: 12px;
+    color: var(--wcl-color, #e5e5e5);
+
+    &--disabled {
+        padding: 10px;
+    }
+}
+
+.winden-helper-disabled-note {
+    color: var(--wcl-label, #888);
+    line-height: 1.4;
+}
+
+/* ── Header filter (funnel sits in the panel header, top right) ── */
+
+.winden-classes-container {
+    position: relative;
+}
+
+.winden-helper-header-filter {
+    position: absolute;
+    top: -34px;
+    right: 0;
+}
+
+/* ── Toolbar (scope bars + group filter) ───────────────────── */
+
+/*
+ * The toolbar and the last group paint their own backgrounds over the
+ * container's rounded border, squaring its corners off. The container cannot
+ * clip them — `overflow: hidden` would cut the pickers, which open outside it —
+ * so the pieces that reach a corner carry the radius themselves.
+ */
+.winden-helper-toolbar {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 8px;
+    background: var(--wcl-bg, #2a2a2a);
+    border-bottom: 1px solid var(--wcl-border, #444);
+    border-top-left-radius: inherit;
+    border-top-right-radius: inherit;
+}
+
+.winden-helper-toolbar-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 4px;
+
+    .winden-helper-scope-bar {
+        flex: 1;
+        min-width: 0;
+    }
+}
+
+.winden-helper-scope-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px;
+}
+
+.winden-helper-scope-item {
+    display: flex;
+    flex: 0 0 auto;
+
+    &.is-removable {
+        .winden-helper-scope-button {
+            border-top-right-radius: 0;
+            border-bottom-right-radius: 0;
+            border-right: none;
+        }
+    }
+}
+
+.winden-helper-scope-remove {
+    flex-shrink: 0;
+    width: 16px;
+    min-height: 22px;
+    margin: 0;
+    padding: 0;
+    appearance: none;
+    box-shadow: none;
+    background: transparent;
+    border: 1px solid var(--wcl-border, #444);
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+    border-top-right-radius: var(--wcl-badge-radius, 3px);
+    border-bottom-right-radius: var(--wcl-badge-radius, 3px);
+    color: var(--wcl-label, #888);
+    font-size: 11px;
+    line-height: 1;
+    cursor: pointer;
+
+    &:hover {
+        color: var(--wcl-accent, #7b66ff);
+        border-color: var(--wcl-accent, #7b66ff);
+    }
+}
+
+.winden-helper-scope-button {
+    flex: 0 0 auto;
+    margin: 0;
+    white-space: nowrap;
+    padding: 3px 8px;
+    min-height: 22px;
+    appearance: none;
+    box-shadow: none;
+    background: transparent;
+    border: 1px solid var(--wcl-border, #444);
+    border-radius: var(--wcl-badge-radius, 3px);
+    color: var(--wcl-label, #888);
+    font-size: 10px;
+    font-weight: 600;
+    line-height: 1;
+    cursor: pointer;
+
+    &:hover {
+        background: var(--wcl-bg-hover, #3a3a3a);
+    }
+
+    &.is-active {
+        background: var(--wcl-bg-selected, #3d3d5c);
+        border-color: var(--wcl-accent, #7b66ff);
+        color: var(--wcl-accent, #7b66ff);
+    }
+}
+
+.winden-helper-filter-root {
+    position: relative;
+    display: flex;
+}
+
+.winden-helper-filter-trigger {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    min-height: 22px;
+    margin: 0;
+    padding: 0;
+    appearance: none;
+    box-shadow: none;
+    background: transparent;
+    border: 1px solid var(--wcl-border, #444);
+    border-radius: var(--wcl-badge-radius, 3px);
+    color: var(--wcl-label, #888);
+    cursor: pointer;
+
+    &:hover {
+        background: var(--wcl-bg-hover, #3a3a3a);
+    }
+
+    &.is-active {
+        border-color: var(--wcl-accent, #7b66ff);
+        color: var(--wcl-accent, #7b66ff);
+    }
+}
+
+.winden-helper-popover.winden-helper-filter-popover {
+    right: 0;
+    left: auto;
+}
+
+.winden-helper-filter-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 6px;
+    border-radius: var(--wcl-badge-radius, 3px);
+    color: var(--wcl-color, #e5e5e5);
+    font-size: 11px;
+    cursor: pointer;
+
+    &:hover {
+        background: var(--wcl-bg-hover, #3a3a3a);
+    }
+
+    input[type='checkbox'] {
+        margin: 0;
+    }
+}
+
+/* ── Accordion ─────────────────────────────────────────────── */
+
+.winden-helper-group {
+    & + & {
+        border-top: 1px solid var(--wcl-border, #444);
+    }
+
+    /* `inherit` reads the parent's radius, so the group has to carry it before
+       its header or body can pick it up. */
+    &:last-child {
+        border-bottom-left-radius: inherit;
+        border-bottom-right-radius: inherit;
+
+        .winden-helper-group-header:last-child,
+        .winden-helper-group-body {
+            border-bottom-left-radius: inherit;
+            border-bottom-right-radius: inherit;
+        }
+    }
+}
+
+.winden-helper-group-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    padding: 6px 10px;
+    background: var(--wcl-bg, #2a2a2a);
+    border: none;
+    color: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    text-align: left;
+    user-select: none;
+
+    &:hover {
+        background: var(--wcl-bg-hover, #3a3a3a);
+    }
+
+    &.is-empty {
+        cursor: default;
+
+        &:hover {
+            background: var(--wcl-bg, #2a2a2a);
+        }
+    }
+}
+
+.winden-helper-group-title {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.winden-helper-group-count {
+    padding: 0 5px;
+    background: var(--wcl-bg-selected, #3d3d5c);
+    border-radius: var(--wcl-badge-radius, 3px);
+    color: var(--wcl-accent, #7b66ff);
+    font-size: 9px;
+    line-height: 15px;
+}
+
+.winden-helper-add-menu .winden-helper-filter-trigger {
+    width: 22px;
+    min-height: 18px;
+    border: none;
+}
+
+.winden-helper-add-item {
+    margin: 0;
+    padding: 4px 8px;
+    appearance: none;
+    box-shadow: none;
+    background: transparent;
+    border: none;
+    border-radius: var(--wcl-badge-radius, 3px);
+    color: var(--wcl-color, #e5e5e5);
+    font-size: 11px;
+    text-align: left;
+    cursor: pointer;
+    white-space: nowrap;
+
+    &:hover {
+        background: var(--wcl-bg-hover, #3a3a3a);
+    }
+}
+
+.winden-helper-group-body {
+    padding: 8px 10px 12px;
+    background: var(--wcl-bg, #2a2a2a);
+}
+
+/* ── Component classes ─────────────────────────────────────── */
+
+.winden-helper-components {
+  padding: 8px 10px;
+  background: var(--wcl-bg, #2a2a2a);
+  border-bottom: 1px solid var(--wcl-border, #444);
+}
+
+.winden-helper-component + .winden-helper-component {
+  margin-top: 6px;
+}
+
+.winden-helper-component-name {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-weight: 600;
+}
+
+.winden-helper-component-applies {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  margin-top: 4px;
+}
+
+/* Read-only on purpose: the definition is shared, so it is not edited here */
+.winden-helper-component-utility {
+  padding: 1px 5px;
+  background: var(--wcl-bg-selected, #e2e8f0);
+  border-radius: var(--wcl-badge-radius, 3px);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10px;
+}
+
+.winden-helper-component-empty {
+  opacity: 0.7;
+  font-style: italic;
+}
+
+/* ── Icons ─────────────────────────────────────────────────── */
+
+.winden-helper-icon {
+    display: inline-flex;
+    flex-shrink: 0;
+
+    svg {
+        width: 15px;
+        height: 15px;
+        stroke: currentColor;
+    }
+}
+
+.winden-helper-chevron svg {
+    width: 13px;
+    height: 13px;
+}
+
+/* ── Properties ────────────────────────────────────────────── */
+
+.winden-helper-property {
+    min-width: 0;
+    & + & {
+        margin-top: 10px;
+    }
+}
+
+.winden-helper-property-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 4px;
+
+    /**
+     * Label, value and the two buttons on one line. A row was a label with a
+     * value box underneath it, which is two lines for what is one fact — and
+     * with ten rows open the panel scrolled for no reason.
+     */
+    &.is-inline {
+        gap: 6px;
+        margin-bottom: 0;
+
+        .winden-helper-property-label {
+            /* The label is the part worth truncating: "Background Clip" is
+               guessable from "Background C…", where `from-blue-500` cut to
+               `from-blu…` is not — a shade is exactly what it hides. */
+            /* A fixed column rather than a share of the row: the values line
+               up down the panel, and a long label ("Letter Spacing") cannot
+               squeeze its own value onto two lines. */
+            flex: 0 0 72px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .winden-helper-picker,
+        .winden-helper-custom-row {
+            flex: 1 1 auto;
+            min-width: 0;
+        }
+
+        /* One line, and the class truncated rather than wrapped — a two-line
+           value box is the height this layout exists to remove.
+           `min-width: 0` is what lets it shrink at all: without it the button
+           refuses to go below its text and the row pushes the panel wider
+           than the sidebar, taking the buttons off the edge. */
+        .winden-helper-popover-trigger {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            min-width: 0;
+
+            /* The swatch trigger is a swatch plus a label span, and the span
+               is what sets the floor — `from-blue-500` and `text-transparent`
+               are wider than the sidebar allows. Measured: without this the
+               panel is 297px inside a 280px sidebar and the buttons on the
+               right are cut off. */
+            > span {
+                min-width: 0;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+        }
+    }
+}
+
+.winden-helper-property-label {
+    color: var(--wcl-label, #888);
+    font-size: 11px;
+    // Takes the slack, so the two buttons group at the right edge instead of
+    // `space-between` stranding the marker in the middle of the row.
+    flex: 1 1 auto;
+}
+
+.winden-helper-row-remove {
+    width: 18px;
+    height: 18px;
+    margin: 0;
+    padding: 0;
+    appearance: none;
+    box-shadow: none;
+    background: transparent;
+    border: none;
+    border-radius: var(--wcl-badge-radius, 3px);
+    color: var(--wcl-label, #888);
+    font-size: 14px;
+    line-height: 1;
+    cursor: pointer;
+
+    &:hover {
+        background: var(--wcl-bg-hover, #3a3a3a);
+        color: var(--wcl-accent, #7b66ff);
+    }
+}
+
+/* ── Icon row (segmented buttons) ──────────────────────────── */
+
+/*
+ * A fixed grid rather than a wrapping flex row: every icon button gets the same
+ * width, so a property with nine values wraps into a tidy second row instead of
+ * a ragged one, and the columns line up across properties.
+ */
+.winden-helper-icon-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(30px, 1fr));
+    gap: 3px;
+
+    .winden-helper-option {
+        justify-content: center;
+    }
+}
+
+.winden-helper-option {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 6px;
+    background: transparent;
+    border: 1px solid var(--wcl-border, #444);
+    border-radius: var(--wcl-badge-radius, 3px);
+    color: inherit;
+    font-size: 11px;
+    cursor: pointer;
+
+    &:hover {
+        background: var(--wcl-bg-hover, #3a3a3a);
+    }
+
+    &.is-active {
+        background: var(--wcl-bg-selected, #3d3d5c);
+        border-color: var(--wcl-accent, #7b66ff);
+        color: var(--wcl-accent, #7b66ff);
+    }
+}
+
+.winden-helper-option-label {
+    white-space: nowrap;
+}
+
+/* ── Popover ───────────────────────────────────────────────── */
+
+.winden-helper-popover-root {
+    position: relative;
+    display: inline-block;
+}
+
+.winden-helper-popover-trigger {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 8px;
+    background: transparent;
+    border: 1px solid var(--wcl-border, #444);
+    border-radius: var(--wcl-badge-radius, 3px);
+    color: var(--wcl-label, #888);
+    font-size: 11px;
+    cursor: pointer;
+
+    &:hover {
+        background: var(--wcl-bg-hover, #3a3a3a);
+    }
+
+    &.is-active {
+        color: var(--wcl-accent, #7b66ff);
+        border-color: var(--wcl-accent, #7b66ff);
+    }
+}
+
+.winden-helper-popover {
+    position: absolute;
+    top: calc(100% + 4px);
+    // Opens leftward, not rightward: the panel is docked at the right edge
+    // of the screen, so a trigger anywhere in it is already close to that
+    // edge — `left: 0` pushed wide popovers straight past it. Same fix as
+    // .winden-helper-filter-popover below already applies for this reason.
+    right: 0;
+    left: auto;
+    z-index: 99999;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 140px;
+    padding: 4px;
+    background: var(--wcl-bg, #2a2a2a);
+    border: 1px solid var(--wcl-border, #444);
+    border-radius: var(--wcl-dropdown-radius, 6px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+
+    .winden-helper-option {
+        justify-content: flex-start;
+        border: 1px solid transparent;
+    }
+}
+
+/* ── Pickers (click-to-open chip/swatch popovers) ──────────── */
+
+.winden-helper-picker {
+    display: flex;
+    gap: 3px;
+
+    .winden-helper-popover-trigger {
+        display: flex;
+        flex: 1;
+        min-width: 0;
+        text-align: left;
+        font-family: monospace;
+
+        span {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+    }
+}
+
+
+.winden-helper-popover.winden-helper-picker-popover {
+    // Fixed rather than width: 100% of the trigger — a wide trigger (long
+    // value + warning icon + remove button all inline, e.g. Radius "All")
+    // made the popover wide enough that its left: 0 anchor pushed it past
+    // the panel's own right edge.
+    width: 220px;
+    max-width: calc(100vw - 24px);
+    max-height: 260px;
+    overflow-y: auto;
+}
+
+.winden-helper-trigger-swatch {
+    width: 12px;
+    height: 12px;
+    border: 1px solid var(--wcl-border, #444);
+    border-radius: var(--wcl-badge-radius, 3px);
+    flex-shrink: 0;
+}
+
+/* ── Custom arbitrary-value chip + inline input ────────────── */
+
+.winden-helper-chip--custom {
+    font-style: italic;
+}
+
+/**
+ * A pressed icon that is forced. The row has no text to carry the marker, so
+ * the button wears a dot in the same red the `!` chip uses when active.
+ */
+.winden-helper-option.is-important {
+    position: relative;
+
+    &::after {
+        content: '';
+        position: absolute;
+        top: 2px;
+        right: 2px;
+        width: 5px;
+        height: 5px;
+        border-radius: 50%;
+        background: #b32d2e;
+    }
+}
+
+/**
+ * The row's importance toggle, beside Remove. Quiet until it is on, because
+ * most rows are not forced and a red row header everywhere reads as an error.
+ */
+.winden-helper-row-important {
+    background: none;
+    border: 0;
+    padding: 0 4px;
+    font-weight: 700;
+    font-size: 13px;
+    line-height: 1;
+    cursor: pointer;
+    color: #949494;
+
+    &:hover { color: #1e1e1e; }
+
+    &.is-active {
+        color: #b32d2e;
+    }
+}
+
+/**
+ * The row's negative-sign toggle, same shape as the importance toggle beside
+ * it. Accent purple rather than the importance button's warning red — this
+ * isn't bypassing anything, just a normal state most sided properties don't
+ * even offer (see `HelperProperty.canBeNegative`).
+ */
+.winden-helper-row-negative {
+    background: none;
+    border: 0;
+    padding: 0 4px;
+    font-weight: 700;
+    font-size: 13px;
+    line-height: 1;
+    cursor: pointer;
+    color: #949494;
+
+    &:hover { color: #1e1e1e; }
+
+    &.is-active {
+        color: var(--wcl-accent, #7b66ff);
+    }
+}
+
+.winden-helper-custom-row {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 3px;
+    width: 100%;
+}
+
+.winden-helper-picker.is-compact {
+    flex: 0 0 auto;
+
+    .winden-helper-popover-trigger {
+        width: auto;
+        white-space: nowrap;
+    }
+}
+
+.winden-helper-custom-prefix {
+    color: var(--wcl-label, #888);
+    font-size: 10px;
+}
+
+.winden-helper .winden-helper-custom-input {
+    flex: 1;
+    min-width: 0;
+    box-sizing: border-box;
+    height: 23px;
+    min-height: 23px;
+    margin: 0;
+    padding: 2px 6px;
+    appearance: none;
+    background: var(--wcl-bg-hover, #3a3a3a);
+    border: 1px solid var(--wcl-border, #444);
+    border-radius: var(--wcl-badge-radius, 3px);
+    box-shadow: none;
+    color: var(--wcl-color, #e5e5e5);
+    font-size: 11px;
+    font-family: monospace;
+    line-height: 19px;
+
+    &::placeholder {
+        color: var(--wcl-label, #888);
+    }
+
+    &:focus {
+        outline: none;
+        border-color: var(--wcl-accent, #7b66ff);
+        box-shadow: none;
+    }
+}
+
+
+.winden-helper-swatch-custom {
+    margin-top: 4px;
+}
+
+/* ── Chips ─────────────────────────────────────────────────── */
+
+.winden-helper-chip-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 3px;
+}
+
+.winden-helper-chip {
+    padding: 2px 7px;
+    background: transparent;
+    border: 1px solid var(--wcl-border, #444);
+    border-radius: var(--wcl-badge-radius, 3px);
+    color: inherit;
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+    cursor: pointer;
+
+    &:hover {
+        background: var(--wcl-bg-hover, #3a3a3a);
+    }
+
+    &.is-active {
+        background: var(--wcl-bg-selected, #3d3d5c);
+        border-color: var(--wcl-accent, #7b66ff);
+        color: var(--wcl-accent, #7b66ff);
+    }
+}
+
+/* ── Swatches ──────────────────────────────────────────────── */
+
+.winden-helper-swatch-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.winden-helper-swatch-row {
+    display: flex;
+    gap: 2px;
+}
+
+.winden-helper-swatch {
+    width: 16px;
+    height: 16px;
+    padding: 0;
+    border: 1px solid var(--wcl-border, #444);
+    border-radius: var(--wcl-badge-radius, 3px);
+    cursor: pointer;
+
+    &:hover {
+        transform: scale(1.2);
+    }
+
+    &.is-active {
+        outline: 2px solid var(--wcl-accent, #7b66ff);
+        outline-offset: 1px;
+    }
+}.winden-helper-side-tabs {
+    display: flex;
+    flex-wrap: wrap; /* radius has nine tabs (sides + corners) */
+    gap: 3px;
+    margin-bottom: 5px;
+}
+
+.winden-helper-side-item {
+    display: flex;
+
+    &.has-value .winden-helper-side-tab {
+        border-top-right-radius: 0;
+        border-bottom-right-radius: 0;
+        border-right: none;
+    }
+}
+
+/** One edge of a sided property, laid out like any other row in the panel */
+.winden-helper-side-row {
+    & + & {
+        margin-top: 4px;
+    }
+}
+
+/** The edges that hold nothing: the only thing the tab strip is still for */
+.winden-helper-side-add {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 3px;
+    margin-top: 8px;
+}
+
+.winden-helper-side-tab {
+    padding: 2px 7px;
+    background: transparent;
+    border: 1px solid var(--wcl-border, #444);
+    border-radius: var(--wcl-badge-radius, 3px);
+    color: var(--wcl-label, #888);
+    font-size: 10px;
+    line-height: 16px;
+    cursor: pointer;
+
+    &:hover {
+        background: var(--wcl-bg-hover, #3a3a3a);
+    }
+
+    /* An edge that carries a value reads as filled, not merely outlined */
+    &.has-value {
+        background: var(--wcl-bg-selected, #3d3d5c);
+        border-color: var(--wcl-accent, #7b66ff);
+        color: var(--wcl-accent, #7b66ff);
+        font-weight: 600;
+    }
+
+    &.is-open {
+        outline: 1px solid var(--wcl-accent, #7b66ff);
+        outline-offset: 1px;
+        color: var(--wcl-color, #e5e5e5);
+
+        &.has-value {
+            color: var(--wcl-accent, #7b66ff);
+        }
+    }
+}
+
+.winden-helper-side-clear {
+    width: 15px;
+    margin: 0;
+    padding: 0;
+    appearance: none;
+    box-shadow: none;
+    background: var(--wcl-bg-selected, #3d3d5c);
+    border: 1px solid var(--wcl-accent, #7b66ff);
+    border-left: none;
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+    border-top-right-radius: var(--wcl-badge-radius, 3px);
+    border-bottom-right-radius: var(--wcl-badge-radius, 3px);
+    color: var(--wcl-accent, #7b66ff);
+    font-size: 11px;
+    line-height: 16px;
+    cursor: pointer;
+
+    &:hover {
+        background: var(--wcl-accent, #7b66ff);
+        color: var(--wcl-bg, #2a2a2a);
+    }
+}
+
+.winden-helper-property-count {
+    margin-left: 5px;
+    padding: 0 4px;
+    background: var(--wcl-bg-selected, #3d3d5c);
+    border-radius: var(--wcl-badge-radius, 3px);
+    color: var(--wcl-accent, #7b66ff);
+    font-size: 9px;
+    line-height: 14px;
+}
+
+

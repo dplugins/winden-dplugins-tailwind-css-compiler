@@ -11,8 +11,12 @@ const buildOptions = {
   },
   bundle: true,
   outdir: 'build',
-  format: 'iife',      // Note: ESM with splitting has chunk.js conflicts - keeping IIFE for now
-                       // Lazy components are still beneficial: reduces parsing time & memory
+  format: 'esm',
+  splitting: true,
+  // Monaco reads `process.env` and the compiler leaves a `process` without
+  // one behind; see the shim's own note for why this is injected rather than
+  // imported.
+  inject: [path.join(__dirname, 'process-shim.js')],
   platform: 'browser',
   target: ['es2020'],
   loader: {
@@ -54,7 +58,10 @@ const buildOptions = {
     'import.meta.env.DEV': JSON.stringify(process.env.NODE_ENV !== 'production'),
   },
   assetNames: '[name]',
-  chunkNames: '[name]',
+  // Hashed, and in their own folder. `[name]` alone is what "chunk.js
+  // conflicts" meant: esbuild calls every shared chunk `chunk`, so the second
+  // one collides with the first at `build/chunk.js` and the build fails.
+  chunkNames: 'admin/chunks/[name]-[hash]',
   minify: process.env.NODE_ENV === 'production',
   sourcemap: process.env.NODE_ENV !== 'production',
   metafile: true,

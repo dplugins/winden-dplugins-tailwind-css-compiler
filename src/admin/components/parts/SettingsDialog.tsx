@@ -21,11 +21,6 @@ interface Settings {
   autocomplete_oxygen6?: boolean;
   autocomplete_elementor?: boolean;
   autocomplete_builderius?: boolean;
-  winden_classes_gutenberg?: boolean;
-  winden_classes_bricks?: boolean;
-  winden_classes_oxygen?: boolean;
-  winden_classes_oxygen6?: boolean;
-  winden_classes_elementor?: boolean;
   dequeue_styles_gutenberg?: boolean;
   dequeue_styles_bricks?: boolean;
   dequeue_styles_oxygen?: boolean;
@@ -112,150 +107,68 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
           <TabsContent value="builders" className="flex-1 overflow-y-auto px-1">
             <OptionsHeader title="Enable Autocomplete" className="!border-t-0" />
 
-            {/* Nested tabs for Plain Classes / Winden Classes */}
-            <Tabs
-              value={settings.autocomplete_mode || "plain-classes"}
-              onValueChange={(value) => onSettingChange("autocomplete_mode")(value)}
-              className="w-full"
-            >
-              <TabsList className="inline-flex p-1 bg-base-3 rounded-lg mb-4">
-                <TabsTrigger
-                  value="plain-classes"
-                  className="px-4 py-1.5 text-xs font-medium rounded-md transition-all data-[state=active]:bg-base-foreground data-[state=active]:text-base-1 data-[state=active]:shadow-sm data-[state=active]:after:hidden data-[state=inactive]:text-base-foreground/60 data-[state=inactive]:hover:text-base-foreground"
-                >
-                  Plain Classes
-                </TabsTrigger>
-                <TabsTrigger
-                  value="winden-classes"
-                  className="px-4 py-1.5 text-xs font-medium rounded-md transition-all data-[state=active]:bg-base-foreground data-[state=active]:text-base-1 data-[state=active]:shadow-sm data-[state=active]:after:hidden data-[state=inactive]:text-base-foreground/60 data-[state=inactive]:hover:text-base-foreground"
-                >
-                  Winden Classes
-                </TabsTrigger>
-              </TabsList>
-
-              {/* Plain Classes sub-tab */}
-              <TabsContent value="plain-classes">
-                <div className="bg-base-2 px-4 rounded">
+            <div className="bg-base-2 px-4 rounded">
+              <SwitchWithLabel
+                label="Gutenberg (FSE)"
+                name="autocomplete_gutenberg"
+                checked={settings.autocomplete_gutenberg ?? false}
+                onChange={onSettingChange("autocomplete_gutenberg")}
+              />
+              {isProVersion && (
+                <>
                   <SwitchWithLabel
-                    label="Gutenberg (FSE)"
-                    name="autocomplete_gutenberg"
-                    checked={settings.autocomplete_gutenberg ?? false}
-                    onChange={(value) => {
-                      onSettingChange("autocomplete_gutenberg")(value);
-                      // Disable Winden Classes when Plain Classes is enabled
-                      if (value) onSettingChange("winden_classes_gutenberg")(false);
-                    }}
+                    label="Bricks Builder"
+                    name="autocomplete_bricks"
+                    checked={settings.autocomplete_bricks ?? false}
+                    onChange={onSettingChange("autocomplete_bricks")}
                   />
-                  {isProVersion && (
-                    <>
-                      <SwitchWithLabel
-                        label="Bricks Builder"
-                        name="autocomplete_bricks"
-                        checked={settings.autocomplete_bricks ?? false}
-                        onChange={(value) => {
-                          onSettingChange("autocomplete_bricks")(value);
-                          // Disable Winden Classes when Plain Classes is enabled
-                          if (value) onSettingChange("winden_classes_bricks")(false);
-                        }}
-                      />
-                      <SwitchWithLabel
-                        label="Oxygen Builder Classic"
-                        name="autocomplete_oxygen"
-                        checked={settings.autocomplete_oxygen ?? false}
-                        onChange={(value) => {
-                          onSettingChange("autocomplete_oxygen")(value);
-                          // Disable Winden Classes when Plain Classes is enabled
-                          if (value) onSettingChange("winden_classes_oxygen")(false);
-                        }}
-                      />
-                      <SwitchWithLabel
-                        label="Oxygen Builder 6"
-                        name="autocomplete_oxygen6"
-                        checked={settings.autocomplete_oxygen6 ?? false}
-                        onChange={onSettingChange("autocomplete_oxygen6")}
-                      />
-                      <SwitchWithLabel
-                        label="Elementor Builder"
-                        name="autocomplete_elementor"
-                        checked={settings.autocomplete_elementor ?? false}
-                        onChange={onSettingChange("autocomplete_elementor")}
-                      />
-                      <SwitchWithLabel
-                        label="Builderius"
-                        name="autocomplete_builderius"
-                        checked={settings.autocomplete_builderius ?? false}
-                        onChange={onSettingChange("autocomplete_builderius")}
-                      />
-                    </>
-                  )}
-                </div>
-              </TabsContent>
-
-              {/* Winden Classes sub-tab - Gutenberg available for all, Bricks/Oxygen Pro only */}
-              <TabsContent value="winden-classes">
-                <div className="bg-base-2 px-4 rounded">
                   <SwitchWithLabel
-                    label="Gutenberg (FSE)"
-                    name="winden_classes_gutenberg"
-                    checked={settings.winden_classes_gutenberg ?? false}
-                    onChange={(value) => {
-                      onSettingChange("winden_classes_gutenberg")(value);
-                      // Disable Plain Classes when Winden Classes is enabled
-                      if (value) onSettingChange("autocomplete_gutenberg")(false);
-                    }}
+                    label="Oxygen Builder Classic"
+                    name="autocomplete_oxygen"
+                    checked={settings.autocomplete_oxygen ?? false}
+                    onChange={onSettingChange("autocomplete_oxygen")}
                   />
-                  {isProVersion && (
-                    <>
-                      <SwitchWithLabel
-                        label="Bricks Builder (Separate Class System)"
-                        name="winden_classes_bricks"
-                        checked={settings.winden_classes_bricks ?? false}
-                        onChange={(value) => {
-                          onSettingChange("winden_classes_bricks")(value);
-                          // Disable Plain Classes when Winden Classes is enabled
-                          if (value) onSettingChange("autocomplete_bricks")(false);
-                        }}
-                      />
-                      <SwitchWithLabel
-                        label="Oxygen Builder Classic (Separate Class System)"
-                        name="winden_classes_oxygen"
-                        checked={settings.winden_classes_oxygen ?? false}
-                        onChange={(value) => {
-                          onSettingChange("winden_classes_oxygen")(value);
-                          // Disable Plain Classes when Winden Classes is enabled
-                          if (value) onSettingChange("autocomplete_oxygen")(false);
-                        }}
-                      />
-                      <SwitchWithLabel
-                        label="Oxygen Builder 6 (Separate Class System)"
-                        name="winden_classes_oxygen6"
-                        checked={settings.winden_classes_oxygen6 ?? false}
-                        onChange={(value) => {
-                          onSettingChange("winden_classes_oxygen6")(value);
-                          // Disable Plain Classes when Winden Classes is enabled
-                          if (value) onSettingChange("autocomplete_oxygen6")(false);
-                        }}
-                      />
-                      <SwitchWithLabel
-                        label="Elementor"
-                        name="winden_classes_elementor"
-                        checked={settings.winden_classes_elementor ?? false}
-                        onChange={(value) => {
-                          onSettingChange("winden_classes_elementor")(value);
-                          // Disable Plain Classes when Winden Classes is enabled
-                          if (value) onSettingChange("autocomplete_elementor")(false);
-                        }}
-                      />
-                    </>
-                  )}
-                </div>
+                  <SwitchWithLabel
+                    label="Oxygen Builder 6"
+                    name="autocomplete_oxygen6"
+                    checked={settings.autocomplete_oxygen6 ?? false}
+                    onChange={onSettingChange("autocomplete_oxygen6")}
+                  />
+                  <SwitchWithLabel
+                    label="Elementor Builder"
+                    name="autocomplete_elementor"
+                    checked={settings.autocomplete_elementor ?? false}
+                    onChange={onSettingChange("autocomplete_elementor")}
+                  />
+                  <SwitchWithLabel
+                    label="Builderius (tag input only)"
+                    name="autocomplete_builderius"
+                    checked={settings.autocomplete_builderius ?? false}
+                    onChange={onSettingChange("autocomplete_builderius")}
+                  />
+                </>
+              )}
+            </div>
 
-                {isProVersion && ( 
-                  <p>Learn more about <a href="https://docs.dplugins.com/winden/autocomplete/#separate-class-system" target="_blank" className="">Separate Classes System</a>.</p>
-                )}
+            {/*
+              One switch for every builder above: off, they all get the Winden
+              Classes textarea; on, they all fall back to the tag input. No
+              class is lost either way — the same class attribute is edited.
+            */}
+            <div className="bg-base-2 px-4 rounded mt-4">
+              <SwitchWithLabel
+                label="Fall back to the tag input (Plain Classes)"
+                name="autocomplete_mode"
+                checked={(settings.autocomplete_mode ?? "winden-classes") === "plain-classes"}
+                onChange={(value) =>
+                  onSettingChange("autocomplete_mode")(value ? "plain-classes" : "winden-classes")
+                }
+              />
+            </div>
 
-              </TabsContent>
-            </Tabs>
+            {isProVersion && (
+              <p>Learn more about <a href="https://docs.dplugins.com/winden/autocomplete/#separate-class-system" target="_blank" className="">Separate Classes System</a>.</p>
+            )}
 
             <OptionsHeader title="Pass Wizard data to Builder and Theme" />
             <div className="bg-base-2 px-4 rounded">

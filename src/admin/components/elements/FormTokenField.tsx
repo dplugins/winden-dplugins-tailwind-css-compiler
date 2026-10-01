@@ -57,7 +57,7 @@ const FormTokenField = React.forwardRef<HTMLDivElement, FormTokenFieldProps>(
             {value.map((token, index) => (
               <span
                 key={index}
-                className="inline-flex items-center gap-1 px-2 py-1 bg-action text-action-foreground rounded text-xs"
+                className="inline-flex items-center gap-1 px-2 py-1 bg-action text-action-foreground rounded-md text-xs"
               >
                 {token}
                 <button

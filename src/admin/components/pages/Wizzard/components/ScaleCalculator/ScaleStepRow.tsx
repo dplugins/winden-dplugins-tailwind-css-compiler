@@ -221,29 +221,29 @@ const ScaleStepRowImpl: React.FC<ScaleStepRowProps> = ({
                 </div>
               </div>
             )}
-
-            <div className="flex w-20 shrink-0 items-center justify-center">
-              <Switch
-                checked={isStepEnabled}
-                onCheckedChange={(checked) => onStepEnabledChange(step, checked)}
-                aria-label={`Enable ${step}`}
-              />
-            </div>
-
-            <div className="flex w-16 shrink-0 items-center justify-center">
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                onClick={() => onDeleteStep(step)}
-                className="!text-danger"
-                aria-label={`Delete ${step}`}
-                title="Delete step"
-              >
-                <DeleteOutlineOutlinedIcon className="h-4 w-4" />
-              </Button>
-            </div>
           </div>
+        </div>
+
+        <div className="flex w-20 shrink-0 items-center justify-center">
+          <Switch
+            checked={isStepEnabled}
+            onCheckedChange={(checked) => onStepEnabledChange(step, checked)}
+            aria-label={`Enable ${step}`}
+          />
+        </div>
+
+        <div className="flex w-16 shrink-0 items-center justify-center">
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            onClick={() => onDeleteStep(step)}
+            className="!text-danger"
+            aria-label={`Delete ${step}`}
+            title="Delete step"
+          >
+            <DeleteOutlineOutlinedIcon className="h-4 w-4" />
+          </Button>
         </div>
       </div>
     </div>

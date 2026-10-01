@@ -1,6 +1,10 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { Monaco } from '@monaco-editor/react';
-import * as monaco from 'monaco-editor';
+// Type-only: the one use is `monaco.IDisposable` below, and every value here
+// comes from the `Monaco` instance the editor hands to `addSuggestions`. As a
+// value import this pulled all 3.84 MB of Monaco into the initial graph
+// through `App.tsx`, on every tab.
+import type * as monaco from 'monaco-editor';
 import { STYLES_SUGGESTIONS_V4 } from '@const/stylesSuggestionsV4';
 import type { WizzardState } from '@/types/wizzard';
 import '@/types/global.d.ts';

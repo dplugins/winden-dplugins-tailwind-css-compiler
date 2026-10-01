@@ -105,6 +105,8 @@ interface WizzardState {
   activeTab?: number;
   configCode: string;
   stateName?: string;
+  /** Whether the spacing and radius scales also emit Tailwind's utility sizes (px, full, screen…) */
+  includeUtilitySizes?: boolean;
 
   // Breakpoints
   breakpoints: BreakpointEntry[];
