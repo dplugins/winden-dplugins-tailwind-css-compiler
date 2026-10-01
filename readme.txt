@@ -2,9 +2,9 @@
 Contributors: krstivoja
 Tags: tailwind, css, compiler, gutenberg, page builder
 Requires at least: 6.7
-Tested up to: 7.1
+Tested up to: 7.1.2
 Requires PHP: 8.0
-Stable tag: 2.0.0
+Stable tag: 2.0.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -94,6 +94,10 @@ The Tailwind plugin picker in the Style Editor searches the public npm registry 
 2. Tailwind classes in Gutenberg
 
 == Changelog ==
+
+= 2.0.1 =
+* Tested up to WordPress 7.1.2
+
 
 = 2.0.0 =
 * Added: Winden Classes panel, a visual class helper in Gutenberg. Autocomplete in a textarea, a colour swatch beside every colour class, hover a class to read its CSS, and classes that compile to nothing are flagged.
