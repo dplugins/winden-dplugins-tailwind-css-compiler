@@ -2,9 +2,9 @@
 Contributors: krstivoja
 Tags: tailwind, css, compiler, gutenberg, page builder
 Requires at least: 6.7
-Tested up to: 7.1.2
+Tested up to: 7.1.3
 Requires PHP: 8.0
-Stable tag: 2.0.1
+Stable tag: 2.0.2
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -94,6 +94,10 @@ The Tailwind plugin picker in the Style Editor searches the public npm registry 
 2. Tailwind classes in Gutenberg
 
 == Changelog ==
+
+= 2.0.2 =
+* Tested up to WordPress 7.1.3
+
 
 = 2.0.1 =
 * Tested up to WordPress 7.1.2
